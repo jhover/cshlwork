@@ -24,6 +24,7 @@
 
 import argparse
 import logging
+import os
 
 import pandas as pd
 import numpy as np
@@ -32,7 +33,10 @@ import numpy as np
  
 def parsefile2series(filename):
     logging.info("Processing file %s" % filename)
-    sname = filename.split('.')[0]
+
+    (head, tail) = os.path.split(filename)    
+    sname = tail.split('.')[0]
+
       
     f = open(filename)
     lines = f.readlines()
