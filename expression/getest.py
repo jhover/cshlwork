@@ -36,6 +36,7 @@ def processfiles(filelist):
     for f in filelist:
         ds = parsefile2series(f)
         dsr = ds.rank()
+        logging.info("\n%s" % dsr)
         dslist.append(dsr)
   
     df = pd.concat(dslist, axis=1)
