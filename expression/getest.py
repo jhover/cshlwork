@@ -30,7 +30,7 @@ import pandas as pd
 import numpy as np
 
 
-def processfiles(filelist):
+def processall(filelist):
     ## Use Series
     dslist = []
     for f in filelist:
@@ -40,8 +40,12 @@ def processfiles(filelist):
         dslist.append(dsr)
   
     df = pd.concat(dslist, axis=1)
-    return df
+    
+    # Pairwise correlation 
+    cdf = df.corr(method='spearman')
+    print(cdf)
 
+    return cdf
       
  
 def parsefile2series(filename):
@@ -97,11 +101,8 @@ if __name__ == '__main__':
     filelist = args.infiles 
     logging.debug("%d files to process. " % len(filelist))
     
-    df = processfiles(filelist)
+    df = processall(filelist)
     
-    # Correlation
-    cdf = df.corr(method='spearman')
-    print(cdf)
 
     
     
