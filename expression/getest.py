@@ -29,24 +29,30 @@ import os
 import pandas as pd
 import numpy as np
 
-       
+
+def processfiles(filelist):
+    ## Use Series
+    dslist = []
+    for f in filelist:
+        ds = parsefile2series(f)
+        dsr = ds.rank()
+        dslist.append(dsr)
+  
+    df = pd.concat(dslist, axis=1)
+    return df
+
+      
  
 def parsefile2series(filename):
     logging.info("Processing file %s" % filename)
 
     (head, tail) = os.path.split(filename)    
     sname = tail.split('.')[0]
-
       
     f = open(filename)
     lines = f.readlines()
     data = {}
-    
-    # handle headers    
-    #for line in lines[:4]:
-    #    (label, unstrand, strand1, strand2) = [ f.strip() for f in line.split('\t') ]
-    #    header[label] = [ unstrand, strand1, strand2 ]
-        
+          
     # handle values. 
     for line in lines[4:]:
         (label, unstrand, strand1, strand2) = [ f.strip() for f in line.split('\t') ]
@@ -56,6 +62,7 @@ def parsefile2series(filename):
     ds = pd.Series( data, name=sname )
     logging.info("\n%s" % ds.head() )  
     return ds    
+
 
 
 if __name__ == '__main__':
@@ -89,14 +96,7 @@ if __name__ == '__main__':
     filelist = args.infiles 
     logging.debug("%d files to process. " % len(filelist))
     
-    ## Use Series
-    dslist = []
-    for f in filelist:
-        ds = parsefile2series(f)
-        dsr = ds.rank()
-        dslist.append(dsr)
-  
-    df = pd.concat(dslist, axis=1)
+    df = processfiles(filelist)
     
     # Correlation
     cdf = df.corr(method='spearman')
