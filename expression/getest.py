@@ -5,7 +5,7 @@
 # merge Series to dataframe
 #
 
-#  STAR
+#  STAR / Output format. 
 # -quantMode GeneCounts 
 # -hseq-count -s yes   /  -s reverse
 # columns
@@ -21,9 +21,6 @@
 # ENSG00000243485.4    1    1    0
 # ENSG00000237613.2    0    0    0
 #
-#
-
-
 
 import argparse
 import logging
@@ -31,29 +28,30 @@ import logging
 import pandas as pd
 import numpy as np
 
-def processfile(filename):
+       
+ 
+def parsefile2series(filename):
     logging.info("Processing file %s" % filename)
+    sname = filename.split('.')[0]
+      
     f = open(filename)
     lines = f.readlines()
-    headers = {}
     data = {}
     
     # handle headers    
-    for line in lines[:4]:
-
-        (label, unstrand, strand1, strand2) = [ f.strip() for f in line.split('\t') ]
-        headers[label] = [ unstrand, strand1, strand2 ]
+    #for line in lines[:4]:
+    #    (label, unstrand, strand1, strand2) = [ f.strip() for f in line.split('\t') ]
+    #    header[label] = [ unstrand, strand1, strand2 ]
         
     # handle values. 
-
     for line in lines[4:]:
         (label, unstrand, strand1, strand2) = [ f.strip() for f in line.split('\t') ]
-        data[label] = [unstrand, strand1, strand2 ]
-    
+        data[label] = strand2
 
-
-
-
+    logging.info("data length is %s" % len(data))
+    ds = pd.Series( data, name=sname )
+    logging.info("\n%s" % ds.head() )  
+    return ds    
 
 
 if __name__ == '__main__':
@@ -86,7 +84,20 @@ if __name__ == '__main__':
     
     filelist = args.infiles 
     logging.debug("%d files to process. " % len(filelist))
-    #for fn in filelist:
-    #    processfile(fn)
+    
+    ## Use Series
+    dslist = []
+    for f in filelist:
+        ds = parsefile2series(f)
+        dsr = ds.rank()
+        dslist.append(dsr)
+  
+    df = pd.concat(dslist, axis=1)
+    
+    # Correlation
+    cdf = df.corr(method='spearman')
+    print(cdf)
 
-    processfile(filelist[0])
+    
+    
+    
