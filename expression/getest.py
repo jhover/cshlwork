@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 #
 # read in starout format file. 
-# create Series
-# merge Series to dataframe
-#
+# create Series, rank,
+# merge Series to DataFrame
+# 
 
 #  STAR / Output format. 
 # -quantMode GeneCounts 
@@ -28,46 +28,70 @@ import os
 
 import pandas as pd
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
-def processall(filelist):
-    ## Use Series
-    dslist = []
-    for f in filelist:
-        ds = parsefile2series(f)
-        dsr = ds.rank()
-        logging.info("\n%s" % dsr)
-        dslist.append(dsr)
-  
-    df = pd.concat(dslist, axis=1)
+class ExpressionDataset(object):
     
-    # Pairwise correlation 
-    cdf = df.corr(method='spearman')
-    print(cdf)
-
-    return cdf
+    def __init__(self, filelist = None, fileformat='starcounts'):
+        self.log = logging.getLogger()
+        self.dslist = []
+        if filelist != None:
+            self.handlefiles(filelist, fileformat)
+            
+    def handlefiles(self, filelist, fileformat='starcounts'):
+        ## Use Series
+        for f in filelist:
+            ds = ExpressionDataset.parsefile2series(f)
+            dsr = ds.rank()
+            self.log.info("\n%s" % dsr)
+            self.dslist.append(dsr)
       
- 
-def parsefile2series(filename):
-    logging.info("Processing file %s" % filename)
+        self.dataframe = pd.concat(self.dslist, axis=1)
+        
+        # (Re-)do pairwise correlation 
+        self.corrdataframe = self.dataframe.corr(method='spearman')
 
-    (head, tail) = os.path.split(filename)    
-    sname = tail.split('.')[0]
-      
-    f = open(filename)
-    lines = f.readlines()
-    data = {}
+
+    @classmethod
+    def parsefile2series(cls, filename):
+        logging.info("Processing file %s" % filename)
+        (head, tail) = os.path.split(filename)    
+        sname = tail.split('.')[0]
           
-    # handle values. 
-    for line in lines[4:]:
-        (label, unstrand, strand1, strand2) = [ f.strip() for f in line.split('\t') ]
-        data[label] = strand2
+        f = open(filename)
+        lines = f.readlines()
+        data = {}          
+        # handle values. 
+        for line in lines[4:]:
+            (label, unstrand, strand1, strand2) = [ f.strip() for f in line.split('\t') ]
+            data[label] = strand2
+    
+        logging.info("data length is %s" % len(data))
+        ds = pd.Series( data, name=sname )
+        logging.info("\n%s" % ds.head() )  
+        return ds    
+   
 
-    logging.info("data length is %s" % len(data))
-    ds = pd.Series( data, name=sname )
-    logging.info("\n%s" % ds.head() )  
-    return ds    
+    def plot(self):
+        mask = np.zeros_like(self.corrdataframe)
+        mask[np.triu_indices_from(mask)] =True
+        
+        ax = sns.heatmap( self.corrdataframe,
+                          mask=mask,
+                          vmin=.5, vmax=1, 
+                          #cmap="YlGnBu",
+                          center=0,
+                          #cmap=sns.diverging_palette(20,220,n=200),
+                          square=True )
+        ax.set_xticklabels(
+            ax.get_xticklabels(),
+            rotation=45,
+            horizontalalignment='right')           
+        plt.show()
 
+   
 
 
 if __name__ == '__main__':
@@ -91,6 +115,12 @@ if __name__ == '__main__':
                         nargs='+',
                         help='a list of single-cell expression files')
     
+    parser.add_argument('-p','--plot',
+                        action="store_true",
+                        default=False,
+                        dest='plot', 
+                        help='create plot')
+        
     args= parser.parse_args()
     
     if args.debug:
@@ -101,7 +131,10 @@ if __name__ == '__main__':
     filelist = args.infiles 
     logging.debug("%d files to process. " % len(filelist))
     
-    df = processall(filelist)
+    eds = ExpressionDataset(filelist)
+    
+    if args.plot:
+        eds.plot()
     
 
     
