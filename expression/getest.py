@@ -3,7 +3,9 @@
 # read in starout format file. 
 # create Series, rank,
 # merge Series to DataFrame
+# Do correlation to build matrix. 
 # 
+#
 
 #  STAR / Output format. 
 # -quantMode GeneCounts 
@@ -42,39 +44,20 @@ class ExpressionDataset(object):
             
     def handlefiles(self, filelist, fileformat='starcounts'):
         ## Use Series
+        self.log.info("Handling %s files" % len(filelist))
         for f in filelist:
             ds = ExpressionDataset.parsefile2series(f)
             dsr = ds.rank()
-            self.log.info("\n%s" % dsr)
-            self.dslist.append(dsr)
-      
+            self.log.debug("\n%s" % dsr)
+            self.dslist.append(dsr)      
         self.dataframe = pd.concat(self.dslist, axis=1)
         
         # (Re-)do pairwise correlation 
+        self.log.info("Performing pair-wise correlation...")
         self.corrdataframe = self.dataframe.corr(method='spearman')
 
-
-    @classmethod
-    def parsefile2series(cls, filename):
-        logging.info("Processing file %s" % filename)
-        (head, tail) = os.path.split(filename)    
-        sname = tail.split('.')[0]
-          
-        f = open(filename)
-        lines = f.readlines()
-        data = {}          
-        # handle values. 
-        for line in lines[4:]:
-            (label, unstrand, strand1, strand2) = [ f.strip() for f in line.split('\t') ]
-            data[label] = strand2
-    
-        logging.info("data length is %s" % len(data))
-        ds = pd.Series( data, name=sname )
-        logging.info("\n%s" % ds.head() )  
-        return ds    
-   
-
     def plot(self):
+        self.log.info("Generating heatmap...")
         mask = np.zeros_like(self.corrdataframe)
         mask[np.triu_indices_from(mask)] =True
         
@@ -91,6 +74,24 @@ class ExpressionDataset(object):
             horizontalalignment='right')           
         plt.show()
 
+    @classmethod
+    def parsefile2series(cls, filename):
+        logging.debug("Processing file %s" % filename)
+        (head, tail) = os.path.split(filename)    
+        sname = tail.split('.')[0]
+          
+        f = open(filename)
+        lines = f.readlines()
+        data = {}          
+        # handle values. 
+        for line in lines[4:]:
+            (label, unstrand, strand1, strand2) = [ f.strip() for f in line.split('\t') ]
+            data[label] = strand2
+    
+        logging.debug("data length is %s" % len(data))
+        ds = pd.Series( data, name=sname )
+        logging.debug("\n%s" % ds.head() )  
+        return ds    
    
 
 
@@ -129,7 +130,7 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
     
     filelist = args.infiles 
-    logging.debug("%d files to process. " % len(filelist))
+    logging.info("%d files to process. " % len(filelist))
     
     eds = ExpressionDataset(filelist)
     
