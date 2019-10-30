@@ -63,7 +63,7 @@ class ExpressionDataset(object):
         
         ax = sns.heatmap( self.corrdataframe,
                           mask=mask,
-                          vmin=.5, vmax=1, 
+                          vmin=.25, vmax=1, 
                           #cmap="YlGnBu",
                           center=0,
                           #cmap=sns.diverging_palette(20,220,n=200),
@@ -72,6 +72,8 @@ class ExpressionDataset(object):
             ax.get_xticklabels(),
             rotation=45,
             horizontalalignment='right')           
+        # Adjust to make room for long geneIDs on axes.
+        plt.subplots_adjust(left=0.2, bottom=0.2)
         plt.show()
 
     @classmethod
