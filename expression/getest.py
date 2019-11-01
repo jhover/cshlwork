@@ -59,6 +59,10 @@ class ExpressionNetwork(object):
         np.fill_diagonal(self.df.values, np.nan)
         self.edgelist = self.df.stack().reset_index()
 
+    def plot(self):
+        G=nx.from_pandas_edgelist(self.edgelist, 'level_0','level_1', 0 )
+        nx.draw(G, with_labels=True)
+        plt.show()    
 
 
     def __repr__(self):
@@ -93,26 +97,13 @@ class ExpressionDataset(object):
         self.log.info("Performing pair-wise correlation...")
         self.cdf = self.df.corr(method='spearman')
         self.log.debug(self.cdf)
+
+
+        
         
     def __repr__(self):
         s = "%s\n%s" % (self.df, self.cdf)
         return s
-
-
-#  https://gist.githubusercontent.com/drazenz/a5f4b7a183a92695328a710681cc780a/raw/9de8272dc5af80c2cd3a120c456fedbfbb1918ed/step_4.py
-#
-#  Code fragment to adjust how vlues are mapped to colors. This could let us display a full range
-#  of colors applied to values from .5 to .9 intead of 0 to 1 . 
-#
-    @classmethod
-    def value_to_color(val):
-        n_colors = 256
-        palette + sns.diverging_palette(20,220, n = n_colors)
-        color_min, color_max = [.50, .90]
-        
-        val_position = float( ( val - color_min)) / (color_max - color_min)
-        ind = int(val_position * (n_colors - 1 ))
-        return palett[ind]
 
 
     def plot(self):
@@ -146,6 +137,23 @@ class ExpressionDataset(object):
         # Adjust to make room for long geneIDs on axes.
         plt.subplots_adjust(left=0.2, bottom=0.2)
         plt.show()
+
+#  https://gist.githubusercontent.com/drazenz/a5f4b7a183a92695328a710681cc780a/raw/9de8272dc5af80c2cd3a120c456fedbfbb1918ed/step_4.py
+#
+#  Code fragment to adjust how vlues are mapped to colors. This could let us display a full range
+#  of colors applied to values from .5 to .9 intead of 0 to 1 . 
+#
+    @classmethod
+    def value_to_color(val):
+        n_colors = 256
+        palette + sns.diverging_palette(20,220, n = n_colors)
+        color_min, color_max = [.50, .90]
+        
+        val_position = float( ( val - color_min)) / (color_max - color_min)
+        ind = int(val_position * (n_colors - 1 ))
+        return palett[ind]
+
+
 
     @classmethod
     def parsefile2series(cls, filename):
@@ -203,7 +211,15 @@ if __name__ == '__main__':
                         action="store_true",
                         default=False,
                         dest='plot', 
-                        help='create plot')
+                        help='create coexpression plot')
+    
+    parser.add_argument('-g','--graph',
+                        action="store_true",
+                        default=False,
+                        dest='graph', 
+                        help='create cell-cell network graph ')    
+    
+    
         
     args= parser.parse_args()
     
@@ -220,15 +236,14 @@ if __name__ == '__main__':
     
     enw = ExpressionNetwork( eds.cdf, corrthreshold=0.71 )
     enw.build_edge_list()
-    print(enw)
     
     if args.plot:
         eds.plot()
     else:
         print(eds)
     
-    
-    G=nx.from_pandas_edgelist(enw.edgelist, 'level_0','level_1', 0 )
-    nx.draw(G, with_labels=True)
-    plt.show()    
-        
+    if args.graph:
+        enw.plot()
+    else:
+        print(enw)
+          
