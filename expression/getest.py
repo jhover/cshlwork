@@ -5,8 +5,6 @@
 # merge Series to DataFrame
 # Do correlation to build matrix. 
 # 
-#
-
 #  STAR / Output format. 
 # -quantMode GeneCounts 
 # -hseq-count -s yes   /  -s reverse
@@ -32,17 +30,41 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import networkx as nx
 
 
 class ExpressionNetwork(object):
     
-    def __init__(self, exprdataset, corrthreshold=None):
+    def __init__(self, exprdataframe, corrthreshold=None):
+        self.log = logging.getLogger()
+        self.df = exprdataframe.copy()
+        self.edgelist = None
+        self.log.debug("copied inbound correlation dataframe")
+        np.fill_diagonal(self.df.values, np.nan)
+        if corrthreshold is not None:
+            (xdim, ydim) = self.df.values.shape
+            
+            for i in range(0,xdim):
+                #print('i is %s' % i)
+                for j in range(0,ydim):
+                    if self.df.values[i,j] < corrthreshold:
+                        self.df.values[i,j] = 0                
+        #    self.df.apply( lambda x: x if x >= corrthreshold else 0 )
+        else:
+            self.log.info("No threshold, keeping all. ")
         
-        pass
+        #print(self.df)
+
+    def build_edge_list(self):
+        np.fill_diagonal(self.df.values, np.nan)
+        self.edgelist = self.df.stack().reset_index()
 
 
 
-
+    def __repr__(self):
+        s = "%s\n%s" % (self.df ,self.edgelist)
+        return s
+            
 
 
 
@@ -51,6 +73,9 @@ class ExpressionDataset(object):
     def __init__(self, filelist = None, fileformat='starcounts'):
         self.log = logging.getLogger()
         self.dslist = []
+        self.df = None
+        self.cdf = None
+        
         if filelist != None:
             self.handlefiles(filelist, fileformat)
             
@@ -62,12 +87,17 @@ class ExpressionDataset(object):
             dsr = ds.rank()
             self.log.debug("\n%s" % dsr)
             self.dslist.append(dsr)      
-        self.dataframe = pd.concat(self.dslist, axis=1)
+        self.df = pd.concat(self.dslist, axis=1)
         
         # (Re-)do pairwise correlation 
         self.log.info("Performing pair-wise correlation...")
-        self.corrdataframe = self.dataframe.corr(method='spearman')
-        self.log.debug(self.corrdataframe)
+        self.cdf = self.df.corr(method='spearman')
+        self.log.debug(self.cdf)
+        
+    def __repr__(self):
+        s = "%s\n%s" % (self.df, self.cdf)
+        return s
+
 
 #  https://gist.githubusercontent.com/drazenz/a5f4b7a183a92695328a710681cc780a/raw/9de8272dc5af80c2cd3a120c456fedbfbb1918ed/step_4.py
 #
@@ -88,12 +118,12 @@ class ExpressionDataset(object):
     def plot(self):
         self.log.info("Generating heatmap...")
                 
-        mask = np.zeros_like(self.corrdataframe)
+        mask = np.zeros_like(self.cdf)
         mask[np.triu_indices_from(mask)] =True
         
-        ax = sns.heatmap( self.corrdataframe,
+        ax = sns.heatmap( self.cdf,
                           mask=mask,
-                          vmin=.3, vmax=.80, 
+                          vmin=.3, vmax=.60, 
                           #cmap="Reds_r",
                           center=0,
                           #cmap = sns.color_palette("ch:2.5,-.2,dark=.3"),
@@ -135,7 +165,17 @@ class ExpressionDataset(object):
         ds = pd.Series( data, name=sname )
         logging.debug("\n%s" % ds.head() )  
         return ds    
-   
+    
+
+def geteds():
+        filelist=['starouts/SRR1470727.ReadsPerGene.out.tab',
+                     'starouts/SRR1470774.ReadsPerGene.out.tab',
+                     'starouts/SRR1470751.ReadsPerGene.out.tab',
+                     'starouts/SRR1470798.ReadsPerGene.out.tab']
+        return ExpressionDataset(filelist)
+
+
+
 
 
 if __name__ == '__main__':
@@ -176,15 +216,19 @@ if __name__ == '__main__':
     logging.info("%d files to process. " % len(filelist))
     
     eds = ExpressionDataset(filelist)
+    print(eds)
     
-      
-    
-    
+    enw = ExpressionNetwork( eds.cdf, corrthreshold=0.71 )
+    enw.build_edge_list()
+    print(enw)
     
     if args.plot:
         eds.plot()
+    else:
+        print(eds)
     
-
     
-    
-    
+    G=nx.from_pandas_edgelist(enw.edgelist, 'level_0','level_1', 0 )
+    nx.draw(G, with_labels=True)
+    plt.show()    
+        
