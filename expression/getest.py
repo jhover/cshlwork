@@ -39,33 +39,34 @@ class ExpressionNetwork(object):
         self.log = logging.getLogger()
         self.df = exprdataframe.copy()
         self.edgelist = None
+        self.threshold=corrthreshold
         self.log.debug("copied inbound correlation dataframe")
         np.fill_diagonal(self.df.values, np.nan)
-        if corrthreshold is not None:
+        if self.threshold is not None:
             (xdim, ydim) = self.df.values.shape
             
             for i in range(0,xdim):
                 #print('i is %s' % i)
                 for j in range(0,ydim):
-                    if self.df.values[i,j] < corrthreshold:
+                    if self.df.values[i,j] < self.threshold:
                         self.df.values[i,j] = 0                
         #    self.df.apply( lambda x: x if x >= corrthreshold else 0 )
         else:
             self.log.info("No threshold, keeping all. ")
-        
-        #print(self.df)
+
 
     def build_edge_list(self):
         np.fill_diagonal(self.df.values, np.nan)
         self.edgelist = self.df.stack().reset_index()
         self.edgelist.rename(columns={'level_0' : 'from','level_1' : 'to', 0 : 'weight' }, inplace=True)
+        self.edgelist['lineweight'] = ( self.edgelist.weight * 10 ) + 1
         #self.edgelist.
         self.log.info("\n%s" % self.edgelist)
 
     def plot(self):
-        G=nx.from_pandas_edgelist(self.edgelist, source='from',target='to', edge_attr='weight' )
-        nx.draw(G, with_labels=True )
-        #nx.draw(G, with_labels=True, width='weight' )
+        G=nx.from_pandas_edgelist(self.edgelist, source='from',target='to', edge_attr=['weight','lineweight'] )
+        #nx.draw(G, with_labels=True )
+        nx.draw(G, with_labels=True, width='lineweight' )
         plt.show()    
 
 
@@ -149,8 +150,6 @@ class ExpressionDataset(object):
         ind = int(val_position * (n_colors - 1 ))
         return palett[ind]
 
-
-
     @classmethod
     def parsefile2series(cls, filename):
         logging.debug("Processing file %s" % filename)
@@ -177,9 +176,6 @@ def geteds():
                      'starouts/SRR1470751.ReadsPerGene.out.tab',
                      'starouts/SRR1470798.ReadsPerGene.out.tab']
         return ExpressionDataset(filelist)
-
-
-
 
 
 if __name__ == '__main__':
