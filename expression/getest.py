@@ -58,10 +58,14 @@ class ExpressionNetwork(object):
     def build_edge_list(self):
         np.fill_diagonal(self.df.values, np.nan)
         self.edgelist = self.df.stack().reset_index()
+        self.edgelist.rename(columns={'level_0' : 'from','level_1' : 'to', 0 : 'weight' }, inplace=True)
+        #self.edgelist.
+        self.log.info("\n%s" % self.edgelist)
 
     def plot(self):
-        G=nx.from_pandas_edgelist(self.edgelist, 'level_0','level_1', 0 )
-        nx.draw(G, with_labels=True)
+        G=nx.from_pandas_edgelist(self.edgelist, source='from',target='to', edge_attr='weight' )
+        nx.draw(G, with_labels=True )
+        #nx.draw(G, with_labels=True, width='weight' )
         plt.show()    
 
 
@@ -125,14 +129,6 @@ class ExpressionDataset(object):
             ax.get_xticklabels(),
             rotation=45,
             horizontalalignment='right')     
-        
-        #ax.scatter(
-        #    x=x.map(x_to_num),
-        #    y=y.map(y_to_num),
-        #    s=size * size_scale,
-        #    c=color.apply(ExpressionDataset.value_to_color), # Vector of square color values, mapped to color palette
-        #    marker='s'                
-        #    )
               
         # Adjust to make room for long geneIDs on axes.
         plt.subplots_adjust(left=0.2, bottom=0.2)
