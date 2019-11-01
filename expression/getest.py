@@ -65,8 +65,8 @@ class ExpressionNetwork(object):
 
     def plot(self):
         G=nx.from_pandas_edgelist(self.edgelist, source='from',target='to', edge_attr=['weight','lineweight'] )
-        #nx.draw(G, with_labels=True )
-        nx.draw(G, with_labels=True, width='lineweight' )
+        nx.draw(G, with_labels=True )
+        #nx.draw(G, with_labels=True, width='lineweight' )
         plt.show()    
 
 
@@ -210,9 +210,7 @@ if __name__ == '__main__':
                         default=False,
                         dest='graph', 
                         help='create cell-cell network graph ')    
-    
-    
-        
+              
     args= parser.parse_args()
     
     if args.debug:
