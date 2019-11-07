@@ -8,6 +8,10 @@ import os
 import sys
 import traceback
 
+class NumSeqReachedException(Exception):
+    pass
+
+
 class Sequence(object):
 
     def __init__(self, accession, geneid, sequence=""):
@@ -29,17 +33,18 @@ class ProcessingRun(object):
         self.log = logging.getLogger()
         self.filelist = filelist
         self.workdir = os.path.expanduser(workdir)
+        self.workdir = os.path.relpath(self.workdir)
         if not os.path.exists(self.workdir):
             os.mkdir(self.workdir)
             self.log.info("Created workdir %s" % self.workdir)
-        self.numseq = numseq
+        self.numseq = int(numseq)
         self.numoutput = 0
 
     def outputlast(self, seq):
         if seq is not None:
             logging.debug(seq.asfasta())
             try:
-                filename = '%s.fasta' % seq.geneid
+                filename = '%s/%s.fasta' % (self.workdir, seq.geneid)
                 fh = open(filename, 'w')
                 fh.write(seq.asfasta())
                 self.numoutput += 1
@@ -49,36 +54,51 @@ class ProcessingRun(object):
             finally:
                 fh.close()
     
+    
+    def parsefile(self, filehandle):
+        current = None
+        try:
+            for line in filehandle:
+                if line.startswith(">"):
+                    if current is not None:
+                        current.addsequence("\n")
+                        self.outputlast(current)
+                        if self.numoutput >= self.numseq:
+                            raise NumSeqReachedException
+                    
+                    fields = line.split("|")
+                    accession = fields[1]
+                    fields2 = fields[2].split()
+                    geneid = fields2[0]
+                    logging.debug('header: accessno=%s id=%s' % (accession, geneid))
+                    current = Sequence(accession, geneid)
+                elif line.strip().startswith("#"):
+                    pass
+                else:
+                    s = line.strip()
+                    current.addsequence(s)        
+        except NumSeqReachedException:
+            raise
+            
+        
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)        
+
+    
     def handlefiles(self):     
         for filename in self.filelist:
-            current = None
+            filename = os.path.relpath(filename)
+                        
             try:
                 self.log.debug("opening file %s" % filename)
-
-                with open(sys.argv[1], 'r') as f:
-                    for line in f:
-                        if line.startswith(">"):
-                            if current is not None:
-                                current.addsequence("\n")
-                                self.outputlast(current)
-                            fields = line.split("|")
-                            accession = fields[1]
-                            fields2 = fields[2].split()
-                            geneid = fields2[0]
-                            logging.debug('header. accessno = %s id=%s' % (accession, geneid))
-                            current = Sequence(accession, geneid)
-                        elif line.strip().startswith("#"):
-                            pass
-                        else:
-                            s = line.strip()
-                            current.addsequence(s)        
-                    self.outputlast(current)
+                filehandle = open(sys.argv[1], 'r')
+                self.parsefile(filehandle)
+                filehandle.close()
             
-            except Exception as e:
-                traceback.print_exc(file=sys.stdout)
-            
-            finally:
-                f.close()
+            except FileNotFoundError:
+                self.log.error("No such file %s" % filename)                
+            except NumSeqReachedException:
+                self.log.info("Desired number of sequences reached %d" % self.numseq)
     
 
 if __name__ == '__main__':
