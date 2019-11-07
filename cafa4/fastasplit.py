@@ -29,7 +29,7 @@ class ProcessingRun(object):
         self.log = logging.getLogger()
         self.filelist = filelist
         self.workdir = os.path.expanduser(workdir)
-        if not os.path.exists(workdir):
+        if not os.path.exists(self.workdir):
             os.mkdir(self.workdir)
             self.log.info("Created workdir %s" % self.workdir)
         self.numseq = numseq
