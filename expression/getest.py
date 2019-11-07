@@ -37,7 +37,7 @@ class ExpressionNetwork(object):
     
     def __init__(self, exprdataframe, corrthreshold=None):
         self.log = logging.getLogger()
-        self.df = exprdataframe.copy()
+        self.df = exprdataframe.copy() # don't want foreign reference to other object. 
         self.edgelist = None
         self.threshold=corrthreshold
         self.log.debug("copied inbound correlation dataframe")
