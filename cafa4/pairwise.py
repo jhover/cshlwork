@@ -90,7 +90,7 @@ class PairwiseRun(object):
         # Take list of files, run water pairwise: 
         #
         commandlist = []
-        for i in range(0,len(filelist)):
+        for i in range(0,len(self.filelist)):
             f1 = os.path.relpath(os.path.expanduser(filelist[i]))
             for j in range(i + 1,len(filelist)):
                 os.path.relpath(os.path.expanduser(filelist[j]))
@@ -116,7 +116,7 @@ class PairwiseRun(object):
         s = ""
         for i in range(0, numthreads):
             s+= "thread [%d]: %d commands "% (i, len(threadlist[i].commands))
-        self.log.debug("\n%s" % s)
+        self.log.debug("%s" % s)
 
         
         
