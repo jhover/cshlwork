@@ -31,7 +31,22 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 import traceback
+
+
+
+class CommandRunner(threading.Thread):
+    
+    def __init__(self, commandlist=[]):
+        self.commandlist = commandlist
+          
+    def run(self):
+        pass
+            
+
+
+
 
 class PairwiseRun(object):
     
@@ -45,9 +60,11 @@ class PairwiseRun(object):
         self.log.debug("Created PairwiseRun workdir=%s" % self.workdir)
 
 
-    def runwater(self, f1, f2):
+    def makewatercommand(self, f1, f2):
         self.log.debug("water: comparing file %s to file %s" % ( f1, f2))
-        outfile = "%s/%sx%s.water" % (self.workdir, f1, f2)
+        f1base = os.path.splitext(os.path.basename(f1))[0]
+        f2base = os.path.splitext(os.path.basename(f2))[0]
+        outfile = "%s/%sx%s.water" % (self.workdir, f1base, f2base)
         self.log.debug("outfile=%s" % outfile)
         cmdlist = ['time water']
         cmdlist.append( '-gapopen 10.0' )
@@ -58,12 +75,13 @@ class PairwiseRun(object):
         self.log.debug("cmdlist=%s" % cmdlist)
         cmd = ' '.join(cmdlist).strip()
         self.log.debug("command is '%s'" % cmd)
-        self.log.info("Running %s against %s" % (f1, f2) )
-        cp = subprocess.run(cmd, check=True, shell=True)
-        self.log.debug("Completed generating %s" % outfile)
+        return cmd
+        #self.log.info("Running %s against %s" % (f1, f2) )
+        #cp = subprocess.run(cmd, check=True, shell=True)
+        #self.log.debug("Completed generating %s" % outfile)
         
     
-    def runneedle(self, f1, f2):
+    def makeneedlecommand(self, f1, f2):
         self.log.debug("needle: comparing file %s to file %s" % ( f1, f2))    
 
 
@@ -71,29 +89,35 @@ class PairwiseRun(object):
         #     
         # Take list of files, run water pairwise: 
         #
+        commandlist = []
         for i in range(0,len(filelist)):
             f1 = os.path.relpath(os.path.expanduser(filelist[i]))
             for j in range(i + 1,len(filelist)):
                 os.path.relpath(os.path.expanduser(filelist[j]))
                 f2 = filelist[j]
                 self.log.debug("comparing file %s to file %s" % ( f1, f2))
-                self.runwater(f1, f2)
-                     
-            
-        #for filename in self.filelist:
-        #    filename = os.path.relpath(filename)
-        #                
-        #    try:
-        #        self.log.debug("opening file %s" % filename)
-        #        filehandle = open(sys.argv[1], 'r')
-        #        self.parsefile(filehandle)
-        #        filehandle.close()
-        #    
-        #    except FileNotFoundError:
-        #        self.log.error("No such file %s" % filename)                
-        #    except NumSeqReachedException:
-        #        self.log.info("Desired number of sequences reached %d" % self.numseq)
+                c = self.makewatercommand(f1, f2)
+                commandlist.append(c)
+        self.log.debug("list of %d commands made" % len(commandlist))
+        
+        numthreads = 7
+        threadlist = []
+        for i in range(0,numthreads):
+            t = CommandRunner()
+            threadlist.append(t)
+        self.log.debug("Made %d threads to run %d commands" % (len(threadlist), len(commandlist)))
+        
+        for i in range(0, len(commandlist)):
+            touse = i % numthreads 
+            threadlist[touse].commandlist.append(commandlist[i])
+        
+        s = ""
+        for i in range(0,numthreads):
+            s+= "thread [%d]: %d commands "% (i, len(threadlist[i].commandlist))
+        self.log.debug("\n%s" % s)
 
+        
+        
 
 
 if __name__ == '__main__':
