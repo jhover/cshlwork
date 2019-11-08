@@ -87,7 +87,7 @@ class ProcessingRun(object):
     
     def handlefiles(self):     
         for filename in self.filelist:
-            filename = os.path.relpath(filename)
+            filename = os.path.abspath(filename)
                         
             try:
                 self.log.debug("opening file %s" % filename)
