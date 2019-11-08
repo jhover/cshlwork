@@ -91,7 +91,7 @@ class ProcessingRun(object):
                         
             try:
                 self.log.debug("opening file %s" % filename)
-                filehandle = open(sys.argv[1], 'r')
+                filehandle = open(filename, 'r')
                 self.parsefile(filehandle)
                 filehandle.close()
             
