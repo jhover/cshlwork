@@ -38,7 +38,7 @@ class PairwiseRun(object):
     def __init__(self, filelist, workdir ):
         self.log = logging.getLogger()
         self.filelist = filelist
-        self.workdir = os.path.relpath(os.path.expanduser(workdir))
+        self.workdir = os.path.abspath(os.path.expanduser(workdir))
         if not os.path.exists(self.workdir):
             os.mkdir(self.workdir)
             self.log.info("Created workdir %s" % self.workdir)
