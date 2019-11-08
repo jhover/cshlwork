@@ -38,8 +38,8 @@ import traceback
 
 class CommandRunner(threading.Thread):
     
-    def __init__(self, commandlist=[]):
-        self.commandlist = commandlist
+    def __init__(self, commands=[]):
+        self.commands = commands
           
     def run(self):
         pass
@@ -98,9 +98,9 @@ class PairwiseRun(object):
                 self.log.debug("comparing file %s to file %s" % ( f1, f2))
                 c = self.makewatercommand(f1, f2)
                 commandlist.append(c)
-        self.log.debug("list of %d commands made" % len(commandlist))
+        self.log.debug("commandlist of %d commands made" % len(commandlist))
         
-        numthreads = 7
+        numthreads = 4
         threadlist = []
         for i in range(0,numthreads):
             t = CommandRunner()
@@ -108,12 +108,14 @@ class PairwiseRun(object):
         self.log.debug("Made %d threads to run %d commands" % (len(threadlist), len(commandlist)))
         
         for i in range(0, len(commandlist)):
-            touse = i % numthreads 
-            threadlist[touse].commandlist.append(commandlist[i])
+            touse = i % numthreads
+            c = commandlist[i]
+            t = threadlist[touse] 
+            t.commands.append(c)
         
         s = ""
-        for i in range(0,numthreads):
-            s+= "thread [%d]: %d commands "% (i, len(threadlist[i].commandlist))
+        for i in range(0, numthreads):
+            s+= "thread [%d]: %d commands "% (i, len(threadlist[i].commands))
         self.log.debug("\n%s" % s)
 
         
