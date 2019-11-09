@@ -41,6 +41,7 @@ class CommandRunner(threading.Thread):
     
     def __init__(self, *args, **kwrds):
         super(CommandRunner, self).__init__(*args, **kwrds)
+        self.log = logging.getLogger()
         self.commands = []
           
     def run(self):
@@ -169,3 +170,4 @@ if __name__ == '__main__':
     filelist = args.infiles 
     run = PairwiseRun(filelist, args.workdir)
     run.makecommands()
+    run.runcommands()
