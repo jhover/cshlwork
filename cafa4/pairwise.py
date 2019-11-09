@@ -32,20 +32,25 @@ import os
 import subprocess
 import sys
 import threading
+import time
 import traceback
 
 
 
 class CommandRunner(threading.Thread):
     
-    def __init__(self, commands=[]):
-        self.commands = commands
+    def __init__(self, *args, **kwrds):
+        super(CommandRunner, self).__init__(*args, **kwrds)
+        self.commands = []
           
     def run(self):
-        pass
+        self.log.debug("Running commands. ")
+        time.sleep(15)
             
-
-
+    def __repr__(self):
+        s = ""
+        s += "CommandRunner with %d commands." % len(self.commands)
+        return s
 
 
 class PairwiseRun(object):
@@ -53,6 +58,7 @@ class PairwiseRun(object):
     def __init__(self, filelist, workdir ):
         self.log = logging.getLogger()
         self.filelist = filelist
+        self.threadlist = []
         self.workdir = os.path.abspath(os.path.expanduser(workdir))
         if not os.path.exists(self.workdir):
             os.mkdir(self.workdir)
@@ -61,20 +67,20 @@ class PairwiseRun(object):
 
 
     def makewatercommand(self, f1, f2):
-        self.log.debug("water: comparing file %s to file %s" % ( f1, f2))
+        #self.log.debug("water: comparing file %s to file %s" % ( f1, f2))
         f1base = os.path.splitext(os.path.basename(f1))[0]
         f2base = os.path.splitext(os.path.basename(f2))[0]
         outfile = "%s/%sx%s.water" % (self.workdir, f1base, f2base)
-        self.log.debug("outfile=%s" % outfile)
+        #self.log.debug("outfile=%s" % outfile)
         cmdlist = ['time water']
         cmdlist.append( '-gapopen 10.0' )
         cmdlist.append('-gapextend 0.5' )
         cmdlist.append('-asequence %s' % f1 )
         cmdlist.append('-bsequence %s' % f2 )
         cmdlist.append('-outfile %s' % outfile )
-        self.log.debug("cmdlist=%s" % cmdlist)
+        #self.log.debug("cmdlist=%s" % cmdlist)
         cmd = ' '.join(cmdlist).strip()
-        self.log.debug("command is '%s'" % cmd)
+        #self.log.debug("command is '%s'" % cmd)
         return cmd
         #self.log.info("Running %s against %s" % (f1, f2) )
         #cp = subprocess.run(cmd, check=True, shell=True)
@@ -85,7 +91,7 @@ class PairwiseRun(object):
         self.log.debug("needle: comparing file %s to file %s" % ( f1, f2))    
 
 
-    def handlefiles(self):
+    def makecommands(self):
         #     
         # Take list of files, run water pairwise: 
         #
@@ -95,31 +101,35 @@ class PairwiseRun(object):
             for j in range(i + 1,len(filelist)):
                 os.path.relpath(os.path.expanduser(filelist[j]))
                 f2 = filelist[j]
-                self.log.debug("comparing file %s to file %s" % ( f1, f2))
+                #self.log.debug("comparing file %s to file %s" % ( f1, f2))
                 c = self.makewatercommand(f1, f2)
                 commandlist.append(c)
         self.log.debug("commandlist of %d commands made" % len(commandlist))
         
         numthreads = 4
-        threadlist = []
         for i in range(0,numthreads):
-            t = CommandRunner()
-            threadlist.append(t)
-        self.log.debug("Made %d threads to run %d commands" % (len(threadlist), len(commandlist)))
+            t = CommandRunner(name="[%s]" % i)
+            self.threadlist.append(t)
+        self.log.debug("Made %d Runners to run %d commands" % (len(self.threadlist), len(commandlist)))
         
-        for i in range(0, len(commandlist)):
+        for i in range(0, len(commandlist)):           
             touse = i % numthreads
             c = commandlist[i]
-            t = threadlist[touse] 
-            t.commands.append(c)
+            usethread = self.threadlist[touse] 
+            usethread.commands.append(c)
         
         s = ""
         for i in range(0, numthreads):
-            s+= "thread [%d]: %d commands "% (i, len(threadlist[i].commands))
+            #s+= "thread [%d]: %d commands "% (i, len(threadlist[i].commands))
+            s+= str(self.threadlist[i])
         self.log.debug("%s" % s)
 
+    def runcommands(self):
+        for t in self.threadlist:
+            t.start()
         
-        
+        for t in self.threadlist:
+            t.join()
 
 
 if __name__ == '__main__':
@@ -158,4 +168,4 @@ if __name__ == '__main__':
     
     filelist = args.infiles 
     run = PairwiseRun(filelist, args.workdir)
-    run.handlefiles()
+    run.makecommands()
