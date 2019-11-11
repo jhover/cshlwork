@@ -128,6 +128,7 @@ class PairwiseRun(object):
         # Take list of files, run water pairwise: 
         #
         commandlist = []
+        self.log.info("Beginning to make full pairwise list of commands...")
         for i in range(0,len(self.filelist)):
             f1 = os.path.relpath(os.path.expanduser(self.filelist[i]))
             for j in range(i + 1,len(self.filelist)):
@@ -136,7 +137,7 @@ class PairwiseRun(object):
                 #self.log.debug("comparing file %s to file %s" % ( f1, f2))
                 c = self.makeneedlecommand(f1, f2)
                 commandlist.append(c)
-        self.log.debug("commandlist of %d commands made" % len(commandlist))
+        self.log.info("Commandlist of %d commands made" % len(commandlist))
         
         for i in range(0,self.nthreads):
             t = CommandRunner(name=str(i), overwrite=self.overwrite)
@@ -155,9 +156,11 @@ class PairwiseRun(object):
         self.log.debug("%s" % s)
 
     def runcommands(self):
+        self.log.info("Running commands. Starting threads..")
         for t in self.threadlist:
             t.start()
-        
+
+        self.log.info("Running commands. Joining threads..")
         for t in self.threadlist:
             t.join()
 
@@ -219,10 +222,13 @@ if __name__ == '__main__':
         f = open(args.filelist, 'r')
         args.infiles = [x.strip() for x in f]
         f.close()
-          
+    
+    logging.info("Got arguments...")      
     run = PairwiseRun(args.infiles, args.workdir, args.overwrite, args.nthreads)
     
+    logging.info("Creating commands...")
     run.makecommands()
+    
+    logging.info("Running commands...")
     run.runcommands()
-    
-    
+        
