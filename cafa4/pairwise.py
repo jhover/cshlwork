@@ -132,12 +132,12 @@ class PairwiseRun(object):
         listlen = len(self.filelist)
         self.log.info("listlen is %d" % listlen)
         numdone = 0
-        for i in range(0,len(listlen)):
+        for i in range(0,listlen):
             #f1 = os.path.relpath(os.path.expanduser(self.filelist[i]))
             f1 = self.filelist[i]
-            for j in range(i + 1,len(listlen)):
+            for j in range(i + 1,listlen):
                 #os.path.relpath(os.path.expanduser(self.filelist[j]))
-                f2 = filelist[j]
+                f2 = self.filelist[j]
                 #self.log.debug("comparing file %s to file %s" % ( f1, f2))
                 c = self.makeneedlecommand(f1, f2)
                 if numdone % 1000 == 0:
