@@ -14,12 +14,13 @@ Split FASTA files
 
 time:  ~ 15 minutes
 
+time find -L uniprot | grep / > uniprotlist.txt
+45 seconds
+
 
 Run pairwise needle comparison. 
 rugen has 32 cores. use 16. 
-time ~/git/cshl-work/cafa4/pairwise.py  
-
-
+time ~/git/cshl-work/cafa4/pairwise.py -v -t 16 -w ./seqout -L uniprotlist.txt 
 
 
 ISSUES:  uniprot ~560k proteins -> files, issues with ls, command line argument list. 

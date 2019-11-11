@@ -177,9 +177,10 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
 
-    parser.add_argument('infiles', 
-                        metavar='infiles', 
-                        type=str, 
+    parser.add_argument('-i', '--infiles', 
+                        dest='infiles', 
+                        type=str,
+                        required=False, 
                         nargs='+',
                         help='a list of .fasta sequence files')
     
@@ -213,8 +214,14 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
     
-    
+    if args.filelist is not None:
+        logging.debug("Found filelist opt. ")
+        f = open(args.filelist, 'r')
+        args.infiles = [x.strip() for x in f]
+        f.close()
+          
     run = PairwiseRun(args.infiles, args.workdir, args.overwrite, args.nthreads)
+    
     run.makecommands()
     run.runcommands()
     
