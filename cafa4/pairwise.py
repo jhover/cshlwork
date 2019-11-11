@@ -69,11 +69,12 @@ class CommandRunner(threading.Thread):
 
 class PairwiseRun(object):
     
-    def __init__(self, filelist, workdir, overwrite=False ):
+    def __init__(self, filelist, workdir, overwrite=False, nthreads=1 ):
         self.log = logging.getLogger()
         self.filelist = filelist
         self.threadlist = []
         self.overwrite = overwrite
+        self.nthreads = int(nthreads)
         self.workdir = os.path.abspath(os.path.expanduser(workdir))
         if not os.path.exists(self.workdir):
             os.mkdir(self.workdir)
@@ -137,22 +138,20 @@ class PairwiseRun(object):
                 commandlist.append(c)
         self.log.debug("commandlist of %d commands made" % len(commandlist))
         
-        numthreads = 4
-        for i in range(0,numthreads):
+        for i in range(0,self.nthreads):
             t = CommandRunner(name=str(i), overwrite=self.overwrite)
             self.threadlist.append(t)
         self.log.debug("Made %d Runners to run %d commands" % (len(self.threadlist), len(commandlist)))
         
         for i in range(0, len(commandlist)):           
-            touse = i % numthreads
+            touse = i % self.nthreads
             c = commandlist[i]
             usethread = self.threadlist[touse] 
             usethread.commands.append(c)
         
         s = ""
-        for i in range(0, numthreads):
-            #s+= "thread [%d]: %d commands "% (i, len(threadlist[i].commands))
-            s+= str(self.threadlist[i])
+        for t in self.threadlist:
+            s+= str(t)
         self.log.debug("%s" % s)
 
     def runcommands(self):
@@ -195,6 +194,12 @@ if __name__ == '__main__':
                         dest='workdir', 
                         default='~/work/cafa4-play/seqout',
                         help='run-specific workdir [~/work/cafa4-play/seqout]')
+
+    parser.add_argument('-t', '--threads', 
+                        action="store", 
+                        dest='nthreads', 
+                        default=2,
+                        help='number of threads to use.')
                    
     args= parser.parse_args()
     
@@ -204,7 +209,7 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
     
     
-    run = PairwiseRun(args.infiles, args.workdir, args.overwrite)
+    run = PairwiseRun(args.infiles, args.workdir, args.overwrite, args.nthreads)
     run.makecommands()
     run.runcommands()
     
