@@ -140,7 +140,7 @@ class PairwiseRun(object):
                 f2 = self.filelist[j]
                 #self.log.debug("comparing file %s to file %s" % ( f1, f2))
                 c = self.makeneedlecommand(f1, f2)
-                if numdone % 1000 == 0:
+                if numdone % 10000 == 0:
                     self.log.info("Made %d commands so far..." % numdone )
                 commandlist.append(c)
                 numdone += 1
