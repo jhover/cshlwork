@@ -129,14 +129,21 @@ class PairwiseRun(object):
         #
         commandlist = []
         self.log.info("Beginning to make full pairwise list of commands...")
-        for i in range(0,len(self.filelist)):
-            f1 = os.path.relpath(os.path.expanduser(self.filelist[i]))
-            for j in range(i + 1,len(self.filelist)):
-                os.path.relpath(os.path.expanduser(self.filelist[j]))
-                f2 = self.filelist[j]
+        listlen = len(self.filelist)
+        self.log.info("listlen is %d" % listlen)
+        numdone = 0
+        for i in range(0,len(listlen)):
+            #f1 = os.path.relpath(os.path.expanduser(self.filelist[i]))
+            f1 = self.filelist[i]
+            for j in range(i + 1,len(listlen)):
+                #os.path.relpath(os.path.expanduser(self.filelist[j]))
+                f2 = filelist[j]
                 #self.log.debug("comparing file %s to file %s" % ( f1, f2))
                 c = self.makeneedlecommand(f1, f2)
+                if numdone % 1000 == 0:
+                    self.log.info("Made %d commands so far..." % numdone )
                 commandlist.append(c)
+                numdone += 1
         self.log.info("Commandlist of %d commands made" % len(commandlist))
         
         for i in range(0,self.nthreads):
