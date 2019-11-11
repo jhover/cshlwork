@@ -53,7 +53,7 @@ class CommandRunner(threading.Thread):
           
     def run(self):
         for (cmd, of) in self.commands: 
-            self.log.debug("Running cmd='%s' outfile=%s " % (cmd, of))
+            self.log.info("Running cmd='%s' outfile=%s " % (cmd, of))
             if os.path.exists(of) and not self.overwrite:
                 self.log.debug("Outfile %s exists. Skipping..." % of)
             else:
@@ -200,6 +200,11 @@ if __name__ == '__main__':
                         dest='nthreads', 
                         default=2,
                         help='number of threads to use.')
+
+    parser.add_argument('-L', '--filelist', 
+                        action="store", 
+                        dest='filelist', 
+                        help='file containing listing of files to process (to avoid directory/shell limits)')
                    
     args= parser.parse_args()
     

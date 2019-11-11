@@ -1,0 +1,25 @@
+
+This is a naive, possibly resource-intensive stab at creating a simple CAFA processing pipeline. First step 
+is to get sequence similarity and use that to extend existing GO annotations to
+most similar un-annotated proteins.
+
+Second step will be to integrate additional data sources (e.g. Protein-Protein interaction data, gene 
+expression data). 
+
+
+PIPELINE:
+
+Split FASTA files
+ ~/git/cshl-work/cafa4/fastasplit.py -n 999999 -v -w ./uniprot /data/hover/uniprot/uniprot_sprot.fasta
+
+time:  ~ 15 minutes
+
+
+Run pairwise needle comparison. 
+rugen has 32 cores. use 16. 
+time ~/git/cshl-work/cafa4/pairwise.py  
+
+
+
+
+ISSUES:  uniprot ~560k proteins -> files, issues with ls, command line argument list. 
