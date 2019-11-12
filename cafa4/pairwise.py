@@ -29,6 +29,9 @@
 #  ??
 # https://www.majordifferences.com/2016/05/difference-between-global-and-local.html
 #
+# Total comparisons of N things will be:  N * .5N
+# E.g. For a 30-second comparison, we can do ~20000 in 10 hours with 16 cores: 120/hr/core * 16 cores * 10 hrs = 19200
+# 20000 comparsions means ~200 items. 200 * 100 = 20000
 #
 #
 
@@ -69,12 +72,13 @@ class CommandRunner(threading.Thread):
 
 class PairwiseRun(object):
     
-    def __init__(self, filelist, workdir, overwrite=False, nthreads=1 ):
+    def __init__(self, filelist, workdir, overwrite=False, nthreads=1, program='needle' ):
         self.log = logging.getLogger()
         self.filelist = filelist
         self.threadlist = []
         self.overwrite = overwrite
         self.nthreads = int(nthreads)
+        self.program = program
         self.workdir = os.path.abspath(os.path.expanduser(workdir))
         if not os.path.exists(self.workdir):
             os.mkdir(self.workdir)
@@ -84,6 +88,9 @@ class PairwiseRun(object):
 
     def makewatercommand(self, f1, f2):
         #self.log.debug("water: comparing file %s to file %s" % ( f1, f2))
+        f1 = os.path.abspath(f1)
+        f2 = os.path.abspath(f2)
+        
         f1base = os.path.splitext(os.path.basename(f1))[0]
         f2base = os.path.splitext(os.path.basename(f2))[0]
         outfile = "%s/%sx%s.water" % (self.workdir, f1base, f2base)
@@ -139,7 +146,10 @@ class PairwiseRun(object):
                 #os.path.relpath(os.path.expanduser(self.filelist[j]))
                 f2 = self.filelist[j]
                 #self.log.debug("comparing file %s to file %s" % ( f1, f2))
-                c = self.makeneedlecommand(f1, f2)
+                if self.program == 'needle':
+                    c = self.makeneedlecommand(f1, f2)
+                elif self.program == 'water':
+                    c = self.makewatercommand(f1, f2)
                 if numdone % 10000 == 0:
                     self.log.info("Made %d commands so far..." % numdone )
                 commandlist.append(c)
@@ -216,6 +226,13 @@ if __name__ == '__main__':
                         action="store", 
                         dest='filelist', 
                         help='file containing listing of files to process (to avoid directory/shell limits)')
+
+    parser.add_argument('-a', '--algorithm', 
+                        action="store", 
+                        dest='program', 
+                        default='needle',
+                        help='which EMBOSS algorithm Smith-Waterman (water)|Needleman-Wuensch (needle) [needle]' )    
+    
                    
     args= parser.parse_args()
     
@@ -231,7 +248,7 @@ if __name__ == '__main__':
         f.close()
     
     logging.info("Got arguments...")      
-    run = PairwiseRun(args.infiles, args.workdir, args.overwrite, args.nthreads)
+    run = PairwiseRun(args.infiles, args.workdir, args.overwrite, args.nthreads, args.program)
     
     logging.info("Creating commands...")
     run.makecommands()

@@ -111,6 +111,15 @@ class NeedleParse(object):
     def save(self):
         '''
         Save as pandas dataframe in msgpack format to outfile. 
+        
+        Load it back in via:
+import pandas as pd
+import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
+table = pq.read_table('run1.par')
+df = table.to_pandas()
+        
         '''
         self.log.debug("Saving file...")
         #df.to_msgpack(args.outfile)
@@ -134,9 +143,10 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
 
-    parser.add_argument('infiles', 
-                        metavar='infiles', 
-                        type=str, 
+    parser.add_argument('-i', '--infiles', 
+                        dest='infiles', 
+                        type=str,
+                        required=False, 
                         nargs='+',
                         help='a list of .fasta sequence files')
        
@@ -150,6 +160,12 @@ if __name__ == '__main__':
                         action="store", 
                         dest='outfile', 
                         help='outfile')
+    
+    parser.add_argument('-L', '--filelist', 
+                        action="store", 
+                        dest='filelist', 
+                        help='file containing listing of files to process (to avoid directory/shell limits)')
+    
                    
     args= parser.parse_args()
     
@@ -157,7 +173,11 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.DEBUG)
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
-    
+    if args.filelist is not None:
+        logging.debug("Found filelist opt. ")
+        f = open(args.filelist, 'r')
+        args.infiles = [x.strip() for x in f]
+        f.close()
 
     n2d = NeedleParse(args.infiles, args.outfile)
     n2d.handlefiles()

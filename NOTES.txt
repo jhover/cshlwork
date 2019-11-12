@@ -17,10 +17,11 @@ time:  ~ 15 minutes
 time find -L uniprot | grep / > uniprotlist.txt
 45 seconds
 
-
 Run pairwise needle comparison. 
 rugen has 32 cores. use 16. 
 time ~/git/cshl-work/cafa4/pairwise.py -v -t 16 -w ./seqout -L uniprotlist.txt 
+Problem:  ~5000 years to process 500k swissprot proteins. See: ProteinWorldDB: querying radical pairwise 
+alignments among protein sets from complete genomes. Took 10 months on grid, but that was more proteins.  
 
 
 ISSUES:  uniprot ~560k proteins -> files, issues with ls, command line argument list. 
