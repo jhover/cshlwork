@@ -29,7 +29,7 @@ def run_phmmer_files(filelist):
     
     dbase = "/data/hover/data/uniprot/uniprot_sprot.fasta"
     for file in filelist:
-        cmd = _make_phmmer_cmdline(file)
+        cmd = _make_phmmer_cmdline(file, dbase)
         cp = subprocess.run(cmd, 
                             shell=True, 
                             universal_newlines=True, 
