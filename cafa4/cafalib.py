@@ -19,7 +19,9 @@ def read_phmmer_table(filename):
                      skiprows=3,
                      engine='python', 
                      sep='\s+')
-    df.drop(['t-acc', 'q-acc','e-value-dom','score-dom', 'bias-dom', 'exp', 'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 'description'], axis=1)
+    df = df.drop(['t-acc', 'q-acc','e-value-dom','score-dom', 'bias-dom', 'exp', 
+             'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 
+             'description'], axis=1)
     df['db'] = df.apply(lambda row: row.target.split('|')[0], axis=1)
     df['tacc'] = df.apply(lambda row: row.target.split('|')[1], axis=1)
     df['prot_spec'] = df.apply(lambda row: row.target.split('|')[2], axis=1)
