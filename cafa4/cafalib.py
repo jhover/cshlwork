@@ -1,8 +1,11 @@
 import logging
+import os
+import logging
 import pandas as pd
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
+import subprocess
 
 
 def read_phmmer_table(filename):
