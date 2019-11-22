@@ -41,7 +41,7 @@ def run_phmmer_files(filelist):
 def _make_phmmer_cmdline(filename, database):
     outpath = os.path.dirname(filename)
     filebase = os.path.splitext(os.path.basename(filename))[0]
-    outfile = "%s/%s.phmmertbl.txt" % (outpath, filebase)
+    outfile = "%s.phmmertbl.txt" % filebase
     #self.log.debug("outfile=%s" % outfile)
     cmdlist = ['time', 'phmmer']
     cmdlist.append( '--tblout  %s ' % outfile )
