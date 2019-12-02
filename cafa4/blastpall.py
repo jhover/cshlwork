@@ -7,9 +7,6 @@
 #         -query <infile> 
 #         -evalue 1.00e-58 -outfmt "6 qseqid sseqid pident length evalue bitscore"
 #
-#
-#
-#
 
 import argparse
 import logging

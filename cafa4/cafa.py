@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 #
-#  parse uniprot, do pairwise sequence similarity on all proteins across all species.  
-#  
-#  get GO annotations for proteins.  
-#  
+#  Peform processing steps, output prediction file(s)
+#  One file per species. 
+#
+#  cafa  
 #
 #
+#     
 #
-#
-#
-#
+#   HOVER GILLIS_LAB
+#   MODEL 1
+#   KEYWORDS 
+#   [ACCURACY] 
+#   T100900000001  
 #
 
 #importing libraries
@@ -19,4 +22,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
+import cafalib
+
 #%matplotlib inline
