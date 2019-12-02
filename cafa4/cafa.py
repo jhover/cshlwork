@@ -3,8 +3,10 @@
 #  Peform processing steps, output prediction file(s)
 #  One file per species. 
 #
-#  cafa  
-#
+#  cafa [OPTIONS}  <targetfile>
+#      -c <configfile>
+#      -o <predictionfile> [gillislab_1_
+#      -profile <profilename>
 #
 #     
 #

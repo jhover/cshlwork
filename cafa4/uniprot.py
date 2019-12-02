@@ -30,6 +30,9 @@ def get_uniprot_info(accession_no):
     
     
     DR    GO   <go id>     Component/Function/Process  <desc> <evidence>:<source>
-    
-    
+    <evidence>:   EXP IDA  IPI IMP IGI IEP
+        
     '''
+    
+    
+    
