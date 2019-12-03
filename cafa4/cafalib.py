@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#
 # 
 __author__ = "John Hover"
 __copyright__ = "2019 John Hover"
@@ -10,12 +9,14 @@ __maintainer__ = "John Hover"
 __email__ = "hover@cshl.edu"
 __status__ = "Testing"
 
-
 import argparse
+from configparser import ConfigParser
 import logging
 import os
+import sys
 
 import pandas as pd
+import pdpipe as pdp
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -25,71 +26,134 @@ class CAFA4Run(object):
     
     def __init__(self, config, targetlist):
         '''
-        
+      
         
         '''
         self.config = config
+        self.targetlist = targetlist
+        self.log = logging.getLogger()
+        self.rundir = os.path.expanduser( config.get('global','rundir') )
+        self.author = config.get('global','author')
+        self.modelnumber = config.get('global','modelnumber')
+        self.keywords = config.get('global','keywords')
+        self.pipeline = [ x.strip() for x in config.get( 'global','pipeline').split(',')]
+     
 
-
-        
-
-def read_phmmer_table(filename):
-    df = pd.read_table(filename, 
-                     names=['target','t-acc','query','q-acc',
-                            'e-value', 'score', 'bias', 'e-value-dom','score-dom', 'bias-dom', 
-                            'exp', 'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 'description'],
-                     skip_blank_lines=True,
-                     comment='#',
-                     index_col=False,
-                     skiprows=3,
-                     engine='python', 
-                     sep='\s+')
-    df = df.drop(['t-acc', 'q-acc','e-value-dom','score-dom', 'bias-dom', 'exp', 
-             'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 
-             'description'], axis=1)
-    df['db'] = df.apply(lambda row: row.target.split('|')[0], axis=1)
-    df['tacc'] = df.apply(lambda row: row.target.split('|')[1], axis=1)
-    df['prot_spec'] = df.apply(lambda row: row.target.split('|')[2], axis=1)
-    df['protein'] =   df.apply(lambda row: row.prot_spec.split('_')[0], axis=1)
-    df['species'] =   df.apply(lambda row: row.prot_spec.split('_')[1], axis=1)
-    return df
-
-
-
-def run_phmmer_files(filelist, database="/data/hover/data/uniprot/uniprot_sprot.fasta"):
-#
-#  time phmmer --tblout 7955.phmmer.2.txt 
-#              --cpu 16 
-#              --noali 
-#              ~/data/cafa4/TargetFiles/sp_species.7955.tfa 
-#              ~/data/uniprot/uniprot_sprot.fasta 
-#              > 7955.phmmer.console.out 2>&1
     
-    dbase = database
-    for file in filelist:
-        cmd = _make_phmmer_cmdline(file, dbase)
-        cp = subprocess.run(cmd, 
-                            shell=True, 
-                            universal_newlines=True, 
-                            stdout=subprocess.PIPE, 
-                            stderr=subprocess.PIPE)
-        logging.debug("Ran cmd='%s' returncode=%s " % (cmd, cp.returncode))
+    def __repr__(self):
+        s = "CAFA4Run:"
+        for atr in ['rundir','targetlist','pipeline']:
+            s += " %s=%s" % (atr, self.__getattribute__(atr))
+        return s
 
-
+    def do_run(self):
+        self.log.info("Begin run...")
         
-def _make_phmmer_cmdline(filename, database):
-    outpath = os.path.dirname(filename)
-    filebase = os.path.splitext(os.path.basename(filename))[0]
-    outfile = "%s.phmmer.tbl.txt" % filebase
-    #self.log.debug("outfile=%s" % outfile)
-    cmdlist = ['time', 'phmmer']
-    cmdlist.append( '--tblout  %s ' % outfile )
-    cmdlist.append('--noali' )
-    cmdlist.append(' %s ' % filename )
-    cmdlist.append(' %s ' % database )
-    cmd = ' '.join(cmdlist).strip()
-    #self.log.debug("command is '%s'" % cmd)
-    return cmd
+        
+        self.log.info("Ending run...")
+
+
+class Phmmer(object):
+    '''
+    Pipeline object. Takes list of Fasta files to run on, returns pandas dataframe. 
+    Input:   List of FASTA files 
+    Output:  Pandas DataFrame
+    
+    '''
+
+    def __init__(self, config, targetlist):
+        self.log == logging.getLogger()
+        self.config = config
+        self.targetlist = targetlist
+        self.database = os.path.expanduser( config.get('phmmer','database') )
+        self.score_threshold = config.get('phmmer','score_threshold')
+        self.cpus = config.get('phmmer','cpus')
+        
+    
+    def execute(self):
+        outlist = self.run_phmmer_files(targetlist, database)
+        outfile = outlist[0]
+        df = self.read_phmmer_table(outfile)
+            
+    
+    def run_phmmer_files(self, filelist, database="/data/hover/data/uniprot/uniprot_sprot.fasta"):
+    #
+    #  time phmmer --tblout 7955.phmmer.2.txt 
+    #              --cpu 16 
+    #              --noali 
+    #              ~/data/cafa4/TargetFiles/sp_species.7955.tfa 
+    #              ~/data/uniprot/uniprot_sprot.fasta 
+    #              > 7955.phmmer.console.out 2>&1
+        
+        dbase = database
+        outfiles = []
+        for file in filelist:
+            (cmd, outfile) = _make_phmmer_cmdline(file, dbase)
+            cp = subprocess.run(cmd, 
+                                shell=True, 
+                                universal_newlines=True, 
+                                stdout=subprocess.PIPE, 
+                                stderr=subprocess.PIPE)
+            
+            outfiles.append(outfile)
+            logging.debug("Ran cmd='%s' outfile=%s returncode=%s " % (cmd,outfile, cp.returncode))
+        return outfiles
+            
+    def _make_phmmer_cmdline(filename):
+        outpath = os.path.dirname(filename)
+        filebase = os.path.splitext(os.path.basename(filename))[0]
+        outfile = "%s.phmmer.tbl.txt" % filebase
+        #self.log.debug("outfile=%s" % outfile)
+        cmdlist = ['time', 'phmmer']
+        cmdlist.append( '--tblout  %s ' % outfile )
+        cmdlist.append('--noali' )
+        cmdlist.append('--cpu %s ' % self.cpus)
+        if self.score_threshold is not None:
+            cmdlist.append("-T %s " % self.score_threshold)
+        cmdlist.append(' %s ' % filename )
+        cmdlist.append(' %s ' % self.database )
+        cmd = ' '.join(cmdlist).strip()
+        #self.log.debug("command is '%s'" % cmd)
+        return (cmd, outfile)
+
+    def read_phmmer_table(self, filename):
+        df = pd.read_table(filename, 
+                         names=['target','t-acc','query','q-acc',
+                                'e-value', 'score', 'bias', 'e-value-dom','score-dom', 'bias-dom', 
+                                'exp', 'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 'description'],
+                         skip_blank_lines=True,
+                         comment='#',
+                         index_col=False,
+                         skiprows=3,
+                         engine='python', 
+                         sep='\s+')
+        df = df.drop(['t-acc', 'q-acc','e-value-dom','score-dom', 'bias-dom', 'exp', 
+                 'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 
+                 'description'], axis=1)
+        df['db'] = df.apply(lambda row: row.target.split('|')[0], axis=1)
+        df['tacc'] = df.apply(lambda row: row.target.split('|')[1], axis=1)
+        df['prot_spec'] = df.apply(lambda row: row.target.split('|')[2], axis=1)
+        df['protein'] =   df.apply(lambda row: row.prot_spec.split('_')[0], axis=1)
+        df['species'] =   df.apply(lambda row: row.prot_spec.split('_')[1], axis=1)
+        return df
+    
+
+
+
+class Orthologs(object):
+    '''
+    Pipeline object. Takes Pandas dataframe, looks up orthologs and GO values for 
+    Input:  Pandas DataFrame
+    Output: Pandas DataFrame
+
+    '''
+
+def get_plugin(klassname):
+    return getattr(sys.modules[__name__], klassname)
+    
+
+       
+
    
 
 
@@ -131,9 +195,11 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
     
-    filelist = args.infiles 
-    run = ProcessingRun(filelist, args.workdir, args.numseq)
-    run.handlefiles()    
+    cp = ConfigParser()
+    cp.read(args.conffile)
+           
+    run = CAFA4Run(cp, args.infiles)
+    print(run)
     
     
     
