@@ -1,3 +1,5 @@
+from bioservices.uniprot import UniProt
+
 
 
 def get_uniprot_info(accession_no):
@@ -27,8 +29,6 @@ def get_uniprot_info(accession_no):
         DR   GO; GO:0051291; P:protein heterooligomerization; IPI:RGD.
         DR   GO; GO:0006605; P:protein targeting; IEA:Ensembl.
         
-    
-    
     DR    GO   <go id>     Component/Function/Process  <desc> <evidence>:<source>
     <evidence>:   EXP IDA  IPI IMP IGI IEP
         

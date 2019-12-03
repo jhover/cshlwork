@@ -1,12 +1,37 @@
+#!/usr/bin/env python
+#
+# 
+__author__ = "John Hover"
+__copyright__ = "2019 John Hover"
+__credits__ = []
+__license__ = "Apache 2.0"
+__version__ = "0.99"
+__maintainer__ = "John Hover"
+__email__ = "hover@cshl.edu"
+__status__ = "Testing"
+
+
+import argparse
 import logging
 import os
-import logging
+
 import pandas as pd
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import subprocess
 
+class CAFA4Run(object):
+    
+    def __init__(self, config, targetlist):
+        '''
+        
+        
+        '''
+        self.config = config
+
+
+        
 
 def read_phmmer_table(filename):
     df = pd.read_table(filename, 
@@ -31,7 +56,7 @@ def read_phmmer_table(filename):
 
 
 
-def run_phmmer_files(filelist):
+def run_phmmer_files(filelist, database="/data/hover/data/uniprot/uniprot_sprot.fasta"):
 #
 #  time phmmer --tblout 7955.phmmer.2.txt 
 #              --cpu 16 
@@ -40,7 +65,7 @@ def run_phmmer_files(filelist):
 #              ~/data/uniprot/uniprot_sprot.fasta 
 #              > 7955.phmmer.console.out 2>&1
     
-    dbase = "/data/hover/data/uniprot/uniprot_sprot.fasta"
+    dbase = database
     for file in filelist:
         cmd = _make_phmmer_cmdline(file, dbase)
         cp = subprocess.run(cmd, 
@@ -50,11 +75,12 @@ def run_phmmer_files(filelist):
                             stderr=subprocess.PIPE)
         logging.debug("Ran cmd='%s' returncode=%s " % (cmd, cp.returncode))
 
+
         
 def _make_phmmer_cmdline(filename, database):
     outpath = os.path.dirname(filename)
     filebase = os.path.splitext(os.path.basename(filename))[0]
-    outfile = "%s.phmmertbl.txt" % filebase
+    outfile = "%s.phmmer.tbl.txt" % filebase
     #self.log.debug("outfile=%s" % outfile)
     cmdlist = ['time', 'phmmer']
     cmdlist.append( '--tblout  %s ' % outfile )
@@ -63,8 +89,56 @@ def _make_phmmer_cmdline(filename, database):
     cmdlist.append(' %s ' % database )
     cmd = ' '.join(cmdlist).strip()
     #self.log.debug("command is '%s'" % cmd)
-    return (cmd, outfile)
+    return cmd
+   
+
+
+
+   
+
+if __name__ == '__main__':
+    logging.basicConfig(format='%(asctime)s (UTC) [ %(levelname)s ] %(name)s %(filename)s:%(lineno)d %(funcName)s(): %(message)s')
     
+    parser = argparse.ArgumentParser()
+      
+    parser.add_argument('-d', '--debug', 
+                        action="store_true", 
+                        dest='debug', 
+                        help='debug logging')
+
+    parser.add_argument('-v', '--verbose', 
+                        action="store_true", 
+                        dest='verbose', 
+                        help='verbose logging')
+
+    parser.add_argument('infiles', 
+                        metavar='infiles', 
+                        type=str, 
+                        nargs='+',
+                        help='a list of .fasta sequence files')
+    
+    parser.add_argument('-c', '--config', 
+                        action="store", 
+                        dest='conffile', 
+                        default='~/etc/cafa4.conf',
+                        help='Config file path [~/etc/cafa4.conf]')
+
+                    
+    args= parser.parse_args()
+    
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+    if args.verbose:
+        logging.getLogger().setLevel(logging.INFO)
+    
+    filelist = args.infiles 
+    run = ProcessingRun(filelist, args.workdir, args.numseq)
+    run.handlefiles()    
+    
+    
+    
+    
+ 
 
     
     
