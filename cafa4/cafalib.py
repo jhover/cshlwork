@@ -32,24 +32,27 @@ class CAFA4Run(object):
         self.config = config
         self.targetlist = targetlist
         self.log = logging.getLogger()
-        self.rundir = os.path.expanduser( config.get('global','rundir') )
+        self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.author = config.get('global','author')
         self.modelnumber = config.get('global','modelnumber')
         self.keywords = config.get('global','keywords')
         self.pipeline = [ x.strip() for x in config.get( 'global','pipeline').split(',')]
-     
-
     
     def __repr__(self):
         s = "CAFA4Run:"
-        for atr in ['rundir','targetlist','pipeline']:
+        for atr in ['outdir','targetlist','pipeline']:
             s += " %s=%s" % (atr, self.__getattribute__(atr))
         return s
 
-    def do_run(self):
+
+    def execute(self):
         self.log.info("Begin run...")
-        
-        
+        phm = Phmmer(self.config, self.targetlist)
+        self.log.debug(phm)
+        df = phm.execute()
+        self.log.info(str(df))
+        df.to_csv("%s/phmmer.csv" % self.outdir)
+
         self.log.info("Ending run...")
 
 
@@ -62,21 +65,27 @@ class Phmmer(object):
     '''
 
     def __init__(self, config, targetlist):
-        self.log == logging.getLogger()
+        self.log = logging.getLogger()
         self.config = config
         self.targetlist = targetlist
         self.database = os.path.expanduser( config.get('phmmer','database') )
         self.score_threshold = config.get('phmmer','score_threshold')
         self.cpus = config.get('phmmer','cpus')
-        
+    
+    def __repr__(self):
+        s = "Phmmer:"
+        for atr in ['targetlist','database', 'score_threshold','cpus']:
+            s += " %s=%s" % (atr, self.__getattribute__(atr))
+        return s        
     
     def execute(self):
-        outlist = self.run_phmmer_files(targetlist, database)
+        outlist = self.run_phmmer_files(self.targetlist, self.database)
         outfile = outlist[0]
         df = self.read_phmmer_table(outfile)
+        return df
             
     
-    def run_phmmer_files(self, filelist, database="/data/hover/data/uniprot/uniprot_sprot.fasta"):
+    def run_phmmer_files(self, targetlist, database="/data/hover/data/uniprot/uniprot_sprot.fasta"):
     #
     #  time phmmer --tblout 7955.phmmer.2.txt 
     #              --cpu 16 
@@ -87,8 +96,9 @@ class Phmmer(object):
         
         dbase = database
         outfiles = []
-        for file in filelist:
-            (cmd, outfile) = _make_phmmer_cmdline(file, dbase)
+        for file in targetlist:
+            (cmd, outfile) = self._make_phmmer_cmdline(file)
+            self.log.debug("Running cmd='%s' outfile=%s " % (cmd, outfile))
             cp = subprocess.run(cmd, 
                                 shell=True, 
                                 universal_newlines=True, 
@@ -96,10 +106,10 @@ class Phmmer(object):
                                 stderr=subprocess.PIPE)
             
             outfiles.append(outfile)
-            logging.debug("Ran cmd='%s' outfile=%s returncode=%s " % (cmd,outfile, cp.returncode))
+            self.log.debug("Ran cmd='%s' outfile=%s returncode=%s " % (cmd,outfile, cp.returncode))
         return outfiles
             
-    def _make_phmmer_cmdline(filename):
+    def _make_phmmer_cmdline(self, filename):
         outpath = os.path.dirname(filename)
         filebase = os.path.splitext(os.path.basename(filename))[0]
         outfile = "%s.phmmer.tbl.txt" % filebase
@@ -198,8 +208,9 @@ if __name__ == '__main__':
     cp = ConfigParser()
     cp.read(args.conffile)
            
-    run = CAFA4Run(cp, args.infiles)
-    print(run)
+    c4run = CAFA4Run(cp, args.infiles)
+    logging.debug(c4run)
+    c4run.execute()
     
     
     
