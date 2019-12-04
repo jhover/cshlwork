@@ -26,7 +26,9 @@ class CAFA4Run(object):
     
     def __init__(self, config, targetlist):
         '''
-      
+        Embodies all the processing for a single run against all targets.
+        Overall input is a set of Target sequence files. 
+        Overall output is a properly-formatted CAFA4 prediction file.   
         
         '''
         self.config = config
@@ -47,9 +49,12 @@ class CAFA4Run(object):
 
     def execute(self):
         self.log.info("Begin run...")
+        
+        
         phm = Phmmer(self.config, self.targetlist)
         self.log.debug(phm)
         df = phm.execute()
+        df.drop(columns=['target','bias','prot_spec'], inplace=True)
         self.log.info(str(df))
         df.to_csv("%s/phmmer.csv" % self.outdir)
 
