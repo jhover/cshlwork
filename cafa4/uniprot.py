@@ -1,7 +1,6 @@
 from bioservices.uniprot import UniProt
 
 
-
 def get_uniprot_info(accession_no):
     '''
         uniprot.org/uniprot/<accession_no>.txt

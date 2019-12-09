@@ -14,6 +14,8 @@ from configparser import ConfigParser
 import logging
 import os
 import sys
+import tempfile
+from bioservices import uniprot
 
 import pandas as pd
 import pdpipe as pdp
@@ -50,13 +52,14 @@ class CAFA4Run(object):
     def execute(self):
         self.log.info("Begin run...")
         
-        
         phm = Phmmer(self.config, self.targetlist)
         self.log.debug(phm)
         df = phm.execute()
         df.drop(columns=['target','bias','prot_spec'], inplace=True)
         self.log.info(str(df))
         df.to_csv("%s/phmmer.csv" % self.outdir)
+      
+
 
         self.log.info("Ending run...")
 
@@ -73,6 +76,7 @@ class Phmmer(object):
         self.log = logging.getLogger()
         self.config = config
         self.targetlist = targetlist
+        self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.database = os.path.expanduser( config.get('phmmer','database') )
         self.score_threshold = config.get('phmmer','score_threshold')
         self.cpus = config.get('phmmer','cpus')
@@ -117,7 +121,7 @@ class Phmmer(object):
     def _make_phmmer_cmdline(self, filename):
         outpath = os.path.dirname(filename)
         filebase = os.path.splitext(os.path.basename(filename))[0]
-        outfile = "%s.phmmer.tbl.txt" % filebase
+        outfile = "%s/%s.phmmer.tbl.txt" % (self.outdir, filebase)
         #self.log.debug("outfile=%s" % outfile)
         cmdlist = ['time', 'phmmer']
         cmdlist.append( '--tblout  %s ' % outfile )
@@ -153,15 +157,73 @@ class Phmmer(object):
         return df
     
 
-
-
 class Orthologs(object):
     '''
-    Pipeline object. Takes Pandas dataframe, looks up orthologs and GO values for 
+    Pipeline object. Takes Pandas dataframe, looks up orthologs and GO values by 
     Input:  Pandas DataFrame
     Output: Pandas DataFrame
-
     '''
+
+    def __init__(self):
+        '''
+        
+        '''
+        self.log = logging.getLogger()
+        self.uniprot = uniprot.UniProt()
+         
+
+        
+    def execute(self, dataframe):
+        '''
+        for each row of dataframe, look up ortholog in uniprot and for each GO code
+        add a new row with gene, goterm, gocategory
+        
+        return result dataframe
+        
+        '''
+        pass
+    
+    
+    def _query_uniprot(self, tacc):
+        '''
+        query http://www.uniprot.org/uniprot/<tacc>.txt and parse for gene, goterm, gocategory. 
+        
+        u.search("id:P35213")
+        
+        
+        get_df(self, entries, nChunk=100, organism=None):
+            entries=['id:P35213'] 
+            df = u.get_df(entries)
+        
+        columns:
+            'Gene ontology IDs'
+            'Gene ontology (GO)'
+            'Gene ontology (biological process)'
+            'Gene ontology (molecular function)'
+            'Gene ontology (cellular component)'
+        
+        
+        In [45]: df['Gene ontology (biological process)'][0]                                                                                            
+        Out[45]: 'cytoplasmic sequestering of protein [GO:0051220]; 
+                 negative regulation of G protein-coupled receptor signaling pathway [GO:0045744]; 
+                 negative regulation of protein dephosphorylation [GO:0035308]; 
+                 negative regulation of transcription, DNA-templated [GO:0045892]; 
+                 positive regulation of catalytic activity [GO:0043085]; 
+                 protein heterooligomerization [GO:0051291]; protein targeting [GO:0006605]'    
+        
+        In [47]: df['Gene names  (primary )'][0]                                                                                                        
+        Out[47]: 'Ywhab'
+
+        In [48]: df['Gene names'][0]                                                                                                                    
+        Out[48]: ['Ywhab']
+        
+        retrieve(self, uniprot_id, frmt="xml", database="uniprot"):   'txt' good too
+        
+         
+        '''    
+        pass
+
+
 
 def get_plugin(klassname):
     return getattr(sys.modules[__name__], klassname)
