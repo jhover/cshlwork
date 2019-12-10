@@ -40,7 +40,10 @@ class GeneOntology(object):
         '''
         data = self.get_dict()
         df = pd.DataFrame.from_dict(data, orient='index', columns=['goterm','name','namespace']) 
+        df.set_index('goterm')
+        df.to_csv('go.csv')
         self.log.debug(str(df))
+        return df
     
     
     def get_dict(self):

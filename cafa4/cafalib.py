@@ -92,9 +92,9 @@ class CAFA4Run(object):
         df.to_csv("%s/%s-ortho.csv" % (self.outdir, self.outbase))
         
         
-        go = GeneOntology()
-        gdf = go.get_df()
-        self.log.info("\n%s" % str(gdf))
+        go = GO(self.config)
+        df = go.execute(df)
+        self.log.info("\n%s" % str(df))
                   
         #self.cafafile("%s/.csv" % (self.outdir, self.outbase)
         
@@ -359,15 +359,21 @@ class GO(object):
 
     def execute(self, dataframe):
         gdf = self.go.get_df()
-        self.log.debug(str(df))
-        cols = list(dataframe.columns)
-        newdata = {}
-        for row in dataframe.itertuples():
-            #self.log.debug(str(row))
-            idx = row[0]
-            dlist= row[1:]
-             
-            #print("gene_names is %s" % gene_names) 
+        self.log.debug("\n%a" % str(gdf))
+        igdf = gdf.set_index('goterm')
+        gdict = igdf.to_dict('index')
+        # now indexed by goterm   gdict[goterm] -> {'name': 'osteoblast differentiation', 'namespace': 'bp'}
+        # rd['GO:0001649']['namespace']  
+                
+        dataframe['namespace'] = dataframe.apply(
+            lambda row: gdict[row.goterm]['namespace'], 
+            axis=1)
+        self.log.debug(str(dataframe))
+        return dataframe
+        
+
+
+
         
         
         
