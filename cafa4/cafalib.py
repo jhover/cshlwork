@@ -24,6 +24,10 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import subprocess
 
+gitpath=os.path.expanduser("~/git/cshl-work/cafa4")
+sys.path.append(gitpath)
+import ontology
+
 class CAFA4Run(object):
     
     def __init__(self, config, targetlist):
@@ -40,7 +44,9 @@ class CAFA4Run(object):
         self.author = config.get('global','author')
         self.modelnumber = config.get('global','modelnumber')
         self.keywords = config.get('global','keywords')
-        self.pipeline = [ x.strip() for x in config.get( 'global','pipeline').split(',')]
+        self.profile = config.get('global','profile')
+        self.pipeline = [ x.strip() for x in config.get( self.profile,'pipeline').split(',')]
+        self.outbase = config.get( self.profile,'outbase')
     
     def __repr__(self):
         s = "CAFA4Run:"
@@ -49,21 +55,49 @@ class CAFA4Run(object):
         return s
 
 
+    def cafafile(self, ):
+        '''
+        E.g. filename:    gillislab_1_10090_go.txt
+                          gillislab_1_78_go.txt   
+        
+        HOVER          GILLIS_LAB
+        MODEL          1
+        KEYWORDS       orthologs, phmmer
+        ACCURACY       1  PR=0.86; RC=0.30
+        T100900000001  GO:0042203
+        T100900000002  GO:0003998
+        .
+        .
+        .
+        
+        '''
+        pass
+    
+    
+
     def execute(self):
         self.log.info("Begin run...")
         
         phm = Phmmer(self.config, self.targetlist)
         self.log.debug(phm)
         df = phm.execute()
-        df.drop(columns=['target','bias','prot_spec'], inplace=True)
+        
         self.log.info("\n%s" % str(df))
-        df.to_csv("%s/phmmer.csv" % self.outdir)
+        df.to_csv("%s/%s-phmmer.csv" % (self.outdir, self.outbase))
         
         ortho = Orthologs(self.config)
         self.log.debug(ortho)
         df = ortho.execute(df)
         self.log.info("\n%s" % str(df))
-        df.to_csv("%s/ortho.csv" % self.outdir)
+        df.to_csv("%s/%s-ortho.csv" % (self.outdir, self.outbase))
+        
+        
+        go = GeneOntology()
+        gdf = go.get_df()
+        self.log.info("\n%s" % str(gdf))
+                  
+        #self.cafafile("%s/.csv" % (self.outdir, self.outbase)
+        
         self.log.info("Ending run...")
 
 
@@ -92,8 +126,14 @@ class Phmmer(object):
     
     def execute(self):
         outlist = self.run_phmmer_files(self.targetlist, self.database)
-        outfile = outlist[0]
-        df = self.read_phmmer_table(outfile)
+        self.log.debug("phmmer outlist=%s" % outlist)
+        outdfs = []
+        for outfile in outlist:
+            df = self.read_phmmer_table(outfile)
+            outdfs.append(df)
+        self.log.debug("dflist is %s" % outdfs)
+        df = pd.concat(outdfs, ignore_index=True)
+        self.log.debug(str(df))
         return df
             
     
@@ -107,8 +147,10 @@ class Phmmer(object):
     #              > 7955.phmmer.console.out 2>&1
         
         dbase = database
-        outfiles = []
+        outlist = []
         for file in targetlist:
+            if not os.path.exists(file):
+                raise FileNotFoundError()
             (cmd, outfile) = self._make_phmmer_cmdline(file)
             self.log.debug("Running cmd='%s' outfile=%s " % (cmd, outfile))
             cp = subprocess.run(cmd, 
@@ -117,9 +159,9 @@ class Phmmer(object):
                                 stdout=subprocess.PIPE, 
                                 stderr=subprocess.PIPE)
             
-            outfiles.append(outfile)
+            outlist.append(outfile)
             self.log.debug("Ran cmd='%s' outfile=%s returncode=%s " % (cmd,outfile, cp.returncode))
-        return outfiles
+        return outlist
             
     def _make_phmmer_cmdline(self, filename):
         outpath = os.path.dirname(filename)
@@ -139,6 +181,7 @@ class Phmmer(object):
         return (cmd, outfile)
 
     def read_phmmer_table(self, filename):
+        self.log.debug("Reading %s" % filename)
         df = pd.read_table(filename, 
                          names=['target','t-acc','query','q-acc',
                                 'evalue', 'score', 'bias', 'e-value-dom','score-dom', 'bias-dom', 
@@ -149,14 +192,24 @@ class Phmmer(object):
                          skiprows=3,
                          engine='python', 
                          sep='\s+')
+        self.log.debug(str(df))
+        self.log.debug("Dropping unneeded columns..")
         df = df.drop(['t-acc', 'q-acc','e-value-dom','score-dom', 'bias-dom', 'exp', 
                  'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 
-                 'description'], axis=1)
+                 'description'] , axis=1)
+        self.log.debug("Parsing compound fields to define new columns...")
+        self.log.debug("Splitting first field for db")
         df['db'] = df.apply(lambda row: row.target.split('|')[0], axis=1)
+        self.log.debug("Splitting first field for target accession")
         df['tacc'] = df.apply(lambda row: row.target.split('|')[1], axis=1)
+        self.log.debug("Splitting first field for prot_species")
         df['prot_spec'] = df.apply(lambda row: row.target.split('|')[2], axis=1)
+        self.log.debug("Splitting protein_species to set protein")
         df['protein'] =   df.apply(lambda row: row.prot_spec.split('_')[0], axis=1)
+        self.log.debug("Splitting protein_species to set species")
         df['species'] =   df.apply(lambda row: row.prot_spec.split('_')[1], axis=1)
+        self.log.debug("Dropping split columns...")
+        df.drop(columns=['target','prot_spec'], axis=1, inplace=True)
         return df
     
 
@@ -228,14 +281,15 @@ class Orthologs(object):
         newdfdict= {}
         ix = 0
         for row in dataframe.itertuples():
-            (query, evalue, score, db, tacc, protein, species) = row[1:]
+            self.log.debug("inbound row = %s" % str(row))
+            (query, evalue, score, bias, db, tacc, protein, species) = row[1:]
             gomatch = godf[ godf.entry == tacc ]
             for gr in gomatch.itertuples():
                 (entry, gene, goterm) = gr[1:]
-                newrow = [query, evalue, score, db, tacc , protein, species, gene, goterm ]
+                newrow = [query, evalue, score, bias, db, tacc , protein, species, gene, goterm ]
                 newdfdict[ix] = newrow
                 ix += 1
-        newdf = pd.DataFrame.from_dict(newdfdict, orient='index', columns = ['query', 'evalue', 'score', 'db', 'tacc' , 
+        newdf = pd.DataFrame.from_dict(newdfdict, orient='index', columns = ['query', 'evalue', 'score', 'bias', 'db', 'tacc' , 
                                                                              'protein', 'species', 'gene', 'goterm'])
         self.log.debug("\n%s" % str(newdf))
         return newdf
@@ -280,19 +334,50 @@ class Orthologs(object):
         pass
 
 
+class GO(object):
+    '''
+    Pipeline object. Takes Pandas dataframe, looks up GO namespace by GO term. 
+    Input:  Pandas DataFrame
+    Output: Pandas DataFrame
+    '''
 
-def get_plugin(klassname):
-    return getattr(sys.modules[__name__], klassname)
-    
+    def __init__(self, config):
+        '''
+        
+        '''
+        self.log = logging.getLogger()
+        self.config = config
+        self.outdir = os.path.expanduser( config.get('global','outdir') )
+        self.go = ontology.GeneOntology()
 
-       
 
+    def __repr__(self):
+        s = "GO:"
+        for atr in ['outdir']:
+            s += " %s=%s" % (atr, self.__getattribute__(atr))
+        return s 
+
+    def execute(self, dataframe):
+        gdf = self.go.get_df()
+        self.log.debug(str(df))
+        cols = list(dataframe.columns)
+        newdata = {}
+        for row in dataframe.itertuples():
+            #self.log.debug(str(row))
+            idx = row[0]
+            dlist= row[1:]
+             
+            #print("gene_names is %s" % gene_names) 
+        
+        
+        
+        
+
+
+
+#def get_plugin(klassname):
+#    return getattr(sys.modules[__name__], klassname)
    
-
-
-
-   
-
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s (UTC) [ %(levelname)s ] %(name)s %(filename)s:%(lineno)d %(funcName)s(): %(message)s')
     
@@ -319,7 +404,6 @@ if __name__ == '__main__':
                         dest='conffile', 
                         default='~/etc/cafa4.conf',
                         help='Config file path [~/etc/cafa4.conf]')
-
                     
     args= parser.parse_args()
     
@@ -334,12 +418,3 @@ if __name__ == '__main__':
     c4run = CAFA4Run(cp, args.infiles)
     logging.debug(c4run)
     c4run.execute()
-    
-    
-    
-    
- 
-
-    
-    
-    
