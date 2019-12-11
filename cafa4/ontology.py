@@ -9,7 +9,6 @@ import os
 import sys
 import traceback
 
-
 import pandas as pd
 import pdpipe as pdp
 import numpy as np
@@ -18,8 +17,7 @@ import pyarrow.parquet as pq
 
 GOFILE='~/data/go/go.obo' 
 
-
-class GeneOntology(object):
+class GeneOntologyGOInfoPlugin(object):
     
             
     NSMAP= { 'biological_process' : 'bp',
@@ -29,9 +27,10 @@ class GeneOntology(object):
             }
     
     
-    def __init__(self):
+    def __init__(self, config):
         self.gopath = os.path.expanduser(GOFILE)
         self.log = logging.getLogger()
+        self.config = config
         
     def get_df(self):
         '''

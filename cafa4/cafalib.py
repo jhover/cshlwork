@@ -1,5 +1,37 @@
 #!/usr/bin/env python
+#
+#     Top level  Runplugins      Infoplugins
+#     CAFA4Run
+#                PhmmerPlugin                         
+#                OrthologPlugin                       looks up ortholog info
+#                                QuickGOPlugin        gets GO info
+#                                UniprotGOPlugin      gets GO info
+#                Expression
+#
 # 
+#      ************************CANONICAL DATAFRAME COLUMNS*********************************
+#   
+# COLUMN        DESCRIPTION               MAPPINGS                             EXAMPLES
+# cafaid        cafa4 target identifier   N/A                                  T2870000001
+# proteinid     UniProtKB:entry/accession  quickgo:gene product_id             P63103
+# protein       all caps name                                                  1433B
+# gene          Free-text gene name.                                           Lrrk2  Ywahb
+# geneid        Gene name+species.                                             LRRK2_MOUSE     
+# taxon_id      NCBI taxon id                                                  9606                 
+# species       all caps code                                                  MOUSE   PONAB
+# goterm        annotated term                                                 GO:0005634
+# goaspect      biological process|molecular function|cellular component       cp    bp
+# goevicence    evidence codes for GO annotation.                              IEA 
+# evalue        BLAST/HMMER/PHMMER expect statistic                                               1.000000e-126
+# bias          Adjustement to score for char prevalence                       3.5
+# score         BLAST/HMMER/PHMMER bit-score                                   400.3
+# db            
+
+
+
+
+
+
 __author__ = "John Hover"
 __copyright__ = "2019 John Hover"
 __credits__ = []
@@ -15,7 +47,6 @@ import logging
 import os
 import sys
 import tempfile
-from bioservices import uniprot
 
 import pandas as pd
 import pdpipe as pdp
@@ -27,6 +58,8 @@ import subprocess
 gitpath=os.path.expanduser("~/git/cshl-work/cafa4")
 sys.path.append(gitpath)
 import ontology
+import quickgo
+import uniprot
 
 class CAFA4Run(object):
     
@@ -55,7 +88,7 @@ class CAFA4Run(object):
         return s
 
 
-    def cafafile(self, ):
+    def _cafafile(self, ):
         '''
         E.g. filename:    gillislab_1_10090_go.txt
                           gillislab_1_78_go.txt   
@@ -78,35 +111,36 @@ class CAFA4Run(object):
     def execute(self):
         self.log.info("Begin run...")
         
-        phm = Phmmer(self.config, self.targetlist)
+        phm = PhmmerPlugin(self.config, self.targetlist)
         self.log.debug(phm)
         df = phm.execute()
         
         self.log.info("\n%s" % str(df))
         df.to_csv("%s/%s-phmmer.csv" % (self.outdir, self.outbase))
         
-        ortho = Orthologs(self.config)
+        ortho = OrthologPlugin(self.config)
         self.log.debug(ortho)
         df = ortho.execute(df)
         self.log.info("\n%s" % str(df))
         df.to_csv("%s/%s-ortho.csv" % (self.outdir, self.outbase))
         
         
-        go = GO(self.config)
-        df = go.execute(df)
-        self.log.info("\n%s" % str(df))
+        # not needed if we use quickgo. contains both evidence codes and go_aspect
+        #go = GOPlugin(self.config)
+        #df = go.execute(df)
+        #self.log.info("\n%s" % str(df))
                   
         #self.cafafile("%s/.csv" % (self.outdir, self.outbase)
         
         self.log.info("Ending run...")
 
 
-class Phmmer(object):
+class PhmmerPlugin(object):
     '''
-    Pipeline object. Takes list of Fasta files to run on, returns pandas dataframe. 
+    Pipeline object. Takes list of Fasta files to run on, returns pandas dataframe of 
+    similar sequences with score. 
     Input:   List of FASTA files 
     Output:  Pandas DataFrame
-    
     '''
 
     def __init__(self, config, targetlist):
@@ -183,7 +217,7 @@ class Phmmer(object):
     def read_phmmer_table(self, filename):
         self.log.debug("Reading %s" % filename)
         df = pd.read_table(filename, 
-                         names=['target','t-acc','query','q-acc',
+                         names=['target','t-acc','cafaid','q-acc',
                                 'evalue', 'score', 'bias', 'e-value-dom','score-dom', 'bias-dom', 
                                 'exp', 'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 'description'],
                          skip_blank_lines=True,
@@ -201,7 +235,7 @@ class Phmmer(object):
         self.log.debug("Splitting first field for db")
         df['db'] = df.apply(lambda row: row.target.split('|')[0], axis=1)
         self.log.debug("Splitting first field for target accession")
-        df['tacc'] = df.apply(lambda row: row.target.split('|')[1], axis=1)
+        df['proteinid'] = df.apply(lambda row: row.target.split('|')[1], axis=1)
         self.log.debug("Splitting first field for prot_species")
         df['prot_spec'] = df.apply(lambda row: row.target.split('|')[2], axis=1)
         self.log.debug("Splitting protein_species to set protein")
@@ -213,9 +247,9 @@ class Phmmer(object):
         return df
     
 
-class Orthologs(object):
+class OrthologPlugin(object):
     '''
-    Pipeline object. Takes Pandas dataframe, looks up orthologs and GO values by 
+    Pipeline object. Takes Pandas dataframe, looks up orthologs and GO codes.  
     Input:  Pandas DataFrame
     Output: Pandas DataFrame
     '''
@@ -227,11 +261,15 @@ class Orthologs(object):
         self.log = logging.getLogger()
         self.config = config
         self.outdir = os.path.expanduser( config.get('global','outdir') )
-        self.uniprot = uniprot.UniProt()
+        self.backend = config.get('ortholog','backend').strip()
+        self.exc_ec_list = [i.strip() for i in config.get('ortholog','excluded_evidence_codes').split(',')] 
+        self.uniprot = uniprot.UniProtGOPlugin(self.config)
+        self.quickgo = quickgo.QuickGOPlugin(self.config)
+
 
     def __repr__(self):
         s = "Orthologs: uniprot"
-        for atr in ['outdir']:
+        for atr in ['outdir','backend']:
             s += " %s=%s" % (atr, self.__getattribute__(atr))
         return s            
 
@@ -246,97 +284,28 @@ class Orthologs(object):
         
         '''
         self.log.info("Looking up each ortholog")
-        entries = dataframe['tacc'].unique().tolist()
-        self.log.debug("Querying uniprot for %d unique entries" % len(entries))
-        udf = self.uniprot.get_df(entries)
-        self.log.debug(udf)
-        udf.to_csv("%s/uniprot.csv" % self.outdir)
-        udfslim = udf[['Entry','Gene names','Gene ontology IDs']] 
-        # df.tacc corresponds to udf.Entry  ...
+
+        newdf = None
         
-        newrowdict = {} 
-        ix = 0 
-        for row in udfslim.itertuples():
-            (entry, gene_names, golist) = row[1:] 
-            #print("gene_names is %s" % gene_names) 
-            try: 
-                namestr = gene_names[0] 
-                gene = namestr.split()[0] 
-            except: 
-                gene = '' 
-            for goterm in golist: 
-                #print("creating new row: %s : %s %s %s" % (ix, entry, gene, goterm)) 
-                newrow = [ entry, gene, goterm ] 
-                newrowdict[ix] = newrow 
-                ix += 1       
-            #print("entry is %s" % entry) 
-            #print("gene_names are %s" % gene_names) 
-            #print("gene is %s" % gene) 
-            #print("golist is %s" % golist)     
-            #print("newrowdict is %s" % newrowdict) 
+        if self.backend == 'uniprot': 
+            self.log.debug("Calling uniprot back end.")
+            newdf = self.uniprot.get_df(dataframe)
+            
+        if self.backend == 'quickgo':
+            self.log.debug("Querying QuickGo for %d unique entries" % len(entries))
+            udf = self.quickgo.get_df(entries)
+            self.log.debug(qdf)
+            qdf.to_csv("%s/quickgo.csv" % self.outdir)
         
-        godf = pd.DataFrame.from_dict(newrowdict, orient='index', columns=['entry','gene','goterm']) 
-        #print(newdf)
-        
-        newdfdict= {}
-        ix = 0
-        for row in dataframe.itertuples():
-            self.log.debug("inbound row = %s" % str(row))
-            (query, evalue, score, bias, db, tacc, protein, species) = row[1:]
-            gomatch = godf[ godf.entry == tacc ]
-            for gr in gomatch.itertuples():
-                (entry, gene, goterm) = gr[1:]
-                newrow = [query, evalue, score, bias, db, tacc , protein, species, gene, goterm ]
-                newdfdict[ix] = newrow
-                ix += 1
-        newdf = pd.DataFrame.from_dict(newdfdict, orient='index', columns = ['query', 'evalue', 'score', 'bias', 'db', 'tacc' , 
-                                                                             'protein', 'species', 'gene', 'goterm'])
         self.log.debug("\n%s" % str(newdf))
         return newdf
             
     
-    def _query_uniprot(self, tacc):
-        '''
-        query http://www.uniprot.org/uniprot/<tacc>.txt and parse for gene, goterm, gocategory. 
-        
-        u.search("id:P35213")
-        
-        get_df(self, entries, nChunk=100, organism=None):
-            entries=['id:P35213'] 
-            df = u.get_df(entries)
-        
-        columns:
-            'Gene ontology IDs'
-            'Gene ontology (GO)'
-            'Gene ontology (biological process)'
-            'Gene ontology (molecular function)'
-            'Gene ontology (cellular component)'
-        
-        
-        In [45]: df['Gene ontology (biological process)'][0]                                                                                            
-        Out[45]: 'cytoplasmic sequestering of protein [GO:0051220]; 
-                 negative regulation of G protein-coupled receptor signaling pathway [GO:0045744]; 
-                 negative regulation of protein dephosphorylation [GO:0035308]; 
-                 negative regulation of transcription, DNA-templated [GO:0045892]; 
-                 positive regulation of catalytic activity [GO:0043085]; 
-                 protein heterooligomerization [GO:0051291]; protein targeting [GO:0006605]'    
-        
-        In [47]: df['Gene names  (primary )'][0]                                                                                                        
-        Out[47]: 'Ywhab'
-
-        In [48]: df['Gene names'][0]                                                                                                                    
-        Out[48]: ['Ywhab']
-        
-        retrieve(self, uniprot_id, frmt="xml", database="uniprot"):   'txt' good too
-        
-         
-        '''    
-        pass
 
 
-class GO(object):
+class GOPlugin(object):
     '''
-    Pipeline object. Takes Pandas dataframe, looks up GO namespace by GO term. 
+    Pipeline object. Takes Pandas dataframe, looks up GO namespace [and evidence codes] by GO term. 
     Input:  Pandas DataFrame
     Output: Pandas DataFrame
     '''
@@ -348,7 +317,7 @@ class GO(object):
         self.log = logging.getLogger()
         self.config = config
         self.outdir = os.path.expanduser( config.get('global','outdir') )
-        self.go = ontology.GeneOntology()
+        self.go = ontology.GeneOntologyGOInfoPlugin()
 
 
     def __repr__(self):
@@ -410,6 +379,11 @@ if __name__ == '__main__':
                         dest='conffile', 
                         default='~/etc/cafa4.conf',
                         help='Config file path [~/etc/cafa4.conf]')
+
+
+
+
+
                     
     args= parser.parse_args()
     

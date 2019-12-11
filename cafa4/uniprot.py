@@ -1,37 +1,86 @@
+import logging
+import os
+
+import pandas as pd
+import pdpipe as pdp
+import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
+import subprocess
+
+
 from bioservices.uniprot import UniProt
 
 
-def get_uniprot_info(accession_no):
+class UniProtGOPlugin(object):
     '''
-        uniprot.org/uniprot/<accession_no>.txt
+    Aux info plugin.
+    Takes dataframe, extracts entry_ids, adds info from uniprot.  
+    Returns modified dataframe. 
+    '''
+
+    def __init__(self, config):
+        self.log = logging.getLogger()
+        self.uniprot = UniProt()
+        self.outdir = os.path.expanduser( config.get('global','outdir') )
+
+
+    def get_df(self, dataframe):
+        entries = dataframe['proteinid'].unique().tolist()
+        self.log.debug("Querying uniprot for %d unique entries" % len(entries))
+        udf = self.uniprot.get_df(entries)
+        self.log.debug(udf)
+        udf.to_csv("%s/uniprot.csv" % self.outdir)
+        udfslim = udf[['Entry','Gene names','Gene ontology IDs']] 
+        # df.tacc corresponds to udf.Entry  ...
+        
+        newrowdict = {} 
+        ix = 0 
+        for row in udfslim.itertuples():
+            (entry, gene_names, golist) = row[1:] 
+            #print("gene_names is %s" % gene_names) 
+            try: 
+                namestr = gene_names[0] 
+                gene = namestr.split()[0] 
+            except: 
+                gene = '' 
+            for goterm in golist: 
+                #print("creating new row: %s : %s %s %s" % (ix, entry, gene, goterm)) 
+                newrow = [ entry, gene, goterm ] 
+                newrowdict[ix] = newrow 
+                ix += 1       
+            #print("entry is %s" % entry) 
+            #print("gene_names are %s" % gene_names) 
+            #print("gene is %s" % gene) 
+            #print("golist is %s" % golist)     
+            #print("newrowdict is %s" % newrowdict) 
+        
+        godf = pd.DataFrame.from_dict(newrowdict, orient='index', columns=['entry','gene','goterm']) 
+        #print(newdf)
+        
+        newdfdict= {}
+        ix = 0
+        for row in dataframe.itertuples():
+            self.log.debug("inbound row = %s" % str(row))
+            (query, evalue, score, bias, db, tacc, protein, species) = row[1:]
+            gomatch = godf[ godf.entry == tacc ]
+            for gr in gomatch.itertuples():
+                (entry, gene, goterm) = gr[1:]
+                newrow = [query, evalue, score, bias, db, tacc , protein, species, gene, goterm ]
+                newdfdict[ix] = newrow
+                ix += 1
+        newdf = pd.DataFrame.from_dict(newdfdict, orient='index', columns = ['cafaid', 'evalue', 'score', 'bias', 'db', 'proteinid' , 
+                                                                             'protein', 'species', 'gene', 'goterm'])
+        self.log.debug("\n%s" % str(newdf))        
+        return newdf
+
+
+if __name__ == '__main__':
     
-        AC   P35213;
-        GN   Name=Ywhab;  
-        DR   GO; GO:0005737; C:cytoplasm; IDA:RGD.
-        DR   GO; GO:0005829; C:cytosol; TAS:Reactome.
-        DR   GO; GO:0042470; C:melanosome; IEA:UniProtKB-SubCell.
-        DR   GO; GO:0005634; C:nucleus; IDA:RGD.
-        DR   GO; GO:0048471; C:perinuclear region of cytoplasm; IEA:Ensembl.
-        DR   GO; GO:0032991; C:protein-containing complex; IDA:RGD.
-        DR   GO; GO:0017053; C:transcriptional repressor complex; IDA:RGD.
-        DR   GO; GO:0042826; F:histone deacetylase binding; IEA:Ensembl.
-        DR   GO; GO:0042802; F:identical protein binding; IEA:Ensembl.
-        DR   GO; GO:0050815; F:phosphoserine residue binding; IEA:Ensembl.
-        DR   GO; GO:0008022; F:protein C-terminus binding; IPI:RGD.
-        DR   GO; GO:0019904; F:protein domain specific binding; IEA:Ensembl.
-        DR   GO; GO:0044877; F:protein-containing complex binding; IPI:RGD.
-        DR   GO; GO:0051220; P:cytoplasmic sequestering of protein; IEA:Ensembl.
-        DR   GO; GO:0045744; P:negative regulation of G protein-coupled receptor signaling pathway; ISS:UniProtKB.
-        DR   GO; GO:0035308; P:negative regulation of protein dephosphorylation; IEA:Ensembl.
-        DR   GO; GO:0045892; P:negative regulation of transcription, DNA-templated; IMP:RGD.
-        DR   GO; GO:0043085; P:positive regulation of catalytic activity; IEA:Ensembl.
-        DR   GO; GO:0051291; P:protein heterooligomerization; IPI:RGD.
-        DR   GO; GO:0006605; P:protein targeting; IEA:Ensembl.
-        
-    DR    GO   <go id>     Component/Function/Process  <desc> <evidence>:<source>
-    <evidence>:   EXP IDA  IPI IMP IGI IEP
-        
-    '''
+    qg = QuickGo()
+    entrylist = ['Q9CQV8', 'P35213', 'A4K2U9', 'P31946', 'Q4R572', 'P68250']
+    out = qg._query_entries(entrylist)
+    print(out)    
     
     
     
