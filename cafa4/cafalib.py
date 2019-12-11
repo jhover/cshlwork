@@ -13,24 +13,24 @@
 #   
 # COLUMN        DESCRIPTION               MAPPINGS                             EXAMPLES
 # cafaid        cafa4 target identifier   N/A                                  T2870000001
+# cafaprot      cafa4 target protein id                                        1433B
+# cafaspec      cafa4 target protien species                                   MOUSE
 # proteinid     UniProtKB:entry/accession  quickgo:gene product_id             P63103
 # protein       all caps name                                                  1433B
 # gene          Free-text gene name.                                           Lrrk2  Ywahb
 # geneid        Gene name+species.                                             LRRK2_MOUSE     
-# taxon_id      NCBI taxon id                                                  9606                 
+# taxonid      NCBI taxon id                                                  9606                 
 # species       all caps code                                                  MOUSE   PONAB
 # goterm        annotated term                                                 GO:0005634
 # goaspect      biological process|molecular function|cellular component       cp    bp
-# goevicence    evidence codes for GO annotation.                              IEA 
+# goevidence    evidence codes for GO annotation.                              IEA 
 # evalue        BLAST/HMMER/PHMMER expect statistic                                               1.000000e-126
 # bias          Adjustement to score for char prevalence                       3.5
 # score         BLAST/HMMER/PHMMER bit-score                                   400.3
 # db            
-
-
-
-
-
+#
+#
+#
 
 __author__ = "John Hover"
 __copyright__ = "2019 John Hover"
@@ -90,6 +90,8 @@ class CAFA4Run(object):
 
     def _cafafile(self, ):
         '''
+        Produce properly-formated CAFA submission file:
+        
         E.g. filename:    gillislab_1_10090_go.txt
                           gillislab_1_78_go.txt   
         
@@ -107,7 +109,6 @@ class CAFA4Run(object):
         pass
     
     
-
     def execute(self):
         self.log.info("Begin run...")
         
@@ -159,6 +160,7 @@ class PhmmerPlugin(object):
         return s        
     
     def execute(self):
+        self._get_targetinfo()
         outlist = self.run_phmmer_files(self.targetlist, self.database)
         self.log.debug("phmmer outlist=%s" % outlist)
         outdfs = []
@@ -167,9 +169,36 @@ class PhmmerPlugin(object):
             outdfs.append(df)
         self.log.debug("dflist is %s" % outdfs)
         df = pd.concat(outdfs, ignore_index=True)
+    
         self.log.debug(str(df))
         return df
             
+    def _get_targetinfo(self):
+        '''
+        Reads self.targetlist files, pulls out 
+        target entry info 
+        Returns dict of list.
+           <targetid> : [<cafaprotein>, <cafaspecies> ]
+        
+        '''
+        self.targetinfo={}
+        for file in self.targetlist:
+            filehandle = open(file, 'r')
+            for line in filehandle:
+                if line.startswith('>'):
+                    (targetid , prot_spec) = line.split()
+                    targetid = targetid[1:]
+                    (cafaprot, cafaspec) = prot_spec.split('_')
+                    self.targetinfo[targetid] = [cafaprot, cafaspec]
+                else:
+                    pass
+               
+        #except Exception as e:
+        #    traceback.print_exc(file=sys.stdout)                
+        
+        self.log.debug("Parsed file(s) with %d targets" % len(self.targetinfo) )
+        return self.targetinfo
+    
     
     def run_phmmer_files(self, targetlist, database="/data/hover/data/uniprot/uniprot_sprot.fasta"):
     #
@@ -244,6 +273,10 @@ class PhmmerPlugin(object):
         df['species'] =   df.apply(lambda row: row.prot_spec.split('_')[1], axis=1)
         self.log.debug("Dropping split columns...")
         df.drop(columns=['target','prot_spec'], axis=1, inplace=True)
+        self.log.debug("Adding target metadata from input files")
+        df['cafaprot']= df.apply(lambda row:  self.targetinfo[row.cafaid][0], axis=1)      
+        df['cafaspec']= df.apply(lambda row:  self.targetinfo[row.cafaid][1], axis=1)          
+        
         return df
     
 

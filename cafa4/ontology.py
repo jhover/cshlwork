@@ -115,9 +115,6 @@ class GeneOntologyGOInfoPlugin(object):
         
         return od  
 
-
-
-
 if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s (UTC) [ %(levelname)s ] %(name)s %(filename)s:%(lineno)d %(funcName)s(): %(message)s')
     

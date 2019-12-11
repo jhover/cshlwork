@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+#
+# Encapsulates bioservices UniProt API for use with CAFA
+#
+import configparser
 import logging
 import os
 
@@ -8,9 +13,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import subprocess
 
-
 from bioservices.uniprot import UniProt
-
 
 class UniProtGOPlugin(object):
     '''
@@ -49,38 +52,38 @@ class UniProtGOPlugin(object):
                 newrow = [ entry, gene, goterm ] 
                 newrowdict[ix] = newrow 
                 ix += 1       
-            #print("entry is %s" % entry) 
-            #print("gene_names are %s" % gene_names) 
-            #print("gene is %s" % gene) 
-            #print("golist is %s" % golist)     
-            #print("newrowdict is %s" % newrowdict) 
         
         godf = pd.DataFrame.from_dict(newrowdict, orient='index', columns=['entry','gene','goterm']) 
-        #print(newdf)
-        
+
         newdfdict= {}
         ix = 0
         for row in dataframe.itertuples():
             self.log.debug("inbound row = %s" % str(row))
-            (query, evalue, score, bias, db, tacc, protein, species) = row[1:]
-            gomatch = godf[ godf.entry == tacc ]
+            #(query, evalue, score, bias, db, tacc, protein, species) = row[1:]
+            (cafaid, evalue, score, bias, db, proteinid, protein, species, cafaprot, cafaspec) = row[1:]
+            gomatch = godf[ godf.entry == proteinid ]
             for gr in gomatch.itertuples():
                 (entry, gene, goterm) = gr[1:]
-                newrow = [query, evalue, score, bias, db, tacc , protein, species, gene, goterm ]
+                newrow = [cafaid, evalue, score, bias, db, proteinid , protein, species, cafaprot, cafaspec, gene, goterm ]
                 newdfdict[ix] = newrow
                 ix += 1
-        newdf = pd.DataFrame.from_dict(newdfdict, orient='index', columns = ['cafaid', 'evalue', 'score', 'bias', 'db', 'proteinid' , 
-                                                                             'protein', 'species', 'gene', 'goterm'])
+        newdf = pd.DataFrame.from_dict(newdfdict, orient='index', columns = ['cafaid', 'evalue', 
+                                                                             'score', 'bias', 
+                                                                             'db', 'proteinid' , 
+                                                                             'protein', 'species', 
+                                                                             'cafaprot', 'cafaspec',
+                                                                             'gene', 'goterm'])
         self.log.debug("\n%s" % str(newdf))        
         return newdf
 
 
 if __name__ == '__main__':
     
-    qg = QuickGo()
-    entrylist = ['Q9CQV8', 'P35213', 'A4K2U9', 'P31946', 'Q4R572', 'P68250']
-    out = qg._query_entries(entrylist)
-    print(out)    
-    
+    c = configparser.ConfigParser()
+    upg = UniProtGOPlugin(c)
+    #entrylist = ['Q9CQV8', 'P35213', 'A4K2U9', 'P31946', 'Q4R572', 'P68250']
+    #out = upg._query_entries(entrylist)
+    #print(out)    
+
     
     

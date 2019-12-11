@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-#  Look up GO annoatations from UniProtKB:entrys. 
+#  Look up GO annotations from UniProtKB:entrys. 
 #  E.g.  P35213  (1422B_RAT  gene: Ywhab
 # 
 
@@ -8,6 +8,7 @@ import configparser
 import logging
 import requests
 import sys
+from io import  StringIO
 
 import pandas as pd
 import pdpipe as pdp
@@ -17,7 +18,15 @@ import pyarrow.parquet as pq
 import subprocess
 
 class QuickGOPlugin(object):
+
+    '''
+GENEPRODUCTDB GENEPRODUCTID SYMBOL QUALIFIER   GOTERM     GOASPECT ECO ID      GOEVCODE  REFERENCE       WITH/FROM         TAXONID ASSIGNEDBY ANNOTATIONEXTENSIONDATE
+UniProtKB     A4K2U9        YWHAB  involved_in GO:0045744 P        ECO:0000250 ISS       GO_REF:0000024  UniProtKB:P31946  9601    UniProt    20160330
+
+  db          proteinid     gene   goqual      goterm     goaspect  ecoid      goevidence goref          withfrom          taxonid assignby  extdate
     
+    '''
+   
     def __init__(self, config):
         self.log = logging.getLogger()
         self.requestbase = "https://www.ebi.ac.uk/QuickGO/services/annotation"
@@ -31,6 +40,7 @@ class QuickGOPlugin(object):
         '''
         entries = dataframe['tacc'].unique().tolist()
         txt = self._query_entries(entries)
+
 
     def _query_entries(self, entrylist):
         self.log.debug("querying entry list: %s" % entrylist)
@@ -53,20 +63,17 @@ if __name__ == '__main__':
     qg = QuickGOPlugin(config)
     entrylist = ['Q9CQV8', 'P35213', 'A4K2U9', 'P31946', 'Q4R572', 'P68250']
     out = qg._query_entries(entrylist)
-    print(out)    
-
-    #  curl -X GET --header 'Accept:text/tsv' 
-    # 'https://www.ebi.ac.uk/QuickGO/services/annotation/downloadSearch?geneProductId=P0A9Z8'
-    #
-    # GENE PRODUCT DB    GENE PRODUCT ID    SYMBOL    QUALIFIER    GO TERM    GO ASPECT    ECO ID    GO EVIDENCE CODE    REFERENCE    WITH/FROM    TAXON ID    ASSIGNED BY    ANNOTATION EXTENSION    DATE
-    #UniProtKB    P0A9Z8    bla    enables    GO:0008800    F    ECO:0000256    IEA    GO_REF:0000002    InterPro:IPR000871    573    InterPro    20191123
-    #UniProtKB    P0A9Z8    bla    involved_in    GO:0030655    P    ECO:0000256    IEA    GO_REF:0000002    InterPro:IPR000871    573    InterPro        20191123
-    #UniProtKB    P0A9Z8    bla    involved_in    GO:0046677    P    ECO:0000256    IEA    GO_REF:0000002    InterPro:IPR000871    573    InterPro        20191123
-    #UniProtKB    P0A9Z8    bla    enables    GO:0008800    F    ECO:0000501    IEA    GO_REF:0000003    EC:3.5.2.6    573    UniProt        20191123
-    #UniProtKB    P0A9Z8    bla    involved_in    GO:0046677    P    ECO:0000322    IEA    GO_REF:0000037    UniProtKB-KW:KW-0046    573    UniProt        20191123
-    #UniProtKB    P0A9Z8    bla    enables    GO:0016787    F    ECO:0000322    IEA    GO_REF:0000037    UniProtKB-KW:KW-0378    573    UniProt        20191123
-    #
-    #
+    sio = StringIO(out)
+    
+    df = pd.read_table(sio, 
+                  names=['db','proteinid','gene','goqual','goterm','goaspect','ecoid',
+                          'goevidence','goref','withfrom','taxonid','assignby','extdate' ],
+                  skip_blank_lines=True,
+                  comment='#',
+                  skiprows=1,
+                  index_col=False,
+                  )
+    print(df)    
 
 
 
