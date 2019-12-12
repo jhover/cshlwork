@@ -72,7 +72,7 @@ class CAFA4Run(object):
         '''
         self.config = config
         self.targetlist = targetlist
-        self.log = logging.getLogger()
+        self.log = logging.getLogger('CAFA4Run')
         self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.author = config.get('global','author')
         self.modelnumber = config.get('global','modelnumber')
@@ -145,7 +145,7 @@ class PhmmerPlugin(object):
     '''
 
     def __init__(self, config, targetlist):
-        self.log = logging.getLogger()
+        self.log = logging.getLogger('PhmmerPlugin')
         self.config = config
         self.targetlist = targetlist
         self.outdir = os.path.expanduser( config.get('global','outdir') )
@@ -291,7 +291,7 @@ class OrthologPlugin(object):
         '''
         
         '''
-        self.log = logging.getLogger()
+        self.log = logging.getLogger('OrthologPlugin')
         self.config = config
         self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.backend = config.get('ortholog','backend').strip()
@@ -347,7 +347,7 @@ class GOPlugin(object):
         '''
         
         '''
-        self.log = logging.getLogger()
+        self.log = logging.getLogger("GOPlugin")
         self.config = config
         self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.go = ontology.GeneOntologyGOInfoPlugin()
@@ -387,7 +387,10 @@ class GOPlugin(object):
 #    return getattr(sys.modules[__name__], klassname)
    
 if __name__ == '__main__':
-    logging.basicConfig(format='%(asctime)s (UTC) [ %(levelname)s ] %(name)s %(filename)s:%(lineno)d %(funcName)s(): %(message)s')
+    
+    #FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(name)s %(filename)s:%(lineno)d %(funcName)s(): %(message)s'
+    FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
+    logging.basicConfig(format=FORMAT)
     
     parser = argparse.ArgumentParser()
       

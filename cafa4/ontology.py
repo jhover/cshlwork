@@ -18,8 +18,7 @@ import pyarrow.parquet as pq
 GOFILE='~/data/go/go.obo' 
 
 class GeneOntologyGOInfoPlugin(object):
-    
-            
+              
     NSMAP= { 'biological_process' : 'bp',
              'cellular_component' : 'cc',
              'molecular_function' : 'mf',
@@ -29,7 +28,7 @@ class GeneOntologyGOInfoPlugin(object):
     
     def __init__(self, config):
         self.gopath = os.path.expanduser(GOFILE)
-        self.log = logging.getLogger()
+        self.log = logging.getLogger('GeneOntologyGOInfoPlugin')
         self.config = config
         
     def get_df(self):

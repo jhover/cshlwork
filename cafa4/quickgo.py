@@ -28,7 +28,7 @@ UniProtKB     A4K2U9        YWHAB  involved_in GO:0045744 P        ECO:0000250 I
     '''
    
     def __init__(self, config):
-        self.log = logging.getLogger()
+        self.log = logging.getLogger('QuickGOPlugin')
         self.requestbase = "https://www.ebi.ac.uk/QuickGO/services/annotation"
         self.config = config
 

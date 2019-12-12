@@ -23,7 +23,7 @@ class UniProtGOPlugin(object):
     '''
 
     def __init__(self, config):
-        self.log = logging.getLogger()
+        self.log = logging.getLogger('UniProtGOPlugin')
         self.uniprot = UniProt()
         self.outdir = os.path.expanduser( config.get('global','outdir') )
 
