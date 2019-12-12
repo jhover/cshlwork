@@ -63,7 +63,7 @@ import uniprot
 
 class CAFA4Run(object):
     
-    def __init__(self, config, targetlist):
+    def __init__(self, config, targetfile, name=None):
         '''
         Embodies all the processing for a single run against all targets.
         Overall input is a set of Target sequence files. 
@@ -71,7 +71,12 @@ class CAFA4Run(object):
         
         '''
         self.config = config
-        self.targetlist = targetlist
+        self.targetfile = targetfile
+        if name is None:
+            self.name = config.get('global','name')
+        else:
+            self.name = name
+            self.config.set('global','name',self.name)
         self.log = logging.getLogger('CAFA4Run')
         self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.author = config.get('global','author')
@@ -83,12 +88,12 @@ class CAFA4Run(object):
     
     def __repr__(self):
         s = "CAFA4Run:"
-        for atr in ['outdir','targetlist','pipeline']:
+        for atr in ['name', 'outdir','targetlist','pipeline']:
             s += " %s=%s" % (atr, self.__getattribute__(atr))
         return s
 
 
-    def _cafafile(self, ):
+    def cafafile(self, dataframe):
         '''
         Produce properly-formated CAFA submission file:
         
@@ -106,24 +111,38 @@ class CAFA4Run(object):
         .
         
         '''
-        pass
-    
+        cafafile = "%s/gillislab_1_%s_go.txt" % (self.outdir,  "287")
+        f = open( cafafile, 'w' )
+        
+        s = ""
+        s += "%s\t%s\n" % (self.author, 'GILLIS_LAB')
+        s += "MODEL\t%s\n" % 1
+        s += "KEYWORDS\torthologs, phmmer\n"
+        s += "ACCURACY\t1\tPR=%f;\tRC=%f\n" % (0.50, 0.50) 
+        for row in dataframe.iterrows():
+            target = row[1]['cafaid']
+            goterm = row[1]['goterm']
+            s += "%s\t%s\n" % (target, goterm)
+        s+="END\n"
+        
+        f.write(s)
+        f.close()
     
     def execute(self):
         self.log.info("Begin run...")
         
-        phm = PhmmerPlugin(self.config, self.targetlist)
+        phm = PhmmerPlugin(self.config, self.targetfile)
         self.log.debug(phm)
         df = phm.execute()
         
         self.log.info("\n%s" % str(df))
-        df.to_csv("%s/%s-phmmer.csv" % (self.outdir, self.outbase))
+        df.to_csv("%s/%s-%s-phmmer.csv" % (self.outdir, self.name,  self.outbase))
         
         ortho = OrthologPlugin(self.config)
         self.log.debug(ortho)
         df = ortho.execute(df)
         self.log.info("\n%s" % str(df))
-        df.to_csv("%s/%s-ortho.csv" % (self.outdir, self.outbase))
+        df.to_csv("%s/%s-%s-ortho.csv" % (self.outdir, self.name, self.outbase))
         
         
         # not needed if we use quickgo. contains both evidence codes and go_aspect
@@ -131,7 +150,7 @@ class CAFA4Run(object):
         #df = go.execute(df)
         #self.log.info("\n%s" % str(df))
                   
-        #self.cafafile("%s/.csv" % (self.outdir, self.outbase)
+        self.cafafile(df)
         
         self.log.info("Ending run...")
 
@@ -144,10 +163,10 @@ class PhmmerPlugin(object):
     Output:  Pandas DataFrame
     '''
 
-    def __init__(self, config, targetlist):
+    def __init__(self, config, targetfile):
         self.log = logging.getLogger('PhmmerPlugin')
         self.config = config
-        self.targetlist = targetlist
+        self.targetfile = targetfile
         self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.database = os.path.expanduser( config.get('phmmer','database') )
         self.score_threshold = config.get('phmmer','score_threshold')
@@ -161,15 +180,11 @@ class PhmmerPlugin(object):
     
     def execute(self):
         self._get_targetinfo()
-        outlist = self.run_phmmer_files(self.targetlist, self.database)
-        self.log.debug("phmmer outlist=%s" % outlist)
-        outdfs = []
-        for outfile in outlist:
-            df = self.read_phmmer_table(outfile)
-            outdfs.append(df)
-        self.log.debug("dflist is %s" % outdfs)
-        df = pd.concat(outdfs, ignore_index=True)
-    
+        outfile = self.run_phmmer_file(self.targetfile , self.database)
+        self.log.debug("phmmer outfile=%s" % outfile)
+        df = self.read_phmmer_table(outfile)
+        #self.log.debug("dflist is %s" % outdfs)
+        #df = pd.concat(outdfs, ignore_index=True)
         self.log.debug(str(df))
         return df
             
@@ -182,16 +197,15 @@ class PhmmerPlugin(object):
         
         '''
         self.targetinfo={}
-        for file in self.targetlist:
-            filehandle = open(file, 'r')
-            for line in filehandle:
-                if line.startswith('>'):
-                    (targetid , prot_spec) = line.split()
-                    targetid = targetid[1:]
-                    (cafaprot, cafaspec) = prot_spec.split('_')
-                    self.targetinfo[targetid] = [cafaprot, cafaspec]
-                else:
-                    pass
+        filehandle = open(self.targetfile, 'r')
+        for line in filehandle:
+            if line.startswith('>'):
+                (targetid , prot_spec) = line.split()
+                targetid = targetid[1:]
+                (cafaprot, cafaspec) = prot_spec.split('_')
+                self.targetinfo[targetid] = [cafaprot, cafaspec]
+            else:
+                pass
                
         #except Exception as e:
         #    traceback.print_exc(file=sys.stdout)                
@@ -202,9 +216,7 @@ class PhmmerPlugin(object):
     
     def run_phmmer_files(self, targetlist, database="/data/hover/data/uniprot/uniprot_sprot.fasta"):
     #
-    #  time phmmer --tblout 7955.phmmer.2.txt 
-    #              --cpu 16 
-    #              --noali 
+    #  time phmmer --tblout 7955.phmmer.2.txt --cpu 16  --noali 
     #              ~/data/cafa4/TargetFiles/sp_species.7955.tfa 
     #              ~/data/uniprot/uniprot_sprot.fasta 
     #              > 7955.phmmer.console.out 2>&1
@@ -225,6 +237,22 @@ class PhmmerPlugin(object):
             outlist.append(outfile)
             self.log.debug("Ran cmd='%s' outfile=%s returncode=%s " % (cmd,outfile, cp.returncode))
         return outlist
+
+    def run_phmmer_file(self, targetfile, database="/data/hover/data/uniprot/uniprot_sprot.fasta"):
+      
+        dbase = database
+        if not os.path.exists(targetfile):
+            raise FileNotFoundError()
+        (cmd, outfile) = self._make_phmmer_cmdline(targetfile)
+        self.log.debug("Running cmd='%s' outfile=%s " % (cmd, outfile))
+        cp = subprocess.run(cmd, 
+                            shell=True, 
+                            universal_newlines=True, 
+                            stdout=subprocess.PIPE, 
+                            stderr=subprocess.PIPE)
+        self.log.debug("Ran cmd='%s' outfile=%s returncode=%s " % (cmd,outfile, cp.returncode))
+        return outfile
+
             
     def _make_phmmer_cmdline(self, filename):
         outpath = os.path.dirname(filename)
@@ -404,11 +432,10 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
 
-    parser.add_argument('infiles', 
-                        metavar='infiles', 
+    parser.add_argument('infile', 
+                        metavar='infile', 
                         type=str, 
-                        nargs='+',
-                        help='a list of .fasta sequence files')
+                        help='a .fasta sequence files')
     
     parser.add_argument('-c', '--config', 
                         action="store", 
@@ -416,10 +443,11 @@ if __name__ == '__main__':
                         default='~/etc/cafa4.conf',
                         help='Config file path [~/etc/cafa4.conf]')
 
-
-
-
-
+    parser.add_argument('-n', '--name', 
+                        action="store", 
+                        dest='runname', 
+                        default='default',
+                        help='Run-specific identifier to use in file output.')    
                     
     args= parser.parse_args()
     
@@ -431,6 +459,6 @@ if __name__ == '__main__':
     cp = ConfigParser()
     cp.read(args.conffile)
            
-    c4run = CAFA4Run(cp, args.infiles)
+    c4run = CAFA4Run(cp, args.infile, args.runname)
     logging.debug(c4run)
     c4run.execute()
