@@ -104,8 +104,8 @@ class CAFA4Run(object):
         MODEL          1
         KEYWORDS       orthologs, phmmer
         ACCURACY       1  PR=0.86; RC=0.30
-        T100900000001  GO:0042203
-        T100900000002  GO:0003998
+        T100900000001  GO:0042203    .85
+        T100900000002  GO:0003998    .03
         .
         .
         .
@@ -122,7 +122,8 @@ class CAFA4Run(object):
         for row in dataframe.iterrows():
             target = row[1]['cafaid']
             goterm = row[1]['goterm']
-            s += "%s\t%s\n" % (target, goterm)
+            certainty = 0.50  # 1.00 for call/no-call ->  precision/recall *point*. 
+            s += "%s\t%s\t%s\n" % (target, goterm, certainty)
         s+="END\n"
         
         f.write(s)

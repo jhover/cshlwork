@@ -14,8 +14,29 @@ import pdpipe as pdp
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
+from __builtin__ import None
+from CoreGraphics import kCGImageAlphaNoneSkipFirst
+from pickle import NONE
 
 GOFILE='~/data/go/go.obo' 
+
+class GOTerm(object):
+    
+    def __init__(self ):
+        self.goterm = None
+        self.name = None
+        self.namespace = None
+        self.definition = None
+        self.synonym = []
+        self.is_a = []
+    
+    def __repr__(self):
+        s = "GOTerm:"
+        for atr in ['goterm','name', 'namespace','definition']:
+            s += " %s=%s" % (atr, self.__getattribute__(atr))
+        return s
+        
+        
 
 class GeneOntologyGOInfoPlugin(object):
               
@@ -68,6 +89,74 @@ class GeneOntologyGOInfoPlugin(object):
         except FileNotFoundError:
             self.log.error("No such file %s" % filename)                
         return godict    
+
+    def _handle_file(self, filename):
+        try:
+            self.log.debug("opening file %s" % filename)
+            filehandle = open(filename, 'r')
+            self._parsefile(filehandle)
+            filehandle.close()
+                
+        except FileNotFoundError:
+            self.log.error("No such file %s" % filename)                  
+
+        self._add_references()
+
+
+    def _add_references(self):
+        '''
+        Go through goidx and add foreign refs...
+        '''
+
+    def _parsefile2(self, filename):
+        '''
+        Create in-memory GO network with GOTerm index. 
+        Two passes:
+            1. Do not resolve foreign references, just add them as strings...
+            2. Resolve foreign refs, replacing strings w/ object refs. 
+                
+        goidx = { 'GO:0000001' : <GOTerm Object>,
+                  'GO:0000002' : <<GOTerm Object>,
+        }
+        '''
+  
+        
+        
+        self.goidx = {}
+        current = None
+        try:
+            for line in filehandle:
+                if line.startswith("[Term]"):     
+                    #self.log.debug("found term")
+                    if current is not None:
+                        goidx[current.goterm]= current
+                        current = GOTerm()
+                    else:
+                        current = []
+                    
+                elif line.startswith("id: "):
+                    current.goterm = line[4:].strip()
+                    
+                elif line.startswith("name: "):
+                    current.name = line[6:].strip()
+                
+                elif line.startswith("namespace: "):
+                    current.namespace = line[11:].strip()
+                
+                elif line.startswith("def: "):
+                    current.definition = line[5:].strip()
+
+                elif line.startswith("synonym: "):
+                    current.synonym.append(line[9:].strip())
+
+                elif line.strip().startswith("#"):
+                    pass          
+        
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)                
+        
+        self.log.debug("Parsed file with %d terms" % len(goidx) )
+
             
             
     def _parsefile(self, filehandle):
@@ -137,5 +226,7 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)    
     
     go = GeneOntology()
-    df = go.get_df()
-    print(str(df))
+    go.parsefile2()
+    
+    #df = go.get_df()
+    #print(str(df))
