@@ -198,18 +198,24 @@ class PhmmerPlugin(object):
         
         '''
         self.targetinfo={}
-        filehandle = open(self.targetfile, 'r')
-        for line in filehandle:
-            if line.startswith('>'):
-                (targetid , prot_spec) = line.split()
-                targetid = targetid[1:]
-                (cafaprot, cafaspec) = prot_spec.split('_')
-                self.targetinfo[targetid] = [cafaprot, cafaspec]
-            else:
-                pass
+        filehandle = None
+        try:
+            filehandle = open(self.targetfile, 'r')
+            for line in filehandle:
+                if line.startswith('>'):
+                    (targetid , prot_spec) = line.split()
+                    targetid = targetid[1:]
+                    (cafaprot, cafaspec) = prot_spec.split('_')
+                    self.targetinfo[targetid] = [cafaprot, cafaspec]
+                else:
+                    pass
                
-        #except Exception as e:
-        #    traceback.print_exc(file=sys.stdout)                
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)                
+        
+        finally:
+            if filehandle is not None:
+                filehandle.close()
         
         self.log.debug("Parsed file(s) with %d targets" % len(self.targetinfo) )
         return self.targetinfo
