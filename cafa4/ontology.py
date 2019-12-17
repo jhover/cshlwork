@@ -176,6 +176,7 @@ class GeneOntologyGOInfoPlugin(object):
         Used cached version on disk if available. 
         '''
         data = self.get_dict()
+        #self.log.debug("godict = %s" % data)
         df = pd.DataFrame.from_dict(data, orient='index', columns=['goterm','name','namespace']) 
         df.set_index('goterm')
         df.to_csv('go.csv')
@@ -341,7 +342,7 @@ class GeneOntologyGOInfoPlugin(object):
                     #self.log.debug("found namespace")
                     (key, val ) = line.split(":",1)
                     val = val.strip()
-                    val = GeneOntology.NSMAP[val]
+                    val = GeneOntologyGOInfoPlugin.NSMAP[val]
                     current.append(val)
 
                 elif line.strip().startswith("#"):
@@ -415,4 +416,9 @@ if __name__ == '__main__':
    
     if args.test:
         test()
+    
+    if len(args.goterms) > 0:
+        for gt in args.goterms:
+            gobj = goidx[gt]
+            print("%s -> %s " % (gt, gobj.get_isalist()))
     

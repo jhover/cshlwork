@@ -28,7 +28,7 @@
 # bias          Adjustement to score for char prevalence                       3.5
 # score         BLAST/HMMER/PHMMER bit-score                                   400.3
 # db            
-#
+# probest       Probability estimate for prediction.                           0.68  [.000001-1.0]  
 #
 #
 
@@ -57,7 +57,7 @@ import subprocess
 
 gitpath=os.path.expanduser("~/git/cshl-work/cafa4")
 sys.path.append(gitpath)
-import ontology
+from ontology import GeneOntologyGOInfoPlugin
 import quickgo
 import uniprot
 
@@ -88,7 +88,7 @@ class CAFA4Run(object):
     
     def __repr__(self):
         s = "CAFA4Run:"
-        for atr in ['name', 'outdir','targetlist','pipeline']:
+        for atr in ['name', 'outdir','targetfile','pipeline']:
             s += " %s=%s" % (atr, self.__getattribute__(atr))
         return s
 
@@ -112,22 +112,25 @@ class CAFA4Run(object):
         
         '''
         cafafile = "%s/gillislab_1_%s_go.txt" % (self.outdir,  "287")
+        self.log.debug("Opening cafafile=%s" % cafafile)
         f = open( cafafile, 'w' )
         
         s = ""
         s += "%s\t%s\n" % (self.author, 'GILLIS_LAB')
         s += "MODEL\t%s\n" % 1
         s += "KEYWORDS\torthologs, phmmer\n"
-        s += "ACCURACY\t1\tPR=%f;\tRC=%f\n" % (0.50, 0.50) 
+        s += "ACCURACY\t1\tPR=%f;\tRC=%f\n" % (1.00, 1.00) 
+        self.log.debug("dataframe columns=%s" % dataframe.columns )
         for row in dataframe.iterrows():
             target = row[1]['cafaid']
             goterm = row[1]['goterm']
-            certainty = 0.50  # 1.00 for call/no-call ->  precision/recall *point*. 
-            s += "%s\t%s\t%s\n" % (target, goterm, certainty)
+            probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
+            s += "%s\t%s\t%f\n" % (target, goterm, probest)
         s+="END\n"
         
         f.write(s)
         f.close()
+        return s
     
     def execute(self):
         self.log.info("Begin run...")
@@ -146,39 +149,68 @@ class CAFA4Run(object):
         df.to_csv("%s/%s-%s-ortho.csv" % (self.outdir, self.name, self.outbase))
         
         
+        go = GOPlugin(self.config)        
+        df = go.execute(df)
+        self.log.info("\n%s" % str(df))
+        df.to_csv("%s/%s-%s-go.csv" % (self.outdir, self.name, self.outbase))        
+        
         # not needed if we use quickgo. contains both evidence codes and go_aspect
         #go = GOPlugin(self.config)
         #df = go.execute(df)
         #self.log.info("\n%s" % str(df))
-                  
-        self.cafafile(df)
         
+        cfstr = self.cafafile(df)
+        lines = cfstr.split('\n')
+        summary = '\n'.join(lines[:10] + ['.', '.','.']  + lines[-10:]) 
+        self.log.debug("\n%s" % summary)
         self.log.info("Ending run...")
 
 
-class PhmmerPlugin(object):
+class CAFAPlugin(object):
+    '''
+    A plugin that normally takes a Pandas dataframe as input, executes, and produces another DF.
+    Returns a DF from disk cached if regen=False
+    '''
+    
+    REPR_ATTRS=['outdir']
+    
+    def __init__(self, config):
+        self.config = config
+        self.kname = self.__class__.__name__
+        self.log = logging.getLogger(self.kname)
+        self.outdir = os.path.expanduser( config.get('global','outdir') )
+
+    def __repr__(self):
+        s = "%s:" % self.kname
+        for atr in self.__class__.REPR_ATTRS:
+            s += " %s=%s" % (atr, self.__getattribute__(atr))
+        return s 
+
+    def execute(self, dataframe):
+        self.log.warn("You have called a base Plugin. No change.")
+        return dataframe
+ 
+ 
+
+class PhmmerPlugin(CAFAPlugin):
     '''
     Pipeline object. Takes list of Fasta files to run on, returns pandas dataframe of 
     similar sequences with score. 
     Input:   List of FASTA files 
     Output:  Pandas DataFrame
     '''
+    
+    REPR_ATTRS=['targetfile','database', 'score_threshold','cpus']
 
     def __init__(self, config, targetfile):
-        self.log = logging.getLogger('PhmmerPlugin')
-        self.config = config
+        super(PhmmerPlugin, self).__init__(config)
         self.targetfile = targetfile
-        self.outdir = os.path.expanduser( config.get('global','outdir') )
-        self.database = os.path.expanduser( config.get('phmmer','database') )
-        self.score_threshold = config.get('phmmer','score_threshold')
-        self.cpus = config.get('phmmer','cpus')
-    
-    def __repr__(self):
-        s = "Phmmer:"
-        for atr in ['targetlist','database', 'score_threshold','cpus']:
-            s += " %s=%s" % (atr, self.__getattribute__(atr))
-        return s        
-    
+        self.configname = self.__class__.__name__.lower()
+        self.database = os.path.expanduser( config.get(self.configname, 'database') )
+        self.score_threshold = config.get(self.configname,'score_threshold')
+        self.cpus = config.get(self.configname,'cpus')
+        
+
     def execute(self):
         self._get_targetinfo()
         outfile = self.run_phmmer_file(self.targetfile , self.database)
@@ -315,31 +347,25 @@ class PhmmerPlugin(object):
         return df
     
 
-class OrthologPlugin(object):
+class OrthologPlugin(CAFAPlugin):
     '''
-    Pipeline object. Takes Pandas dataframe, looks up orthologs and GO codes.  
+    Pipeline object. Takes Pandas dataframe
+    looks up orthologs and GO codes.  
     Input:  Pandas DataFrame
     Output: Pandas DataFrame
     '''
+    REPR_ATTRS=['outdir','backend']
 
     def __init__(self, config):
         '''
         
         '''
-        self.log = logging.getLogger('OrthologPlugin')
-        self.config = config
-        self.outdir = os.path.expanduser( config.get('global','outdir') )
-        self.backend = config.get('ortholog','backend').strip()
-        self.exc_ec_list = [i.strip() for i in config.get('ortholog','excluded_evidence_codes').split(',')] 
+        super(OrthologPlugin, self).__init__(config)
+        self.configname = self.__class__.__name__.lower()
+        self.backend = config.get(self.configname ,'backend').strip()
+        self.exc_ec_list = [i.strip() for i in config.get(self.configname, 'excluded_evidence_codes').split(',')] 
         self.uniprot = uniprot.UniProtGOPlugin(self.config)
         self.quickgo = quickgo.QuickGOPlugin(self.config)
-
-
-    def __repr__(self):
-        s = "Orthologs: uniprot"
-        for atr in ['outdir','backend']:
-            s += " %s=%s" % (atr, self.__getattribute__(atr))
-        return s            
 
         
     def execute(self, dataframe):
@@ -369,40 +395,41 @@ class OrthologPlugin(object):
         return newdf
             
     
-
-
-class GOPlugin(object):
+class GOPlugin(CAFAPlugin):
     '''
-    Pipeline object. Takes Pandas dataframe, looks up GO namespace [and evidence codes] by GO term. 
+    Pipeline object. 
+    Takes Pandas dataframe 
+        1) For each proteinid, looks up GO aspect and evidenceid.
+        2) Walks up GO tree, fanning out each line with different GOterm, *increasing* likelihood/prob estimate.  
+
     Input:  Pandas DataFrame
     Output: Pandas DataFrame
+        Added rows
+        Added columns: goaspect  goevidence cafapest
+
     '''
+    REPR_ATTRS=['outdir']
 
     def __init__(self, config):
         '''
         
         '''
-        self.log = logging.getLogger("GOPlugin")
-        self.config = config
-        self.outdir = os.path.expanduser( config.get('global','outdir') )
-        self.go = ontology.GeneOntologyGOInfoPlugin()
+        super(GOPlugin, self).__init__(config)
+        self.configname = self.__class__.__name__.lower()
+        self.go = GeneOntologyGOInfoPlugin(self.config)
 
-
-    def __repr__(self):
-        s = "GO:"
-        for atr in ['outdir']:
-            s += " %s=%s" % (atr, self.__getattribute__(atr))
-        return s 
 
     def execute(self, dataframe):
         gdf = self.go.get_df()
         self.log.debug("\n%a" % str(gdf))
+        
+        dataframe['probest'] = 1.00
         igdf = gdf.set_index('goterm')
         gdict = igdf.to_dict('index')
         # now indexed by goterm   gdict[goterm] -> {'name': 'osteoblast differentiation', 'namespace': 'bp'}
         # rd['GO:0001649']['namespace']  
                 
-        dataframe['namespace'] = dataframe.apply(
+        dataframe['goaspect'] = dataframe.apply(
             lambda row: gdict[row.goterm]['namespace'], 
             axis=1)
         self.log.debug(str(dataframe))
