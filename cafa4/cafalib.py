@@ -436,15 +436,6 @@ class GOPlugin(CAFAPlugin):
         return dataframe
         
 
-
-
-        
-        
-        
-        
-
-
-
 #def get_plugin(klassname):
 #    return getattr(sys.modules[__name__], klassname)
    

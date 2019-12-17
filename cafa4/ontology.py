@@ -90,56 +90,7 @@ class GOTerm(object):
         '''
         il = self.get_isalist()
         s = ' '.join(il)
-        return s
-       
-#    def get_isastr(self):
-#        '''
-#        Return string representation of all is_a parents of this term. 
-#        
-#        '''
-#        # Root terms
-#        s = ""
-#        if len(self.is_a) == 0:
-#            self.log.debug("ROOT TERM!: %s" % self.goterm)
-#            s += ""  
-#            GOTerm.ISA_STRCACHE[self.goterm] = ""
-#        
-#        # Only has one parent
-#        if len(self.is_a) == 1:
-#            try:
-#                item = self.is_a[0]
-#                ns = "%s %s" % (item.goterm, GOTerm.ISA_STRCACHE[item.goterm])
-#                s = ns                
-#            except KeyError:     
-#                ns = "%s %s" % (item.goterm, self.is_a[0].get_isastr())
-#                GOTerm.ISA_STRCACHE[self.goterm] = ns
-                
-        # Has multiple paths to root(s).
-#        else:
-#            try:
-#                nl = GOTerm.ISA_STRCACHE[self.goterm]
-#                self.log.debug("%s used cached str %s" % (self.goterm, ns))
-#                s = ns
-#            except KeyError:
-#                # Must build using lists to ensure no duplicates.
-#                self.log.debug("%s CACHE MISS" % self.goterm)
-#                # not already in cache             
-#                ns = ""
-#                gl = []       
-#                for item in self.is_a:
-#                    gl += item.goterm
-#                    gl = gl.extend( item.get_isalist())
-#                nl = list(collections.OrderedDict.fromkeys(gl))
-#                GOTerm.ISA_LISTCACHE[self.goterm] = nl
-#                
-#                ns = ' '.join(nl)
-#                # store flattened, deduped list of strings to string cache...
-#                GOTerm.ISA_STRCACHE[self.goterm] = ns
-#                s =  ns
-#                self.log.debug("%s created new str %s" % (self.goterm, s))
-#                # remove dupes, and flatten to single string.? 
-#        return s
-    
+        return s   
     
     def __repr__(self):
         s = "GOTerm:"
@@ -149,7 +100,6 @@ class GOTerm(object):
             s += " %s=%s" % (atr, self.__getattribute__(atr))
         return s
         
-
 
 class GeneOntologyGOInfoPlugin(object):
               
