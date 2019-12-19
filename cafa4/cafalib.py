@@ -118,7 +118,7 @@ class CAFA4Run(object):
         s = ""
         s += "%s\t%s\n" % (self.author, 'GILLIS_LAB')
         s += "MODEL\t%s\n" % 1
-        s += "KEYWORDS\torthologs, phmmer\n"
+        s += "KEYWORDS\tortholog, gene expression\n"
         s += "ACCURACY\t1\tPR=%f;\tRC=%f\n" % (1.00, 1.00) 
         self.log.debug("dataframe columns=%s" % dataframe.columns )
         for row in dataframe.iterrows():
@@ -440,8 +440,6 @@ class GOPlugin(CAFAPlugin):
 #    return getattr(sys.modules[__name__], klassname)
    
 if __name__ == '__main__':
-    
-    #FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(name)s %(filename)s:%(lineno)d %(funcName)s(): %(message)s'
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
     logging.basicConfig(format=FORMAT)
     

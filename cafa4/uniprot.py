@@ -221,8 +221,6 @@ cf...
         #self.name = record.name
             
         
-
-    
     def _dat2upr(self):
         self.log.debug("opening swissprot dat file %s" % self.sprotdatfile)
         rgen = SeqIO.parse(self.sprotdatfile,"swiss")
@@ -232,10 +230,10 @@ cf...
         for record in rgen:
             upr = UniProtRecord(record)
             uprlist.append(upr)
-            print(record)
+            #print(record)
             i += 1
-            if i >= 10:
-                break
+            #if i >= 10:
+            #    break
         self.log.debug("parsed dat file of %d records" % len(uprlist))
         return uprlist
 
@@ -380,8 +378,5 @@ if __name__ == '__main__':
     cp.read(args.conffile)
 
     # test_uniprot(config)
-    #test_datparse(cp)
-    test_speciesmap(cp)
-
-    
-    
+    test_datparse(cp)
+    #test_speciesmap(cp)
