@@ -22,12 +22,12 @@ from cafa4.cafalib import CAFAPlugin
 
 
 class PhmmerPlugin(CAFAPlugin):
-    '''
+    """
     Pipeline object. Takes list of Fasta files to run on, returns pandas dataframe of 
     similar sequences with score. 
     Input:   List of FASTA files 
     Output:  Pandas DataFrame
-    '''
+    """
     
     REPR_ATTRS=['targetfile','database', 'score_threshold','cpus']
 
@@ -51,13 +51,13 @@ class PhmmerPlugin(CAFAPlugin):
         return df
             
     def _get_targetinfo(self):
-        '''
+        """
         Reads self.targetlist files, pulls out 
         target entry info 
         Returns dict of list.
            <targetid> : [<cafaprotein>, <cafaspecies> ]
         
-        '''
+        """
         self.targetinfo={}
         filehandle = None
         try:

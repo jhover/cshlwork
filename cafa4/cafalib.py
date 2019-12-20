@@ -61,10 +61,10 @@ import subprocess
 
     
 def get_plugin(klassname):
-    '''
+    """
      load plugin by name from sub-directory
 
-    '''
+    """
     mname = "cafa4.plugins.%s" %  klassname.lower()
     logging.debug("attempting import of module %s" % mname)
     mod = import_module(mname)
@@ -77,12 +77,12 @@ def get_plugin(klassname):
 class CAFA4Run(object):
     
     def __init__(self, config, targetfile, name=None):
-        '''
+        """
         Embodies all the processing for a single run against all targets.
         Overall input is a set of Target sequence files. 
         Overall output is a properly-formatted CAFA4 prediction file.   
         
-        '''
+        """
         self.config = config
         self.targetfile = targetfile
         if name is None:
@@ -107,7 +107,7 @@ class CAFA4Run(object):
 
 
     def cafafile(self, dataframe):
-        '''
+        """
         Produce properly-formated CAFA submission file:
         
         E.g. filename:    gillislab_1_10090_go.txt
@@ -123,7 +123,7 @@ class CAFA4Run(object):
         .
         .
         
-        '''
+        """
         cafafile = "%s/gillislab_1_%s_go.txt" % (self.outdir,  "287")
         self.log.debug("Opening cafafile=%s" % cafafile)
         f = open( cafafile, 'w' )
@@ -187,10 +187,10 @@ class CAFA4Run(object):
 
 
 class CAFAPlugin(object):
-    '''
+    """
     A plugin that normally takes a Pandas dataframe as input, executes, and produces another DF.
     Returns a DF from disk cached if regen=False
-    '''
+    """
     
     REPR_ATTRS=['outdir']
     

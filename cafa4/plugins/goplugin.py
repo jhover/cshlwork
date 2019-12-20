@@ -11,7 +11,7 @@ from cafa4.cafalib import CAFAPlugin
 from cafa4.ontology import GeneOntologyGOInfoPlugin
 
 class GOPlugin(CAFAPlugin):
-    '''
+    """
     Pipeline object. 
     Takes Pandas dataframe 
         1) For each proteinid, looks up GO aspect and evidenceid.
@@ -22,13 +22,13 @@ class GOPlugin(CAFAPlugin):
         Added rows
         Added columns: goaspect  goevidence cafapest
 
-    '''
+    """
     REPR_ATTRS=['outdir']
 
     def __init__(self, config):
-        '''
+        """
         
-        '''
+        """
         super(GOPlugin, self).__init__(config)
         self.configname = self.__class__.__name__.lower()
         self.go = GeneOntologyGOInfoPlugin(self.config)
