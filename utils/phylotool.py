@@ -40,6 +40,17 @@
 #        tree <- read.tree(text = treeText) ## load tree 
 #    distMat <- cophenetic(tree) ## generate dist matrix
 #
+#     See: https://biopython.org/wiki/Phylo_cookbook
+#     for distance matrix calculation using biopython
+#
+#
+#
+
+import argparse
+import logging
+
+from Bio import Phylo
+import numpy as np
 
 
 class Phylogeny(object):
@@ -53,8 +64,31 @@ class Phylogeny(object):
          Reads NHX format file,...
         """
         self.log.debug("Reading file %s" % filepath)
-
-
+        tree = Phylo.read(filepath, 'newick')
+        print(tree)
+        
+    def to_distance_matrix(tree):
+        """Create a distance matrix (NumPy array) from clades/branches in tree.
+    
+        A cell (i,j) in the array is the length of the branch between allclades[i]
+        and allclades[j], if a branch exists, otherwise infinity.
+    
+        Returns a tuple of (allclades, distance_matrix) where allclades is a list of
+        clades and distance_matrix is a NumPy 2D array.
+        """
+        allclades = list(tree.find_clades(order='level'))
+        lookup = {}
+        for i, elem in enumerate(allclades):
+            lookup[elem] = i
+        distmat = numpy.repeat(numpy.inf, len(allclades)**2)
+        distmat.shape = (len(allclades), len(allclades))
+        for parent in tree.find_clades(terminal=False, order='level'):
+            for child in parent.clades:
+                if child.branch_length:
+                    distmat[lookup[parent], lookup[child]] = child.branch_length
+        if not tree.rooted:
+            distmat += distmat.transpose
+        return (allclades, numpy.matrix(distmat))
 
 
 
@@ -77,7 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('infile', 
                         metavar='infile', 
                         type=str, 
-                        help='a .fasta sequence files')
+                        help='a phylegeny file NHX')
     
     parser.add_argument('-c', '--config', 
                         action="store", 
@@ -96,5 +130,7 @@ if __name__ == '__main__':
     #cp = ConfigParser()
     #cp.read(args.conffile)
          
+    p = Phylogeny()
+    p.parsefile(args.infile)
          
          
