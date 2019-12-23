@@ -100,10 +100,11 @@ class Phylogeny(object):
         """
         self.distmatrix = OrderedDict()
         terminals = self.tree.get_terminals()
+        terminals.sort(key=lambda x: x.name, reverse=True)
         mdim = len(terminals)
         self.log.debug("%d  terminals.." % mdim)
         i = 0
-        for x,y in itertools.combinations(terminals, 2):
+        for x,y in itertools.combinations_with_replacement(terminals, 2):
             if i % 1000 == 0:
                 self.log.debug("Handling combination %d" % i)
             v = self.tree.distance(x, y)
