@@ -47,10 +47,15 @@
 #
 
 import argparse
+import itertools
 import logging
 
 from Bio import Phylo
 import numpy as np
+import pandas as pd
+
+#pd.set_option("display.max_rows", 15)
+#pd.set_option("display.max_columns", 15)
 
 
 class Phylogeny(object):
@@ -58,16 +63,22 @@ class Phylogeny(object):
     def __init__(self):
         self.kname = self.__class__.__name__
         self.log = logging.getLogger(self.kname)
+        self.tree = None
+        self.distmatrix = None
+        
+    def __repr__(self):
+        pass
         
     def parsefile(self, filepath):
         """
          Reads NHX format file,...
         """
         self.log.debug("Reading file %s" % filepath)
-        tree = Phylo.read(filepath, 'newick')
-        print(tree)
+        self.tree = Phylo.read(filepath, 'newick')
+        self.log.debug("tree is %s" % self.tree )
+        #print(tree)
         
-    def to_distance_matrix(tree):
+    def to_distance_matrix(self):
         """Create a distance matrix (NumPy array) from clades/branches in tree.
     
         A cell (i,j) in the array is the length of the branch between allclades[i]
@@ -76,21 +87,78 @@ class Phylogeny(object):
         Returns a tuple of (allclades, distance_matrix) where allclades is a list of
         clades and distance_matrix is a NumPy 2D array.
         """
-        allclades = list(tree.find_clades(order='level'))
+        allclades = list(self.tree.find_clades(order='level'))
+        #self.log.debug("allclades: %s" % allclades)
         lookup = {}
         for i, elem in enumerate(allclades):
             lookup[elem] = i
-        distmat = numpy.repeat(numpy.inf, len(allclades)**2)
+        distmat = np.repeat(np.inf, len(allclades)**2)
         distmat.shape = (len(allclades), len(allclades))
-        for parent in tree.find_clades(terminal=False, order='level'):
+        self.log.debug( distmat.shape)
+        for parent in self.tree.find_clades(terminal=False, order='level'):
             for child in parent.clades:
                 if child.branch_length:
                     distmat[lookup[parent], lookup[child]] = child.branch_length
-        if not tree.rooted:
-            distmat += distmat.transpose
-        return (allclades, numpy.matrix(distmat))
+        if not self.tree.rooted:
+            self.log.debug("distmat is %s" % distmat)
+            self.log.debug("distmat type is %s" % type(distmat))
+            dt = distmat.transpose()
+            self.log.debug("distmat.transpose type is %s" % type(dt))            
+            distmat += distmat.transpose()
+        self.distmatrix = np.matrix(distmat)
+        return (allclades, self.distmatrix )
+        
+    def get_distance_matrix(self):
+        """
+        
+        We want a list of row/column names, and a corresponding 2D matrix
+        
+        names = ['75743','137246','7950']
+        
+        data = 
+        
+        Note: Takes about ~7 minutes with 876 terminals on a 2019 Macbook Pro
+        
+        """
+        self.distmatrix = {}
+        terminals = self.tree.get_terminals()
+        mdim = len(terminals)
+        self.log.debug("%d  terminals.." % mdim)
+        i = 0
+        for x,y in itertools.combinations(terminals, 2):
+            if i % 1000 == 0:
+                self.log.debug("Handling combination %d" % i)
+            v = self.tree.distance(x, y)
+            self.distmatrix[x.name] = self.distmatrix.get(x.name, {})
+            self.distmatrix[x.name][y.name] = v
+            self.distmatrix[y.name] = self.distmatrix.get(y.name, {})
+            self.distmatrix[y.name][x.name] = v
+            i += 1
+        
+        self.log.debug("Done computing distances. Filling diagonal...")
+        for x in terminals:
+            self.distmatrix[x.name][x.name] = 0
+        
+        self.log.debug(self.distmatrix)
+
+        colnames = list(self.distmatrix.keys())
+        return ( colnames, self.distmatrix )        
 
 
+    def to_df(self):
+        #(allclades, distmatrix) = self.to_distance_matrix()
+        #df = pd.DataFrame(data = distmatrix,
+        #                  index = allclades,
+        #                  columns = allclades)
+        if self.distmatrix is not None:
+            self.log.debug("Found completed distmatrix. Converting...")
+        else:
+            self.log.debug("No distmatrix found. Computing...")
+            self.get_distance_matrix()
+        df = pd.DataFrame(self.distmatrix)    
+        return df
+    
+    
 
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
@@ -132,5 +200,8 @@ if __name__ == '__main__':
          
     p = Phylogeny()
     p.parsefile(args.infile)
-         
+    (terminals, matrix) = p.get_distance_matrix()
+    print(terminals)
+    df = p.to_df()
+    print(df)
          
