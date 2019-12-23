@@ -50,6 +50,8 @@ import argparse
 import itertools
 import logging
 
+from collections import OrderedDict
+
 from Bio import Phylo
 import numpy as np
 import pandas as pd
@@ -65,6 +67,8 @@ class Phylogeny(object):
         self.log = logging.getLogger(self.kname)
         self.tree = None
         self.distmatrix = None
+        self.df = None
+        self.filepath = None
         
     def __repr__(self):
         pass
@@ -74,39 +78,11 @@ class Phylogeny(object):
          Reads NHX format file,...
         """
         self.log.debug("Reading file %s" % filepath)
+        self.filepath = filepath
         self.tree = Phylo.read(filepath, 'newick')
         self.log.debug("tree is %s" % self.tree )
         #print(tree)
-        
-    def to_distance_matrix(self):
-        """Create a distance matrix (NumPy array) from clades/branches in tree.
-    
-        A cell (i,j) in the array is the length of the branch between allclades[i]
-        and allclades[j], if a branch exists, otherwise infinity.
-    
-        Returns a tuple of (allclades, distance_matrix) where allclades is a list of
-        clades and distance_matrix is a NumPy 2D array.
-        """
-        allclades = list(self.tree.find_clades(order='level'))
-        #self.log.debug("allclades: %s" % allclades)
-        lookup = {}
-        for i, elem in enumerate(allclades):
-            lookup[elem] = i
-        distmat = np.repeat(np.inf, len(allclades)**2)
-        distmat.shape = (len(allclades), len(allclades))
-        self.log.debug( distmat.shape)
-        for parent in self.tree.find_clades(terminal=False, order='level'):
-            for child in parent.clades:
-                if child.branch_length:
-                    distmat[lookup[parent], lookup[child]] = child.branch_length
-        if not self.tree.rooted:
-            self.log.debug("distmat is %s" % distmat)
-            self.log.debug("distmat type is %s" % type(distmat))
-            dt = distmat.transpose()
-            self.log.debug("distmat.transpose type is %s" % type(dt))            
-            distmat += distmat.transpose()
-        self.distmatrix = np.matrix(distmat)
-        return (allclades, self.distmatrix )
+       
         
     def get_distance_matrix(self):
         """
@@ -117,10 +93,12 @@ class Phylogeny(object):
         
         data = 
         
-        Note: Takes about ~7 minutes with 876 terminals on a 2019 Macbook Pro
+        Note: Takes about ~2 seconds with 119 terminals on a 2019 Macbook Pro
+              Takes about ~38 seconds with 459 terminals on a 2019 Macbook Pro    
+              Takes about ~7 minutes with 876 terminals on a 2019 Macbook Pro
         
         """
-        self.distmatrix = {}
+        self.distmatrix = OrderedDict()
         terminals = self.tree.get_terminals()
         mdim = len(terminals)
         self.log.debug("%d  terminals.." % mdim)
@@ -129,9 +107,9 @@ class Phylogeny(object):
             if i % 1000 == 0:
                 self.log.debug("Handling combination %d" % i)
             v = self.tree.distance(x, y)
-            self.distmatrix[x.name] = self.distmatrix.get(x.name, {})
+            self.distmatrix[x.name] = self.distmatrix.get(x.name, OrderedDict())
             self.distmatrix[x.name][y.name] = v
-            self.distmatrix[y.name] = self.distmatrix.get(y.name, {})
+            self.distmatrix[y.name] = self.distmatrix.get(y.name, OrderedDict())
             self.distmatrix[y.name][x.name] = v
             i += 1
         
@@ -155,9 +133,16 @@ class Phylogeny(object):
         else:
             self.log.debug("No distmatrix found. Computing...")
             self.get_distance_matrix()
-        df = pd.DataFrame(self.distmatrix)    
-        return df
-    
+        self.df = pd.DataFrame(self.distmatrix, columns = self.distmatrix.keys())    
+        return self.df
+
+    def to_csv(self):
+        if self.df is not None:
+            self.log.debug("DataFrame found. Using...")
+        else:
+            self.log.debug("No DataFrame found. Computing...")
+            self.to_df()
+        self.df.to_csv("%s.csv" % self.filepath)
     
 
 if __name__ == '__main__':
@@ -204,4 +189,5 @@ if __name__ == '__main__':
     print(terminals)
     df = p.to_df()
     print(df)
+    p.to_csv()
          
