@@ -2,25 +2,18 @@
 #
 # Prints one or more specified GO terms for OBO file to stdout. 
 # usage gocat.py  <GOTERM>
-#!/usr/bin/env python
-#
-#  Consume .obo file and .gaf
-#  output  .CSV file with:
-#  
-#          
-#            F1   F2   f3   f4
-#   gene 1   0     1    0    1
-#   gene 2   1     0    0    0
-#   gene 3   0     1    1    0 
-# 
-#
-#   .obo
+
 #      
 
 import argparse
 from configparser import ConfigParser
 import logging
 import os
+
+gitpath=os.path.expanduser("~/git/cshl-work")
+sys.path.append(gitpath)
+
+from cafa4.ontology import GeneOntology, GOMatrix
 
 OBOFILE=os.path.expanduser('~/data/go/go.obo') 
 GAFFILE=os.path.expanduser('~/data/go/zfin.gaf')
@@ -43,8 +36,7 @@ def gocat(gotermlist):
                 found = False
             if found and not line.startswith("[Term]"):
                 print(line.strip()) 
-        
-
+    
 
 if __name__ == '__main__':
     

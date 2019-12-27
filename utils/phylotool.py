@@ -49,6 +49,7 @@
 import argparse
 import itertools
 import logging
+import os
 
 from collections import OrderedDict
 
@@ -129,12 +130,18 @@ class Phylogeny(object):
         #df = pd.DataFrame(data = distmatrix,
         #                  index = allclades,
         #                  columns = allclades)
-        if self.distmatrix is not None:
-            self.log.debug("Found completed distmatrix. Converting...")
+        csvpath = "%s.csv" % self.filepath
+        if os.path.exists(csvpath):
+            self.df = pd.read_csv(csvpath)
+        
         else:
-            self.log.debug("No distmatrix found. Computing...")
-            self.get_distance_matrix()
-        self.df = pd.DataFrame(self.distmatrix, columns = self.distmatrix.keys())    
+            if self.distmatrix is not None:
+                self.log.debug("Found completed distmatrix. Converting...")
+            else:
+                self.log.debug("No distmatrix found. Computing...")
+                self.get_distance_matrix()
+            self.df = pd.DataFrame(self.distmatrix, columns = self.distmatrix.keys())    
+        
         return self.df
 
     def to_csv(self):
@@ -186,8 +193,8 @@ if __name__ == '__main__':
          
     p = Phylogeny()
     p.parsefile(args.infile)
-    (terminals, matrix) = p.get_distance_matrix()
-    print(terminals)
+    #(terminals, matrix) = p.get_distance_matrix()
+    #print(terminals)
     df = p.to_df()
     print(df)
     p.to_csv()

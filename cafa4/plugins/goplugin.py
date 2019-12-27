@@ -8,7 +8,7 @@ gitpath=os.path.expanduser("~/git/cshl-work")
 sys.path.append(gitpath)
 
 from cafa4.cafalib import CAFAPlugin
-from cafa4.ontology import GeneOntologyGOInfoPlugin
+from cafa4.ontology import GeneOntology
 
 class GOPlugin(CAFAPlugin):
     """
@@ -31,7 +31,7 @@ class GOPlugin(CAFAPlugin):
         """
         super(GOPlugin, self).__init__(config)
         self.configname = self.__class__.__name__.lower()
-        self.go = GeneOntologyGOInfoPlugin(self.config)
+        self.go = GeneOntology(self.config)
 
 
     def execute(self, dataframe):

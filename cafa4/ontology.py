@@ -1,7 +1,16 @@
 #!/usr/bin/env python
 #
+#  Consume .obo file and .gaf
+#  output dataframe
+#  save/load CSV
+#          
+#            F1   F2   f3   f4  ...
+#   gene 1   0     1    0    1
+#   gene 2   1     0    0    0
+#   gene 3   0     1    1    0 
+#    ...  
 #
-#
+#   .obo
 import argparse
 import collections
 from configparser import ConfigParser
@@ -18,8 +27,28 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 
-GOFILE='~/data/go/go.obo' 
-#GOFILE='~/data/go/smallgo.obo' 
+class GOMatrix(object):
+    """
+    matrix of genes x goterms
+    optionally extended by all is_a relationships..
+    
+    
+    """
+    
+    def __init__(self, config):
+        self.config = config
+        self.cachepath = config.get('ontology','cachepath')
+        self.df = None
+        
+
+
+    def get_df(self, cache=True):
+        pass
+    
+    def _df_from_cache(self):
+        self.log.debug("Trying to load from cache: %s" % self.cachepath )  
+        self.df = pd.read_csv(self.cachepath)
+        
 
 
 class GOTerm(object):
@@ -30,7 +59,7 @@ class GOTerm(object):
         self.log = logging.getLogger("GOTerm")
         self.goterm = None
         self.name = None
-        self.namespace = None
+        self.aspect = None
         self.definition = None
         self.synonym = []
         self.is_a = []
@@ -96,12 +125,12 @@ class GOTerm(object):
         s = "GOTerm:"
         #for atr in ['goterm','name', 'namespace','definition']:
         #for atr in ['goterm','name', 'namespace','is_a']:
-        for atr in ['goterm','name', 'namespace']:
+        for atr in ['goterm','name', 'aspect']:
             s += " %s=%s" % (atr, self.__getattribute__(atr))
         return s
         
 
-class GeneOntologyGOInfoPlugin(object):
+class GeneOntology(object):
               
     NSMAP= { 'biological_process' : 'bp',
              'cellular_component' : 'cc',
@@ -109,16 +138,14 @@ class GeneOntologyGOInfoPlugin(object):
              'external'           : 'ex'
             }
         
-    def __init__(self, config):
-        self.gopath = os.path.expanduser(GOFILE)
-        self.log = logging.getLogger('GeneOntologyGOInfoPlugin')
+    def __init__(self, config, obofile=None):
         self.config = config
+        if obofile is None:
+            self.obofile = os.path.expanduser(self.config.get('ontology','obofile'))
+        self.log = logging.getLogger('GeneOntology')
         self.goidx = {}   #  { 'GO:XXXXXX' : GoTermObject, }      
         self.isalists = {}
-        #
-        #   { '1' : '2  3  4   6  root',
-        #     '2' : '3  4   6  root',
-        #     '6' : 'root',
+
         
     def get_df(self):
         '''
@@ -127,14 +154,14 @@ class GeneOntologyGOInfoPlugin(object):
         '''
         data = self.get_dict()
         #self.log.debug("godict = %s" % data)
-        df = pd.DataFrame.from_dict(data, orient='index', columns=['goterm','name','namespace']) 
+        df = pd.DataFrame.from_dict(data, orient='index', columns=['goterm','name','aspect']) 
         df.set_index('goterm')
         df.to_csv('go.csv')
         self.log.debug(str(df))
         return df
     
     def get_dict(self):
-        dict = self._handle_obo(self.gopath)
+        dict = self._handle_obo(self.obofile)
         return dict
 
     def get_tree_termindex(self):
@@ -146,8 +173,8 @@ class GeneOntologyGOInfoPlugin(object):
         '''
         filehandle = None
         try:
-            self.log.debug("opening file %s" % self.gopath)
-            filehandle = open(self.gopath, 'r')
+            self.log.debug("opening file %s" % self.obofile)
+            filehandle = open(self.obofile, 'r')
             self._parse2tree(filehandle)
             filehandle.close()
                 
@@ -194,10 +221,6 @@ class GeneOntologyGOInfoPlugin(object):
 
         self._add_references()
 
-
-
-    
-
     def _parse2tree(self, filehandle):
         '''
         Create in-memory GO tree with GOTerm index. 
@@ -211,7 +234,7 @@ class GeneOntologyGOInfoPlugin(object):
         '''      
         self.goidx = {}
         current = None
-        self.log.info("Parsing file %s" % self.gopath)
+        self.log.info("Parsing file %s" % self.obofile)
         try:
             for line in filehandle:
                 #self.log.debug("line is %s" % line)
@@ -260,7 +283,6 @@ class GeneOntologyGOInfoPlugin(object):
                 newisa.append(self.goidx[gt])
             gto.is_a = newisa        
             
-            
     def _parsefile(self, filehandle):
         od = {}
         keyid = 0
@@ -292,17 +314,14 @@ class GeneOntologyGOInfoPlugin(object):
                     #self.log.debug("found namespace")
                     (key, val ) = line.split(":",1)
                     val = val.strip()
-                    val = GeneOntologyGOInfoPlugin.NSMAP[val]
+                    val = GeneOntology.NSMAP[val]
                     current.append(val)
 
                 elif line.strip().startswith("#"):
                     pass          
-        
         except Exception as e:
             traceback.print_exc(file=sys.stdout)                
-        
         self.log.debug("Parsed file with %d terms" % keyid )
-        
         return od  
 
 def test():
@@ -342,6 +361,12 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
 
+    parser.add_argument('-c', '--config', 
+                        action="store", 
+                        dest='conffile', 
+                        default='~/etc/cafa4.conf',
+                        help='Config file path [~/etc/cafa4.conf]')
+
     parser.add_argument('-t', '--test', 
                         action="store_true", 
                         dest='test', 
@@ -360,8 +385,9 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)    
 
-    config = ConfigParser() # dummy config, get real one later...
-    go = GeneOntologyGOInfoPlugin(config)
+    config = ConfigParser() 
+    config.read(args.conffile)
+    go = GeneOntology(config)
     goidx = go.get_tree_termindex()
    
     if args.test:
