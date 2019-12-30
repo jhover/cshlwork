@@ -34,10 +34,9 @@ class PhmmerPlugin(CAFAPlugin):
     def __init__(self, config, targetfile):
         super(PhmmerPlugin, self).__init__(config)
         self.targetfile = targetfile
-        self.configname = self.__class__.__name__.lower()
-        self.database = os.path.expanduser( config.get(self.configname, 'database') )
-        self.score_threshold = config.get(self.configname,'score_threshold')
-        self.cpus = config.get(self.configname,'cpus')
+        self.database = os.path.expanduser( config.get(self.lkname, 'database') )
+        self.score_threshold = config.get(self.lkname,'score_threshold')
+        self.cpus = config.get(self.lkname,'cpus')
         
 
     def execute(self):
@@ -172,5 +171,5 @@ class PhmmerPlugin(CAFAPlugin):
         self.log.debug("Adding target metadata from input files")
         df['cafaprot']= df.apply(lambda row:  self.targetinfo[row.cafaid][0], axis=1)      
         df['cafaspec']= df.apply(lambda row:  self.targetinfo[row.cafaid][1], axis=1)          
-        
+        self.df = df
         return df

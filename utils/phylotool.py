@@ -64,8 +64,7 @@ import pandas as pd
 class Phylogeny(object):
     
     def __init__(self):
-        self.kname = self.__class__.__name__
-        self.log = logging.getLogger(self.kname)
+        self.log = logging.getLogger(self.__class__.__name__)
         self.tree = None
         self.distmatrix = None
         self.df = None

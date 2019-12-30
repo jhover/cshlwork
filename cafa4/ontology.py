@@ -10,7 +10,7 @@
 #   gene 3   0     1    1    0 
 #    ...  
 #
-#   .obo
+
 import argparse
 import collections
 from configparser import ConfigParser
@@ -29,25 +29,35 @@ import pyarrow.parquet as pq
 
 class GOMatrix(object):
     """
-    matrix of genes x goterms
+    matrix of genes/proteins x goterms
     optionally extended by all is_a relationships..
+
+
+
     
     """
-    
     def __init__(self, config, gaffile):
+        #self.kname = self.__class__.__name__
+        self.log = logging.getLogger(self.__class__.__name__)
         self.config = config
-        self.cachepath = config.get('ontology','cachepath')
+        self.cachedir = os.path.expanduser(config.get('ontology','cachedir'))
+        self.cachefile = 'gomatrix.csv'
+        self.cachepath = "%s/%s" % (self.cachedir, self.cachefile)
         self.df = None
-        
+        self.log.debug("GOMatrix initialized.")
 
 
     def get_df(self, cache=True):
-        pass
+        self.df = self._df_from_cache()
+        if self.df is None:
+            self.execute()
+        return self.df
+    
     
     def _df_from_cache(self):
         self.log.debug("Trying to load from cache: %s" % self.cachepath )  
         self.df = pd.read_csv(self.cachepath)
-        
+        return self.df
 
 
 class GOTerm(object):
@@ -55,10 +65,10 @@ class GOTerm(object):
     ISA_LISTCACHE = {}
     
     def __init__(self ):
-        self.log = logging.getLogger("GOTerm")
+        self.log = logging.getLogger(self.__class__.__name__)
         self.goterm = None
         self.name = None
-        self.aspect = None
+        self.goaspect = None
         self.definition = None
         self.synonym = []
         self.is_a = []
@@ -122,9 +132,7 @@ class GOTerm(object):
     
     def __repr__(self):
         s = "GOTerm:"
-        #for atr in ['goterm','name', 'namespace','definition']:
-        #for atr in ['goterm','name', 'namespace','is_a']:
-        for atr in ['goterm','name', 'aspect']:
+        for atr in ['goterm','name', 'goaspect']:
             s += " %s=%s" % (atr, self.__getattribute__(atr))
         return s
         
@@ -139,14 +147,22 @@ class GeneOntology(object):
         
     def __init__(self, config, obofile=None):
         self.config = config
+        self.kname = self.__class__.__name__
+        self.lkname = self.kname.lower()
+        self.log = logging.getLogger(self.kname)
+        self.outdir = os.path.expanduser( config.get('global','outdir') )
+        self.cachedir = os.path.expanduser(config.get(self.lkname ,'cachedir'))
+        self.cachefile = "%s.csv" % self.lkname
+        self.cachepath = "%s/%s" % (self.cachedir, self.cachefile)
+                
         if obofile is None:
             self.obofile = os.path.expanduser(self.config.get('ontology','obofile'))
-        self.log = logging.getLogger('GeneOntology')
+        self.log = logging.getLogger(self.__class__.__name__)
         self.goidx = {}   #  { 'GO:XXXXXX' : GoTermObject, }      
         self.isalists = {}
         self.df = None
-        self.cachepath = os.path.expanduser(self.config.get('ontology','cachepath'))
-
+        self.log.debug("Object initialized.")
+        
         
     def get_df(self):
         '''
@@ -160,7 +176,7 @@ class GeneOntology(object):
             self.log.debug("Cache miss. Regenerating DF...")
             data = self.get_dict()
             #self.log.debug("godict = %s" % data)
-            df = pd.DataFrame.from_dict(data, orient='index', columns=['goterm','name','aspect']) 
+            df = pd.DataFrame.from_dict(data, orient='index', columns=['goterm','name','goaspect']) 
             df.set_index('goterm')
             df.to_csv(self.cachepath)
             self.df = df
@@ -197,7 +213,8 @@ class GeneOntology(object):
 
     def _df_from_cache(self):
         if os.path.exists(self.cachepath):
-            self.df = pd.read_csv(self.cachepath)
+            self.log.debug("Trying read from cachepath %s" % self.cachepath)
+            self.df = pd.read_csv(self.cachepath, index_col=0)
             self.log.debug("Loaded DF from %s" % self.cachepath)
         else:
             self.log.debug("No file at cachepath: %s" % self.cachepath)
@@ -427,8 +444,4 @@ if __name__ == '__main__':
     
     if args.gaffile is not None:
         gm = GOMatrix(config, args.gaffile)
-        
-    
-    
-    
     

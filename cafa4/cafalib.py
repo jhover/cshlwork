@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 #
+#     Framework for building/automating CAFAx pipelines. 
+#
 #     Top level  Runplugins      Infoplugins
 #     CAFA4Run
 #                PhmmerPlugin                         
@@ -182,23 +184,24 @@ class CAFA4Run(object):
         self.log.info("Ending run...")
 
 
-
-
-
-
 class CAFAPlugin(object):
     """
     A plugin that normally takes a Pandas dataframe as input, executes, and produces another DF.
     Returns a DF from disk cached if regen=False
     """
     
-    REPR_ATTRS=['outdir']
+    REPR_ATTRS=['outdir','cachedir', 'usecache']
     
     def __init__(self, config):
         self.config = config
         self.kname = self.__class__.__name__
+        self.lkname = self.kname.lower()
         self.log = logging.getLogger(self.kname)
         self.outdir = os.path.expanduser( config.get('global','outdir') )
+        self.cachedir = os.path.expanduser(config.get(self.lkname ,'cachedir'))
+        self.cachefile = "%s.csv" % self.lkname
+        self.usecache = config.getboolean(self.lkname, 'usecache')
+
 
     def __repr__(self):
         s = "%s:" % self.kname
@@ -210,10 +213,12 @@ class CAFAPlugin(object):
         self.log.warn("You have called a base Plugin. No change.")
         return dataframe
 
- 
+    def _df_from_cache(self):
+        self.log.debug("Trying to load from cache: %s" % self.cachepath )  
+        self.df = pd.read_csv(self.cachepath)
 
-
-
+    def get_df(self):
+        pass
 
    
 if __name__ == '__main__':

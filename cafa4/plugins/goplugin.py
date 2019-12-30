@@ -30,22 +30,18 @@ class GOPlugin(CAFAPlugin):
         
         """
         super(GOPlugin, self).__init__(config)
-        self.configname = self.__class__.__name__.lower()
+        #self.configname = self.__class__.__name__.lower()
         self.go = GeneOntology(self.config)
 
 
     def execute(self, dataframe):
         gdf = self.go.get_df()
-        self.log.debug("\n%a" % str(gdf))
-        
+        self.log.debug("\n%a" % str(gdf))        
         dataframe['probest'] = 1.00
         igdf = gdf.set_index('goterm')
         gdict = igdf.to_dict('index')
-        # now indexed by goterm   gdict[goterm] -> {'name': 'osteoblast differentiation', 'namespace': 'bp'}
-        # rd['GO:0001649']['namespace']  
-                
         dataframe['goaspect'] = dataframe.apply(
-            lambda row: gdict[row.goterm]['namespace'], 
+            lambda row: gdict[row.goterm]['goaspect'], 
             axis=1)
         self.log.debug(str(dataframe))
         return dataframe
