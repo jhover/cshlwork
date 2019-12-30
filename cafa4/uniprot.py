@@ -215,10 +215,15 @@ cf...
     
         '''
         rlist = self._dat2upr()
+        
         for r in rlist:
-            print(r)
+            for gt in r.goterms:
+                pass
+                
         #self.id = record.id
         #self.name = record.name
+        
+
             
         
     def _dat2upr(self):
@@ -226,18 +231,53 @@ cf...
         rgen = SeqIO.parse(self.sprotdatfile,"swiss")
         i = 0
         uprlist = []
-
+        self.log.debug("Completed SeqIO.parse(). Handling records...")
         for record in rgen:
             upr = UniProtRecord(record)
             uprlist.append(upr)
             #print(record)
             i += 1
-            #if i >= 10:
+            if i % 10000 == 0:
+                self.log.debug("Handled %d records..." % i)
             #    break
         self.log.debug("parsed dat file of %d records" % len(uprlist))
         return uprlist
 
-
+    def get_annotation_df(self):
+        self.log.debug("opening swissprot dat file %s" % self.sprotdatfile)
+        rgen = SeqIO.parse(self.sprotdatfile,"swiss")
+        self.log.debug("rgen type is %s" % type(rgen))
+        #self.log.debug("Created generator with %d records" % len(rgen))
+        i = 0
+        alltuples = []
+        for record in rgen:
+            #print(record)
+            i += 1
+            if i % 10000 == 0:
+                self.log.debug("Handled %d records..." % i)
+            goterms = []
+            for xf in record.dbxrefs:
+                if xf.startswith("GO:"):
+                    gt = xf[3:]
+                    goterms.append(gt)
+            if len(goterms) > 0:
+                proteinid = record.id
+                protein = record.name
+                taxonid = record.annotations['ncbi_taxid'][0]                
+                for gt in goterms:
+                    t = (taxonid, proteinid, protein, gt)
+                    alltuples.append(t)
+                # fan out over goterms
+            else:
+                # ignore un-annotated entries. 
+                pass
+                        
+            if i >= 1000:
+                break
+        self.log.debug("generated %d tuples" % len(alltuples)) 
+        df = pd.DataFrame(alltuples, columns=['taxonid','proteinid','protein','goterm'])
+        
+        return df
 
 
     def _parsefile(self, filehandle):
@@ -340,12 +380,17 @@ def test_uniprot(config):
 
 def test_datparse(config):
     upg = UniProtGOPlugin(config)
-    upg.get_swissprot_df()
+    df = upg.get_swissprot_df()
+    return df
 
 def test_speciesmap(config):
     upg = UniProtGOPlugin(config)
     upg._make_species_map()
 
+def test_testset(config):
+    upg = UniProtGOPlugin(config)
+    df = upg.get_annotation_df()
+    return df
     
 
 
@@ -377,6 +422,8 @@ if __name__ == '__main__':
     cp = ConfigParser()
     cp.read(args.conffile)
 
-    # test_uniprot(config)
-    test_datparse(cp)
+    #test_uniprot(cp)
+    df = test_testset(cp)
+    df.to_csv('testset.csv')
+    print(str(df))
     #test_speciesmap(cp)

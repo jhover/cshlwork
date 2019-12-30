@@ -21,7 +21,7 @@
 # protein       all caps name                                                  1433B
 # gene          Free-text gene name.                                           Lrrk2  Ywahb
 # geneid        Gene name+species.                                             LRRK2_MOUSE     
-# taxonid      NCBI taxon id                                                  9606                 
+# taxonid       NCBI taxon id                                                  9606                 
 # species       all caps code                                                  MOUSE   PONAB
 # goterm        annotated term                                                 GO:0005634
 # goaspect      biological process|molecular function|cellular component       cp    bp
@@ -33,6 +33,7 @@
 # probest       Probability estimate for prediction.                           0.68  [.000001-1.0]  
 #
 #
+
 
 __author__ = "John Hover"
 __copyright__ = "2019 John Hover"
@@ -215,10 +216,17 @@ class CAFAPlugin(object):
 
     def _df_from_cache(self):
         self.log.debug("Trying to load from cache: %s" % self.cachepath )  
-        self.df = pd.read_csv(self.cachepath)
+        try:
+            self.df = pd.read_csv(self.cachepath, index_col=0)
+        except FileNotFoundError:
+            self.df = None 
+            
+
 
     def get_df(self):
         pass
+        
+        
 
    
 if __name__ == '__main__':

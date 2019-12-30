@@ -9,6 +9,7 @@ import argparse
 from configparser import ConfigParser
 import logging
 import os
+import sys
 
 gitpath=os.path.expanduser("~/git/cshl-work")
 sys.path.append(gitpath)
@@ -18,6 +19,18 @@ from cafa4.ontology import GeneOntology, GOMatrix
 OBOFILE=os.path.expanduser('~/data/go/go.obo') 
 GAFFILE=os.path.expanduser('~/data/go/zfin.gaf')
 CONFFILE=os.path.expanduser('~/git/cshl-work/etc/gotool.conf')
+
+
+def gaf_to_df():
+    """
+
+db    dbobji              dbobjsym     goterm       dbref             goevidence  withfrom        goaspect  dbobjnam  dbobjtype taxonid  date  assignedby   annotext   geneprodid  
+    
+ZFIN  ZDB-GENE-070410-141  zgc:163098  GO:0003723  ZFIN:ZDB-PUB-170525-1  IEA  UniRule:UR000414619  F zgc:163098 protein  taxon:7955  20190914  UniProt  UniProtKB:A0A2R8QLY
+    """
+    pass
+
+
 
 
 def gocat(gotermlist):

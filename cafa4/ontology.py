@@ -32,8 +32,6 @@ class GOMatrix(object):
     matrix of genes/proteins x goterms
     optionally extended by all is_a relationships..
 
-
-
     
     """
     def __init__(self, config, gaffile):
@@ -56,8 +54,9 @@ class GOMatrix(object):
     
     def _df_from_cache(self):
         self.log.debug("Trying to load from cache: %s" % self.cachepath )  
-        self.df = pd.read_csv(self.cachepath)
+        self.df = pd.read_csv(self.cachepath, index_col=0)
         return self.df
+
 
 
 class GOTerm(object):
@@ -210,6 +209,7 @@ class GeneOntology(object):
         self._add_references()
         
         return self.goidx
+
 
     def _df_from_cache(self):
         if os.path.exists(self.cachepath):
@@ -380,7 +380,6 @@ def test(config):
     #print("ISA_LISTCACHE=%s" % GOTerm.ISA_LISTCACHE)    
     #df = go.get_df()
     #print(str(df))
-
 
 
 if __name__ == '__main__':
