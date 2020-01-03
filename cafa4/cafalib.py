@@ -24,7 +24,7 @@
 # taxonid       NCBI taxon id                                                  9606                 
 # species       all caps code                                                  MOUSE   PONAB
 # goterm        annotated term                                                 GO:0005634
-# goaspect      biological process|molecular function|cellular component       cp    bp
+# goaspect      biological process|molecular function|cellular component       bp       mf   cc
 # goevidence    evidence codes for GO annotation.                              IEA 
 # evalue        BLAST/HMMER/PHMMER expect statistic                                               1.000000e-126
 # bias          Adjustement to score for char prevalence                       3.5

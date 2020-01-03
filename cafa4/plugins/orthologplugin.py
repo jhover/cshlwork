@@ -8,7 +8,7 @@ sys.path.append(gitpath)
 
 from cafa4.cafalib import CAFAPlugin
 from cafa4 import uniprot
-from cafa4 import quickgo
+#from cafa4 import quickgo
 
 class OrthologPlugin(CAFAPlugin):
     """
@@ -27,8 +27,8 @@ class OrthologPlugin(CAFAPlugin):
         self.configname = self.__class__.__name__.lower()
         self.backend = config.get(self.configname ,'backend').strip()
         self.exc_ec_list = [i.strip() for i in config.get(self.configname, 'excluded_evidence_codes').split(',')] 
-        self.uniprot = uniprot.UniProtGOPlugin(self.config)
-        self.quickgo = quickgo.QuickGOPlugin(self.config)
+        
+        
 
         
     def execute(self, dataframe):
@@ -44,11 +44,13 @@ class OrthologPlugin(CAFAPlugin):
 
         newdf = None
         
-        if self.backend == 'uniprot': 
+        if self.backend == 'uniprot':
+            self.uniprot = uniprot.UniProtGOPlugin(self.config) 
             self.log.debug("Calling uniprot back end.")
             newdf = self.uniprot.get_df(dataframe)
             
         if self.backend == 'quickgo':
+            self.quickgo = quickgo.QuickGOPlugin(self.config)
             self.log.debug("Querying QuickGo for %d unique entries" % len(entries))
             udf = self.quickgo.get_df(entries)
             self.log.debug(qdf)

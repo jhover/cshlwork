@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 #
-#  Consume .obo file and .gaf
+#  Various facilities for handling ontology info. 
+#  
+#  1) Consume .obo file and build walkable tree of objects.
+#  output info in dataframe or dict form.     
+#
+#  2) Consume .gaf or (.gpad + .gpi) and (optionally alternate .obo) files. 
+#  create matrix
+#  extend with is_a relationships so all parent functions are flagged. 
 #  output dataframe
 #  save/load CSV
 #          
@@ -9,6 +16,9 @@
 #   gene 2   1     0    0    0
 #   gene 3   0     1    1    0 
 #    ...  
+#
+#   
+#
 #
 
 import argparse
@@ -29,9 +39,8 @@ import pyarrow.parquet as pq
 
 class GOMatrix(object):
     """
-    matrix of genes/proteins x goterms
+    produces matrix of genes/proteins x goterms
     optionally extended by all is_a relationships..
-
     
     """
     def __init__(self, config, gaffile):
@@ -153,39 +162,15 @@ class GeneOntology(object):
         self.cachedir = os.path.expanduser(config.get(self.lkname ,'cachedir'))
         self.cachefile = "%s.csv" % self.lkname
         self.cachepath = "%s/%s" % (self.cachedir, self.cachefile)
-                
         if obofile is None:
             self.obofile = os.path.expanduser(self.config.get('ontology','obofile'))
-        self.log = logging.getLogger(self.__class__.__name__)
         self.goidx = {}   #  { 'GO:XXXXXX' : GoTermObject, }      
         self.isalists = {}
         self.df = None
+        self.get_tree_termindex()
         self.log.debug("Object initialized.")
-        
-        
-    def get_df(self):
-        '''
-        Create dataframe from local file for further usage...
-        Used cached version on disk if available. 
-        '''
-        self._df_from_cache()
-        if self.df is not None:
-            self.log.debug("Cache hit. Using DataFrame from cache...")
-        else:
-            self.log.debug("Cache miss. Regenerating DF...")
-            data = self.get_dict()
-            #self.log.debug("godict = %s" % data)
-            df = pd.DataFrame.from_dict(data, orient='index', columns=['goterm','name','goaspect']) 
-            df.set_index('goterm')
-            df.to_csv(self.cachepath)
-            self.df = df
-        self.log.debug(str(self.df))
-        return self.df
+       
     
-    def get_dict(self):
-        dict = self._handle_obo(self.obofile)
-        return dict
-
     def get_tree_termindex(self):
         '''
         Builds full object tree, 
@@ -211,6 +196,11 @@ class GeneOntology(object):
         return self.goidx
 
 
+    def get_term(self, goterm):
+        self.log.debug("Looking up term {goterm}")
+        return self.goidx[goterm]
+
+
     def _df_from_cache(self):
         if os.path.exists(self.cachepath):
             self.log.debug("Trying read from cachepath %s" % self.cachepath)
@@ -219,38 +209,6 @@ class GeneOntology(object):
         else:
             self.log.debug("No file at cachepath: %s" % self.cachepath)
         
-        
-    def _handle_obo(self, filename):
-        '''
-        Create dictionary from obo:
-        
-        { 0  : [ 'GO:0000002', 'mitochondrial genome maintenance','biological_process'],
-          1  : [ 'GO:0000186', 'activation of MAPKK activity','biological_process']
-        }  
-        
-        '''       
-        godict = {}
-        try:
-            self.log.debug("opening file %s" % filename)
-            filehandle = open(filename, 'r')
-            godict = self._parsefile(filehandle)
-            filehandle.close()
-                
-        except FileNotFoundError:
-            self.log.error("No such file %s" % filename)                
-        return godict    
-
-    def _handle_file(self, filename):
-        try:
-            self.log.debug("opening file %s" % filename)
-            filehandle = open(filename, 'r')
-            self._parsefile(filehandle)
-            filehandle.close()
-                
-        except FileNotFoundError:
-            self.log.error("No such file %s" % filename)                  
-
-        self._add_references()
 
     def _parse2tree(self, filehandle):
         '''
@@ -285,7 +243,8 @@ class GeneOntology(object):
                     current.name = line[6:].strip()
                 
                 elif line.startswith("namespace: "):
-                    current.namespace = line[11:].strip()
+                    asp = line[11:].strip()
+                    current.goaspect = GeneOntology.NSMAP[asp]
                 
                 elif line.startswith("def: "):
                     current.definition = line[5:].strip()
@@ -295,13 +254,13 @@ class GeneOntology(object):
 
                 elif line.startswith("is_a: "):
                     current.is_a.append(line[6:16].strip())
-                  
-        
+                    
         except Exception as e:
             traceback.print_exc(file=sys.stdout)                
         
         self.log.info("Parsed file with %d terms" % len(self.goidx) )
 
+        
     def _add_references(self):
         '''
         Go through goidx and add foreign refs...
@@ -312,9 +271,55 @@ class GeneOntology(object):
             newisa = []
             for gt in isalist:
                 newisa.append(self.goidx[gt])
-            gto.is_a = newisa        
-            
-            
+            gto.is_a = newisa    
+
+
+
+
+    def get_df(self):
+        '''
+        Create dataframe from local file for further usage...
+        Used cached version on disk if available. 
+        '''
+        self._df_from_cache()
+        if self.df is not None:
+            self.log.debug("Cache hit. Using DataFrame from cache...")
+        else:
+            self.log.debug("Cache miss. Regenerating DF...")
+            data = self.get_dict()
+            #self.log.debug("godict = %s" % data)
+            df = pd.DataFrame.from_dict(data, orient='index', columns=['goterm','name','goaspect']) 
+            df.set_index('goterm')
+            df.to_csv(self.cachepath)
+            self.df = df
+        self.log.debug(str(self.df))
+        return self.df
+    
+    def get_dict(self):
+        dict = self._handle_obo(self.obofile)
+        return dict    
+
+    def _handle_obo(self, filename):
+        '''
+        Create dictionary from obo:
+        
+        { 0  : [ 'GO:0000002', 'mitochondrial genome maintenance','biological_process'],
+          1  : [ 'GO:0000186', 'activation of MAPKK activity','biological_process']
+        }  
+        
+        '''       
+        godict = {}
+        try:
+            self.log.debug( f"Opening file {filename}")
+            filehandle = open(filename, 'r')
+            godict = self._parsefile(filehandle)
+            filehandle.close()
+                
+        except FileNotFoundError:
+            self.log.error(f"No such file {filename}")                
+        return godict   
+
+        
     def _parsefile(self, filehandle):
         od = {}
         keyid = 0
@@ -356,6 +361,22 @@ class GeneOntology(object):
         self.log.debug("Parsed file with %d terms" % keyid )
         return od  
 
+    def _handle_file(self, filename):
+        try:
+            self.log.debug("opening file %s" % filename)
+            filehandle = open(filename, 'r')
+            self._parsefile(filehandle)
+            filehandle.close()
+                
+        except FileNotFoundError:
+            self.log.error("No such file %s" % filename)                  
+
+        self._add_references()
+
+        
+
+
+
 def test(config):
     go = GeneOntology(config)
     df = go.get_df()
@@ -380,6 +401,17 @@ def test(config):
     #print("ISA_LISTCACHE=%s" % GOTerm.ISA_LISTCACHE)    
     #df = go.get_df()
     #print(str(df))
+
+
+
+def load_ontology():
+    conffile = os.path.expanduser("~/git/cshl-work/etc/cafa4.conf")
+    config = ConfigParser() 
+    config.read(conffile)
+    go = GeneOntology(config)
+    #go.get_tree_termindex()
+    return go
+
 
 
 if __name__ == '__main__':

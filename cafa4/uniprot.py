@@ -21,12 +21,13 @@ import traceback
 from bioservices.uniprot import UniProt   # to query online REST interface
 from Bio import SeqIO   # to parse uniprot.dat
 
-
-#
-#  Possibly compare  https://pypi.org/project/PyUniProt/
-#
+#  Cf  https://pypi.org/project/PyUniProt/
 
 class UniProtRecord(object):
+    """
+    Created from a record object from the bioservices API.
+    
+    """
     
     def __init__(self, record):
         '''
@@ -37,7 +38,6 @@ class UniProtRecord(object):
         Database cross-references: EMBL:AY548484, RefSeq:YP_031584.1, SMR:Q6GZW9, GeneID:2947778, KEGG:vg:2947778, Proteomes:UP000008770
         Number of features: 1
         /accessions=['Q6GZW9']
-        
         
         record:
             id:
@@ -101,7 +101,6 @@ class UniProtRecord(object):
         #    self.accessions = record.annotations['accessions']
             
             
-            
     def __repr__(self):
         REPR_ATTRS=['proteinid','protein','accessions', 'taxonid','goterms']
         s="UniProtRecord: "
@@ -116,23 +115,34 @@ class UniProtGOPlugin(object):
     Aux info plugin.
     Takes dataframe, extracts entry_ids, adds info from uniprot.  
     Returns modified dataframe. 
+
     '''
 
     def __init__(self, config):
-        self.log = logging.getLogger('UniProtGOPlugin')
-        self.uniprot = UniProt()
+        self.log = logging.getLogger(self.__class__.__name__)
+        self.config = config
+        self.uniprotapi = None
         self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.sprotdatfile = os.path.expanduser( config.get('goplugin','sprotdatfile') )
         self.speciesmap = os.path.expanduser( config.get('global','species_mapfile'))
+        self.sprotdf = None
+        self.udf = None
+        
 
+##########################################
+#
+#     Using BIOServices API and objects to parse file/online.
+#
+##########################################
 
     def get_df(self, dataframe):
         entries = dataframe['proteinid'].unique().tolist()
         self.log.debug("Querying uniprot for %d unique entries" % len(entries))
-        udf = self.uniprot.get_df(entries)
-        self.log.debug(udf)
-        udf.to_csv("%s/uniprot.csv" % self.outdir)
-        udfslim = udf[['Entry','Gene names','Gene ontology IDs']] 
+        self.uniprotapi = UniProt()
+        self.udf = self.uniprotapi.get_df(entries)
+        self.log.debug(self.udf)
+        self.udf.to_csv("%s/uniprot.csv" % self.outdir)
+        udfslim = self.udf[['Entry','Gene names','Gene ontology IDs']] 
         # df.tacc corresponds to udf.Entry  ...
         
         newrowdict = {} 
@@ -180,52 +190,7 @@ class UniProtGOPlugin(object):
         self.log.debug("\n%s" % str(newdf))        
         return newdf
 
-    def _open_swissprot_file(self):
-        '''
-         Read uniprot_sprot.dat and get dataframe of relevant fields.
 
-        '''
-        self.log.debug("Getting swissprot DF")
-        filehandle = None
-        try:
-            self.log.debug("opening file %s" % self.sprotdatfile )
-            filehandle = open(self.sprotdatfile, 'r')
-            self._parsefile(filehandle)
-            filehandle.close()
-                
-        except FileNotFoundError:
-            self.log.error("No such file %s" % filename)        
-        
-        finally:
-            if filehandle is not None:
-                filehandle.close()
-        out = self._parsefile(filehandle)
-        self.log.debug("Parsed data file.")
-
-
-    def get_swissprot_df(self):
-        '''
-    
-        Dataframe:
-        proteinid   name   
-
-cf... 
-             cafaid         evalue  score  bias  db proteinid protein species cafaprot cafaspec       gene      goterm  probest goaspect
-0     T100900000001  1.100000e-156  523.6   8.5  sp    Q9CQV8   1433B   MOUSE    1433B    MOUSE      Ywhab  GO:0005634      1.0       cc
-    
-        '''
-        rlist = self._dat2upr()
-        
-        for r in rlist:
-            for gt in r.goterms:
-                pass
-                
-        #self.id = record.id
-        #self.name = record.name
-        
-
-            
-        
     def _dat2upr(self):
         self.log.debug("opening swissprot dat file %s" % self.sprotdatfile)
         rgen = SeqIO.parse(self.sprotdatfile,"swiss")
@@ -243,6 +208,7 @@ cf...
         self.log.debug("parsed dat file of %d records" % len(uprlist))
         return uprlist
 
+
     def get_annotation_df(self):
         self.log.debug("opening swissprot dat file %s" % self.sprotdatfile)
         rgen = SeqIO.parse(self.sprotdatfile,"swiss")
@@ -253,7 +219,7 @@ cf...
         for record in rgen:
             #print(record)
             i += 1
-            if i % 10000 == 0:
+            if i % 1000 == 0:
                 self.log.debug("Handled %d records..." % i)
             goterms = []
             for xf in record.dbxrefs:
@@ -274,16 +240,69 @@ cf...
                         
             if i >= 1000:
                 break
-        self.log.debug("generated %d tuples" % len(alltuples)) 
+        #self.log.debug("generated %d tuples" % len(alltuples)) 
+        self.log.debug( f"Generated { len(alltuples) } tuples") 
         df = pd.DataFrame(alltuples, columns=['taxonid','proteinid','protein','goterm'])
         
         return df
 
 
+##########################################
+#
+#   NOT using API
+#
+##########################################
+
+
+    def get_swissprot_df(self):
+        """
+        Get swissprot info as dataframe from files, without API, one row per GOterm.
+        
+        proteinid protein taxonid goterm goaspect goevidence 
+        
+        
+        
+        self.proteinid = record.id
+        self.protein = record.name
+        self.goterms = []
+        for xf in record.dbxrefs:
+            if xf.startswith("GO:"):
+                gt = xf[3:]
+                self.goterms.append(gt)
+        self.accessions = record.annotations['accessions']
+        self.taxonid = record.annotations['ncbi_taxid'][0]
+        
+        """
+        
+
+
+    def _handle_swissprot_file(self):
+        '''
+         Read uniprot_sprot.dat and get dataframe of relevant fields.
+
+        '''
+        self.log.debug("Getting swissprot DF")
+        filehandle = None
+        try:
+            self.log.debug("opening file %s" % self.sprotdatfile )
+            filehandle = open(self.sprotdatfile, 'r')
+            self._parsefile(filehandle)
+            filehandle.close()
+                
+        except FileNotFoundError:
+            self.log.error("No such file %s" % filename)        
+        
+        finally:
+            if filehandle is not None:
+                filehandle.close()
+        self.log.debug("Parsed data file.")
+
+
+
     def _parsefile(self, filehandle):
-        '''
+        """
     
-        '''
+        """
         current = None
         try:
             for line in filehandle:
@@ -296,6 +315,8 @@ cf...
                     val = line[5:]
                 elif line.startswith("DR "):
                     # DR   GO; GO:0046782; P:regulation of viral transcription; IEA:InterPro.
+                    # P biological process, C cellular component, F molecular function. 
+                    
                     val = line[5:]              
                 elif line.startswith("// "):
                     self.log.debug("End of entry.")
@@ -304,6 +325,12 @@ cf...
             traceback.print_exc(file=sys.stdout)                
         
         self.log.debug("Parsed file with %d terms" % keyid )
+    
+    def _handle_current(self, currentinfo):
+        """
+        
+        """
+        
 
     def _make_species_map(self):
         '''
@@ -427,3 +454,4 @@ if __name__ == '__main__':
     df.to_csv('testset.csv')
     print(str(df))
     #test_speciesmap(cp)
+

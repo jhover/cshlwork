@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #
-#
 #  https://www.biostars.org/p/224572/
 #  preferred breakdown:    animals,   fungi,  plants,   protists,   bacteria,  archaea
 #  ncbi taxon category codes:  chordata     7711   vertebrata   7742  Insecta  50557 
@@ -43,8 +42,6 @@
 #     See: https://biopython.org/wiki/Phylo_cookbook
 #     for distance matrix calculation using biopython
 #
-#
-#
 
 import argparse
 import itertools
@@ -59,7 +56,6 @@ import pandas as pd
 
 #pd.set_option("display.max_rows", 15)
 #pd.set_option("display.max_columns", 15)
-
 
 class Phylogeny(object):
     
@@ -85,8 +81,7 @@ class Phylogeny(object):
        
         
     def get_distance_matrix(self):
-        """
-        
+        """        
         We want a list of row/column names, and a corresponding 2D matrix
         
         names = ['75743','137246','7950']
@@ -150,6 +145,7 @@ class Phylogeny(object):
             self.log.debug("No DataFrame found. Computing...")
             self.to_df()
         self.df.to_csv("%s.csv" % self.filepath)
+    
     
 
 if __name__ == '__main__':
