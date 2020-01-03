@@ -221,12 +221,10 @@ class CAFAPlugin(object):
         except FileNotFoundError:
             self.df = None 
             
-
-
     def get_df(self):
         pass
         
-        
+
 
    
 if __name__ == '__main__':

@@ -5,6 +5,7 @@
 
 import argparse
 from configparser import ConfigParser
+from collections import defaultdict
 import logging
 import os
 import pprint
@@ -117,6 +118,12 @@ class UniProtGOPlugin(object):
     Returns modified dataframe. 
 
     '''
+    
+    ASPECTMAP = { 'C': 'cc',
+                  'F': 'mf',
+                  'P': 'bp'
+                }
+    
 
     def __init__(self, config):
         self.log = logging.getLogger(self.__class__.__name__)
@@ -124,14 +131,15 @@ class UniProtGOPlugin(object):
         self.uniprotapi = None
         self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.sprotdatfile = os.path.expanduser( config.get('goplugin','sprotdatfile') )
+        self.cachedir = os.path.expanduser( config.get('goplugin','cachedir') )
         self.speciesmap = os.path.expanduser( config.get('global','species_mapfile'))
         self.sprotdf = None
         self.udf = None
         
 
 ##########################################
-#
-#     Using BIOServices API and objects to parse file/online.
+#     
+#     cafalib processing using BIOServices API and objects to parse file/online.
 #
 ##########################################
 
@@ -249,18 +257,18 @@ class UniProtGOPlugin(object):
 
 ##########################################
 #
-#   NOT using API
+#   Non-cafalib usage (NOT using API)
 #
 ##########################################
-
 
     def get_swissprot_df(self):
         """
         Get swissprot info as dataframe from files, without API, one row per GOterm.
-        
-        proteinid protein taxonid goterm goaspect goevidence 
-        
-        
+       
+        Fields:
+           proteinid protein taxonid goterm goaspect goevidence 
+      
+      
         
         self.proteinid = record.id
         self.protein = record.name
@@ -273,20 +281,37 @@ class UniProtGOPlugin(object):
         self.taxonid = record.annotations['ncbi_taxid'][0]
         
         """
+
+        cachepath = f"{self.cachedir}/sprotgolist.csv"
+        df = None
+        if os.path.exists(cachepath):
+            df = pd.read_csv(cachepath, index_col=0)
+            #df = pd.read_csv(cachepath)
+            self.log.debug(f"Loaded dataframe from cache: {cachepath}")
+        else:
+            self.log.debug("Getting dictionary list...")
+            dlist = self._handle_swissprot_file()
+            self.log.debug(f"Got dict list of {len(dlist)} entries. Creating dataframe...")
+            df = pd.DataFrame(dlist)
+            self.log.debug(f"Made dataframe: {str(df)}")
+            self.log.info(f"Saving dataframe to cache file: {cachepath}")        
+            df.to_csv(cachepath)
+        return df
         
-
-
+    
     def _handle_swissprot_file(self):
         '''
-         Read uniprot_sprot.dat and get dataframe of relevant fields.
+         Read uniprot_sprot.dat and return list of dicts of relevant fields.
+    
 
         '''
-        self.log.debug("Getting swissprot DF")
+        self.log.debug("Handling swissprot file...")
         filehandle = None
         try:
-            self.log.debug("opening file %s" % self.sprotdatfile )
+            self.log.info(f"Opening file {self.sprotdatfile}" )
             filehandle = open(self.sprotdatfile, 'r')
-            self._parsefile(filehandle)
+            self.log.debug("File opened. Parsing...")
+            dlist = self._parsefile(filehandle)
             filehandle.close()
                 
         except FileNotFoundError:
@@ -296,40 +321,109 @@ class UniProtGOPlugin(object):
             if filehandle is not None:
                 filehandle.close()
         self.log.debug("Parsed data file.")
-
+        return dlist
 
 
     def _parsefile(self, filehandle):
         """
+        Parses sprot DAT file and fans out goterms to list of dicts. 
     
         """
+        allentries = []
         current = None
+        sumreport = 1
+        suminterval = 10000
+        repthresh = sumreport * suminterval
         try:
             for line in filehandle:
                 if line.startswith("ID "):
                     # ID   001R_FRG3G              Reviewed;         256 AA.
-                    val = line[5:]
-                    self.log.debug("Beginning of entry.")                
+                    proteinid = line[5:15].strip()
+                    current = defaultdict(dict)
+                    current['proteinid'] = proteinid
+                    
+                    self.log.debug("Handling ID. New entry.")                
                 elif line.startswith("AC "):
                     #AC   Q6GZX4;
+                    self.log.debug("Handling AC.")
+                    protein = line[5:15].strip().replace(';','')
+                    current['protein'] = protein
+
+                elif line.startswith("OX   "):
+                    #OX   NCBI_TaxID=654924;
+                    self.log.debug("Handling OX.")
+                    taxonid = ""
                     val = line[5:]
-                elif line.startswith("DR "):
-                    # DR   GO; GO:0046782; P:regulation of viral transcription; IEA:InterPro.
-                    # P biological process, C cellular component, F molecular function. 
+                    fields = val.split('=')
+                    if fields[0] == 'NCBI_TaxID':
+                        taxonid = fields[1].strip().replace(';','')
+                    current['taxonid'] = taxonid
                     
-                    val = line[5:]              
-                elif line.startswith("// "):
+                elif line.startswith("DR   GO;"):
+                    # DR   GO; GO:0046782; P:regulation of viral transcription; IEA:InterPro.
+                    # P biological process, C cellular component, F molecular function.  
+                    self.log.debug("Handling DR.")
+                    fields = line.split(';')
+                    goterm = fields[1].strip()
+                    goinfo = fields[2]
+                    aspcode = goinfo.split(':')[0].strip()
+                    goaspect = UniProtGOPlugin.ASPECTMAP[aspcode]
+                    goevsrc = fields[3]
+                    (goevidence, evsrc) = goevsrc.split(':') 
+                    current['goterms'][goterm] = [ goaspect, goevidence]
+            
+                elif line.startswith("//"):
                     self.log.debug("End of entry.")
+                    clist = self._handle_current(current)
+                    current = None
+                    allentries.extend(clist)
+                    self.log.debug(f"All entries list now {len(allentries)} items... ")
+                    if len(allentries) >= repthresh:
+                        self.log.info(f"Processed {len(allentries)} entries... ")
+                        sumreport +=1
+                        repthresh = sumreport * suminterval
                 
         except Exception as e:
             traceback.print_exc(file=sys.stdout)                
         
-        self.log.debug("Parsed file with %d terms" % keyid )
+        self.log.info(f"Parsed file with {len(allentries)} goterms" )
+        return allentries
+
     
     def _handle_current(self, currentinfo):
         """
+        takes dictionary:
+        currentinfo = { 'proteinid' : 'x', 'protein' : 'xxx' , 'goterms' :  { 'GO:0005634' : [ 'C' , 'HDA' ],
+                                                                              'GO:0005886' : [ 'C' ,'HDA'],
+                                                                              }                                                                                              
+                        } 
         
+        returns list of dicts:
+                     [  { 'proteinid' : 'x', 'protein' : 'xxx' , 'goterm' : 'GO:0005634',
+                                                                           'goaspect':'cc',
+                                                                           'goevidence': 'HDA' },
+                       { 'proteinid' : 'x', 'protein' : 'xxx' , 'goterm' : 'GO:0005886',
+                                                                           'goaspect':'cc',
+                                                                           'goevidence': 'HDA' },                                                                           
+                      ]
         """
+        self.log.debug(f'handling {currentinfo} ')
+        newlist = []
+        gtdict = currentinfo['goterms']
+        for gt in gtdict.keys():
+            self.log.debug(f"Handling term {gt}")
+            newdict = {}
+            newdict['proteinid'] = currentinfo['proteinid']
+            newdict['protein'] = currentinfo['protein']
+            newdict['goterm'] = gt
+            newdict['goaspect'] = currentinfo['goterms'][gt][0]             
+            newdict['goevidence'] = currentinfo['goterms'][gt][1]        
+            newlist.append(newdict)
+        
+        self.log.debug(f"Created fanout of length: {len(newlist)}")
+        return newlist
+              
+        
         
 
     def _make_species_map(self):
@@ -418,7 +512,12 @@ def test_testset(config):
     upg = UniProtGOPlugin(config)
     df = upg.get_annotation_df()
     return df
-    
+
+def test_swissprot(config):
+    logging.debug("Running test_swissprot")
+    upg = UniProtGOPlugin(config)
+    out = upg.get_swissprot_df()
+    print(str(out))
 
 
 if __name__ == '__main__':
@@ -450,8 +549,9 @@ if __name__ == '__main__':
     cp.read(args.conffile)
 
     #test_uniprot(cp)
-    df = test_testset(cp)
-    df.to_csv('testset.csv')
-    print(str(df))
+    #df = test_testset(cp)
+    #df.to_csv('testset.csv')
+    #print(str(df))
     #test_speciesmap(cp)
+    test_swissprot(cp)
 
