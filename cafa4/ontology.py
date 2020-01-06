@@ -75,9 +75,9 @@ class GOTerm(object):
     def __init__(self ):
         self.log = logging.getLogger(self.__class__.__name__)
         self.goterm = None
-        self.name = None
+        self.goname = None
         self.goaspect = None
-        self.definition = None
+        self.godef = None
         self.synonym = []
         self.is_a = []
     
@@ -140,7 +140,7 @@ class GOTerm(object):
     
     def __repr__(self):
         s = "GOTerm:"
-        for atr in ['goterm','name', 'goaspect']:
+        for atr in ['goterm','goname', 'goaspect']:
             s += " %s=%s" % (atr, self.__getattribute__(atr))
         return s
         
@@ -201,13 +201,6 @@ class GeneOntology(object):
         return self.goidx[goterm]
 
 
-    def _df_from_cache(self):
-        if os.path.exists(self.cachepath):
-            self.log.debug("Trying read from cachepath %s" % self.cachepath)
-            self.df = pd.read_csv(self.cachepath, index_col=0)
-            self.log.debug("Loaded DF from %s" % self.cachepath)
-        else:
-            self.log.debug("No file at cachepath: %s" % self.cachepath)
         
 
     def _parse2tree(self, filehandle):
@@ -240,14 +233,14 @@ class GeneOntology(object):
                     current.goterm = line[4:].strip()
                     
                 elif line.startswith("name: "):
-                    current.name = line[6:].strip()
+                    current.goname = line[6:].strip()
                 
                 elif line.startswith("namespace: "):
                     asp = line[11:].strip()
                     current.goaspect = GeneOntology.NSMAP[asp]
                 
                 elif line.startswith("def: "):
-                    current.definition = line[5:].strip()
+                    current.godef = line[5:].strip()
 
                 elif line.startswith("synonym: "):
                     current.synonym.append(line[9:].strip())
@@ -274,26 +267,34 @@ class GeneOntology(object):
             gto.is_a = newisa    
 
 
+    def _df_from_cache(self):
+        if os.path.exists(self.cachepath):
+            self.log.debug("Trying read from cachepath %s" % self.cachepath)
+            self.df = pd.read_csv(self.cachepath, index_col=0)
+            self.log.debug("Loaded DF from %s" % self.cachepath)
+        else:
+            self.log.debug("No file at cachepath: %s" % self.cachepath)
 
 
-    def get_df(self):
+    def get_df(self, usecache=True):
         '''
         Create dataframe from local file for further usage...
         Used cached version on disk if available. 
         '''
-        self._df_from_cache()
+        if usecache:
+            self._df_from_cache()
         if self.df is not None:
             self.log.debug("Cache hit. Using DataFrame from cache...")
         else:
             self.log.debug("Cache miss. Regenerating DF...")
             data = self.get_dict()
-            #self.log.debug("godict = %s" % data)
-            df = pd.DataFrame.from_dict(data, orient='index', columns=['goterm','name','goaspect']) 
+            df = pd.DataFrame.from_dict(data, orient='index', columns=['goterm','goname','goaspect']) 
             df.set_index('goterm')
             df.to_csv(self.cachepath)
             self.df = df
         self.log.debug(str(self.df))
         return self.df
+
     
     def get_dict(self):
         dict = self._handle_obo(self.obofile)
@@ -373,8 +374,14 @@ class GeneOntology(object):
 
         self._add_references()
 
-        
-
+    @classmethod
+    def get_default_df(cls, usecache=True):
+        cp = ConfigParser()
+        cp.read(os.path.expanduser('~/git/cshl-work/etc/cafa4.conf'))
+        go = GeneOntology(cp)
+        df = go.get_df(usecache=usecache)
+        return df         
+      
 
 
 def test(config):

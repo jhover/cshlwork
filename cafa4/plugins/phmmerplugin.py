@@ -46,7 +46,7 @@ class PhmmerPlugin(CAFAPlugin):
         df = self.read_phmmer_table(outfile)
         #self.log.debug("dflist is %s" % outdfs)
         #df = pd.concat(outdfs, ignore_index=True)
-        self.log.debug(str(df))
+        self.log.debug(f"\n{df}")
         return df
             
     def _get_targetinfo(self):
@@ -159,7 +159,7 @@ class PhmmerPlugin(CAFAPlugin):
         self.log.debug("Splitting first field for db")
         df['db'] = df.apply(lambda row: row.target.split('|')[0], axis=1)
         self.log.debug("Splitting first field for target accession")
-        df['proteinid'] = df.apply(lambda row: row.target.split('|')[1], axis=1)
+        df['proteinacc'] = df.apply(lambda row: row.target.split('|')[1], axis=1)
         self.log.debug("Splitting first field for prot_species")
         df['prot_spec'] = df.apply(lambda row: row.target.split('|')[2], axis=1)
         self.log.debug("Splitting protein_species to set protein")

@@ -17,7 +17,8 @@
 # cafaid        cafa4 target identifier   N/A                                  T2870000001
 # cafaprot      cafa4 target protein id                                        1433B
 # cafaspec      cafa4 target protien species                                   MOUSE
-# proteinid     UniProtKB:entry/accession  quickgo:gene product_id             P63103
+# proteinid     UniProtKB: entry/ID                                            1433B_RAT
+# proteinacc    UniProtKB: accession  ?quickgo:gene product_id                 P63103
 # protein       all caps name                                                  1433B
 # gene          Free-text gene name.                                           Lrrk2  Ywahb
 # geneid        Gene name+species.                                             LRRK2_MOUSE     
@@ -140,7 +141,8 @@ class CAFA4Run(object):
         for row in dataframe.iterrows():
             target = row[1]['cafaid']
             goterm = row[1]['goterm']
-            probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
+            #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
+            probest = float(1.0)
             s += "%s\t%s\t%f\n" % (target, goterm, probest)
         s+="END\n"
         
@@ -167,11 +169,11 @@ class CAFA4Run(object):
         self.log.info("\n%s" % str(df))
         df.to_csv("%s/%s-%s-ortho.csv" % (self.outdir, self.name, self.outbase))
         
-        gk = get_plugin('GOPlugin')
-        go = gk(self.config)        
-        df = go.execute(df)
-        self.log.info("\n%s" % str(df))
-        df.to_csv("%s/%s-%s-go.csv" % (self.outdir, self.name, self.outbase))        
+        #gk = get_plugin('GOPlugin')
+        #go = gk(self.config)        
+        #df = go.execute(df)
+        #self.log.info("\n%s" % str(df))
+        #df.to_csv("%s/%s-%s-go.csv" % (self.outdir, self.name, self.outbase))        
         
         # not needed if we use quickgo. contains both evidence codes and go_aspect
         #go = GOPlugin(self.config)

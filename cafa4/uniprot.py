@@ -4,26 +4,25 @@
 #
 
 import argparse
-from configparser import ConfigParser
 from collections import defaultdict
+from configparser import ConfigParser
 import logging
 import os
 import pprint
-
-import pandas as pd
-import pdpipe as pdp
-import numpy as np
-import pyarrow as pa
-import pyarrow.parquet as pq
 import subprocess
 import sys
 import traceback
 
-from bioservices.uniprot import UniProt   # to query online REST interface
-from Bio import SeqIO   # to parse uniprot.dat
+from Bio import SeqIO  # to parse uniprot.dat
+from bioservices.uniprot import UniProt  # to query online REST interface
+import numpy as np
+import pandas as pd
+import pdpipe as pdp
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 
 #  Cf  https://pypi.org/project/PyUniProt/
-
 class UniProtRecord(object):
     """
     Created from a record object from the bioservices API.
@@ -137,66 +136,91 @@ class UniProtGOPlugin(object):
         self.udf = None
         
 
-##########################################
-#     
-#     cafalib processing using BIOServices API and objects to parse file/online.
-#
-##########################################
+    def get_df(self, dataframe, online=False):
+        """
+        Takes inbound dataframe of orthologs and adds in GO terms and evidence codes from 
+        uniprot/swissprot.
+        For a given ortholog protein, one row is added for each TO term.
+        Returns new dataframe with all info.   
+        
+        """
+        #
+        # inbound:
+        #            cafaid         evalue  score  bias  db proteinacc protein species cafaprot cafaspec
+        # 0   T100900000001  1.100000e-156  523.6   8.5  sp    Q9CQV8   1433B   MOUSE    1433B    MOUSE
+        # 1   T100900000001  4.100000e-155  518.4   7.7  sp    P35213   1433B     RAT    1433B    MOUSE    
+        # 2   T100900000001  5.400000e-155  518.0   7.2  sp    A4K2U9   1433B   PONAB    1433B    MOUSE
+        # 3   T100900000001  5.400000e-155  518.0   7.2  sp    P31946   1433B   HUMAN    1433B    MOUSE
+                
+        entries = dataframe['proteinacc'].unique().tolist()
+        if online:
+            self.uniprotapi = UniProt()
+            self.log.debug("Querying uniprot API for %d unique entries" % len(entries))
+            self.udf = self.uniprotapi.get_df(entries)
+            self.log.debug(f"\n{self.udf}")
+            self.udf.to_csv("%s/uniprot.csv" % self.outdir)
+            udfslim = self.udf[['Entry','Gene ontology IDs']] 
+            # df.tacc corresponds to udf.Entry  ...
+            #  entry == proteinid
+            #  gene ontology id = goterm
+            #
+            self.log.debug("Making new rows for each goterm.")
+            newrowdict = {} 
+            ix = 0 
+            for row in udfslim.itertuples():
+                (entry, golist) = row[1:] 
+                for goterm in golist: 
+                    #print("creating new row: %s : %s %s %s" % (ix, entry, gene, goterm)) 
+                    newrow = [ entry, goterm ] 
+                    newrowdict[ix] = newrow 
+                    ix += 1       
+            
+            godf = pd.DataFrame.from_dict(newrowdict, orient='index', columns=['entry','goterm']) 
 
-    def get_df(self, dataframe):
-        entries = dataframe['proteinid'].unique().tolist()
-        self.log.debug("Querying uniprot for %d unique entries" % len(entries))
-        self.uniprotapi = UniProt()
-        self.udf = self.uniprotapi.get_df(entries)
-        self.log.debug(self.udf)
-        self.udf.to_csv("%s/uniprot.csv" % self.outdir)
-        udfslim = self.udf[['Entry','Gene names','Gene ontology IDs']] 
-        # df.tacc corresponds to udf.Entry  ...
-        
-        newrowdict = {} 
-        ix = 0 
-        for row in udfslim.itertuples():
-            (entry, gene_names, golist) = row[1:] 
-            #print("gene_names is %s" % gene_names) 
-            try: 
-                namestr = gene_names[0] 
-                gene = namestr.split()[0] 
-            except: 
-                gene = '' 
-            for goterm in golist: 
-                #print("creating new row: %s : %s %s %s" % (ix, entry, gene, goterm)) 
-                newrow = [ entry, gene, goterm ] 
-                newrowdict[ix] = newrow 
-                ix += 1       
-        
-        godf = pd.DataFrame.from_dict(newrowdict, orient='index', columns=['entry','gene','goterm']) 
+        else:
+            self.log.debug("Using offline functionality...")
+            godf = self.get_swissprot_df(usecache = True)
+            self.log.debug(f"GO DataFrame:\n{godf}")
+            #    proteinid   proteinacc    goterm      goaspect goevidence
+            # 0  001R_FRG3G  Q6GZX4      GO:0046782    bp        IEA
+            # 1  002L_FRG3G  Q6GZX3      GO:0033644    cc        IEA
+            
 
         newdfdict= {}
         ix = 0
         for row in dataframe.itertuples():
             self.log.debug("inbound row = %s" % str(row))
             #(query, evalue, score, bias, db, tacc, protein, species) = row[1:]
-            (cafaid, evalue, score, bias, db, proteinid, protein, species, cafaprot, cafaspec) = row[1:]
-            gomatch = godf[ godf.entry == proteinid ]
+            (cafaid, evalue, score, bias, db, proteinacc, protein, species, cafaprot, cafaspec) = row[1:]
+            self.log.debug(f"Searching for match for {proteinacc}")
+            gomatch = godf[ godf.proteinacc == proteinacc ]
+            self.log.debug(f"gomatch is:\n {gomatch}")
             for gr in gomatch.itertuples():
-                (entry, gene, goterm) = gr[1:]
-                newrow = [cafaid, evalue, score, bias, db, proteinid , protein, species, cafaprot, cafaspec, gene, goterm ]
+                (entry, proteinacc, goterm, goaspect, goevidence) = gr[1:]
+                newrow = [cafaid, evalue, score, bias, db, 
+                          proteinacc, protein, species, cafaprot, 
+                          cafaspec, goterm, goaspect, goevidence ]
                 newdfdict[ix] = newrow
                 ix += 1
+        
         newdf = pd.DataFrame.from_dict(newdfdict, orient='index', columns = ['cafaid', 
                                                                              'evalue', 
                                                                              'score', 
                                                                              'bias', 
                                                                              'db', 
-                                                                             'proteinid' , 
+                                                                             'proteinacc', 
                                                                              'protein', 
                                                                              'species', 
                                                                              'cafaprot', 
                                                                              'cafaspec',
-                                                                             'gene', 
-                                                                             'goterm'])
+                                                                             'goterm',
+                                                                             'goaspect',
+                                                                             'goevidence'                                                                             
+                                                                             ])
         self.log.debug("\n%s" % str(newdf))        
         return newdf
+
+
 
 
     def _dat2upr(self):
@@ -261,16 +285,15 @@ class UniProtGOPlugin(object):
 #
 ##########################################
 
-    def get_swissprot_df(self):
+    def get_swissprot_df(self, usecache = True):
         """
         Get swissprot info as dataframe from files, without API, one row per GOterm.
        
         Fields:
            proteinid protein taxonid goterm goaspect goevidence 
       
-      
-        
         self.proteinid = record.id
+        self.proteinacc = record. ?
         self.protein = record.name
         self.goterms = []
         for xf in record.dbxrefs:
@@ -283,21 +306,23 @@ class UniProtGOPlugin(object):
         """
 
         cachepath = f"{self.cachedir}/sprotgolist.csv"
-        df = None
-        if os.path.exists(cachepath):
-            df = pd.read_csv(cachepath, index_col=0)
-            #df = pd.read_csv(cachepath)
-            self.log.debug(f"Loaded dataframe from cache: {cachepath}")
+        if usecache:
+            if os.path.exists(cachepath):
+                self.sprotdf = pd.read_csv(cachepath, index_col=0)
+                self.log.debug(f"Loaded dataframe from cache: {cachepath}")
+        if self.sprotdf is not None:
+            self.log.debug("Cache hit. Using DataFrame from cache...")
         else:
             self.log.debug("Getting dictionary list...")
             dlist = self._handle_swissprot_file()
             self.log.debug(f"Got dict list of {len(dlist)} entries. Creating dataframe...")
-            df = pd.DataFrame(dlist)
-            self.log.debug(f"Made dataframe: {str(df)}")
+            self.sprotdf = pd.DataFrame(dlist)
+            #self.sprotdf.set_index('proteinacc', inplace = True)
+            self.log.debug(f"Made dataframe:\n {str(self.sprotdf)}")
             self.log.info(f"Saving dataframe to cache file: {cachepath}")        
-            df.to_csv(cachepath)
-        return df
-        
+            self.sprotdf.to_csv(cachepath)
+        return self.sprotdf
+    
     
     def _handle_swissprot_file(self):
         '''
@@ -335,7 +360,11 @@ class UniProtGOPlugin(object):
         suminterval = 10000
         repthresh = sumreport * suminterval
         try:
-            for line in filehandle:
+            while True:
+                line = filehandle.readline()
+                if line == '':
+                    break
+            #for line in filehandle:
                 if line.startswith("ID "):
                     # ID   001R_FRG3G              Reviewed;         256 AA.
                     proteinid = line[5:15].strip()
@@ -343,11 +372,13 @@ class UniProtGOPlugin(object):
                     current['proteinid'] = proteinid
                     
                     self.log.debug("Handling ID. New entry.")                
+                
                 elif line.startswith("AC "):
-                    #AC   Q6GZX4;
+                    # AC   Q6GZX4;
+                    # AC   Q91896; O57469;
                     self.log.debug("Handling AC.")
-                    protein = line[5:15].strip().replace(';','')
-                    current['protein'] = protein
+                    accession = line[5:11].strip()
+                    current['proteinacc'] = accession
 
                 elif line.startswith("OX   "):
                     #OX   NCBI_TaxID=654924;
@@ -370,7 +401,22 @@ class UniProtGOPlugin(object):
                     goaspect = UniProtGOPlugin.ASPECTMAP[aspcode]
                     goevsrc = fields[3]
                     (goevidence, evsrc) = goevsrc.split(':') 
+                    goevidence = goevidence.strip()
                     current['goterms'][goterm] = [ goaspect, goevidence]
+
+                elif line.startswith("SQ   SEQUENCE"):
+                    self.log.debug("Handling SQ:  XXX")
+
+                elif line.startswith("GN   "):
+                    # Examples:
+                    #  GN   ABL1 {ECO:0000303|PubMed:21546455},
+                    #  GN   Name=BRCA1; Synonyms=RNF53;
+                    #  GN   ORFNames=T13E15.24/T13E15.23, T14P1.25/T14P1.24;
+                    #   
+                    
+                    self.log.debug("Handling GN.")
+                    val = line[5:]
+
             
                 elif line.startswith("//"):
                     self.log.debug("End of entry.")
@@ -414,7 +460,7 @@ class UniProtGOPlugin(object):
             self.log.debug(f"Handling term {gt}")
             newdict = {}
             newdict['proteinid'] = currentinfo['proteinid']
-            newdict['protein'] = currentinfo['protein']
+            newdict['proteinacc'] = currentinfo['proteinacc']
             newdict['goterm'] = gt
             newdict['goaspect'] = currentinfo['goterms'][gt][0]             
             newdict['goevidence'] = currentinfo['goterms'][gt][1]        
@@ -423,8 +469,6 @@ class UniProtGOPlugin(object):
         self.log.debug(f"Created fanout of length: {len(newlist)}")
         return newlist
               
-        
-        
 
     def _make_species_map(self):
         '''
@@ -437,7 +481,6 @@ class UniProtGOPlugin(object):
         OXYMO E  475340: N=Oxytenis modestia
                          C=Costa Rica leaf moth
                          S=Dead-leaf moth
-        
         
         '''
         listfile = self.speciesmap
@@ -491,6 +534,13 @@ class UniProtGOPlugin(object):
         print(str(df))
         return df
 
+    @classmethod
+    def get_default_df(cls, usecache=True):
+        cp = ConfigParser()
+        cp.read(os.path.expanduser('~/git/cshl-work/etc/cafa4.conf'))
+        upg = UniProtGOPlugin(cp)
+        df = upg.get_swissprot_df(usecache = usecache)
+        return df 
         
 
 def test_uniprot(config):
@@ -518,6 +568,8 @@ def test_swissprot(config):
     upg = UniProtGOPlugin(config)
     out = upg.get_swissprot_df()
     print(str(out))
+
+    
 
 
 if __name__ == '__main__':
