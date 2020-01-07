@@ -33,6 +33,8 @@ class OrthologPlugin(CAFAPlugin):
         
     def execute(self, dataframe):
         """
+        within cafalib pipeline...
+        
         for each row of dataframe, look up ortholog in uniprot and for each GO code
         add a new row with gene, goterm, gocategory
         
@@ -47,7 +49,7 @@ class OrthologPlugin(CAFAPlugin):
         if self.backend == 'uniprot':
             self.uniprot = uniprot.UniProtGOPlugin(self.config) 
             self.log.debug("Calling uniprot back end.")
-            newdf = self.uniprot.get_df(dataframe)
+            newdf = self.uniprot.execute(dataframe)
             
         if self.backend == 'quickgo':
             self.quickgo = quickgo.QuickGOPlugin(self.config)

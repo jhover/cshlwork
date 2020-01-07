@@ -136,11 +136,11 @@ class UniProtGOPlugin(object):
         self.udf = None
         
 
-    def get_df(self, dataframe, online=False):
+    def execute(self, dataframe, online=False):
         """
         Takes inbound dataframe of orthologs and adds in GO terms and evidence codes from 
         uniprot/swissprot.
-        For a given ortholog protein, one row is added for each TO term.
+        For a given ortholog protein, one row is added for each GO term.
         Returns new dataframe with all info.   
         
         """
@@ -219,9 +219,13 @@ class UniProtGOPlugin(object):
                                                                              ])
         self.log.debug("\n%s" % str(newdf))        
         return newdf
-
-
-
+        # Output:
+        #             cafaid         evalue  score  bias  db proteinacc protein species cafaprot cafaspec      goterm goaspect goevidence
+        # 0    T100900000001  1.100000e-156  523.6   8.5  sp     Q9CQV8   1433B   MOUSE    1433B    MOUSE  GO:0005737       cc        ISO
+        # 1    T100900000001  1.100000e-156  523.6   8.5  sp     Q9CQV8   1433B   MOUSE    1433B    MOUSE  GO:0005829       cc        ISO
+        # 2    T100900000001  1.100000e-156  523.6   8.5  sp     Q9CQV8   1433B   MOUSE    1433B    MOUSE  GO:0042470       cc        IEA
+        #
+     
 
     def _dat2upr(self):
         self.log.debug("opening swissprot dat file %s" % self.sprotdatfile)
@@ -406,6 +410,7 @@ class UniProtGOPlugin(object):
 
                 elif line.startswith("SQ   SEQUENCE"):
                     self.log.debug("Handling SQ:  XXX")
+                    # line = filehandle.readline()
 
                 elif line.startswith("GN   "):
                     # Examples:

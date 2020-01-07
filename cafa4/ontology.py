@@ -197,11 +197,15 @@ class GeneOntology(object):
 
 
     def get_term(self, goterm):
-        self.log.debug("Looking up term {goterm}")
+        self.log.debug(f"Looking up term {goterm}")
         return self.goidx[goterm]
 
-
-        
+    def get_parent_list(self, goterm):
+        self.log.debug(f"Parents for {goterm}")
+        gtobj = self.goidx[goterm]
+        pl = gtobj.get_isalist()
+        # print("goterm: %s -> is_a: %s" % (gt,  gtobj.get_isastr()) )
+        return pl
 
     def _parse2tree(self, filehandle):
         '''
@@ -276,7 +280,7 @@ class GeneOntology(object):
             self.log.debug("No file at cachepath: %s" % self.cachepath)
 
 
-    def get_df(self, usecache=True):
+    def get_df(self, usecache=False):
         '''
         Create dataframe from local file for further usage...
         Used cached version on disk if available. 
@@ -375,13 +379,20 @@ class GeneOntology(object):
         self._add_references()
 
     @classmethod
-    def get_default_df(cls, usecache=True):
+    def get_default_df(cls):
         cp = ConfigParser()
         cp.read(os.path.expanduser('~/git/cshl-work/etc/cafa4.conf'))
         go = GeneOntology(cp)
-        df = go.get_df(usecache=usecache)
+        df = go.get_df()
         return df         
-      
+
+    @classmethod 
+    def get_default_go(cls):
+        cp = ConfigParser()
+        cp.read(os.path.expanduser('~/git/cshl-work/etc/cafa4.conf'))
+        go = GeneOntology(cp)
+        return go
+    
 
 
 def test(config):
@@ -405,10 +416,6 @@ def test(config):
         gtobj = goidx[gt]
         print("goterm: %s -> is_a: %s" % (gt,  gtobj.get_isastr()) )
     
-    #print("ISA_LISTCACHE=%s" % GOTerm.ISA_LISTCACHE)    
-    #df = go.get_df()
-    #print(str(df))
-
 
 
 def load_ontology():
