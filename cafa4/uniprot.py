@@ -609,6 +609,6 @@ if __name__ == '__main__':
     #df = test_testset(cp)
     #df.to_csv('testset.csv')
     #print(str(df))
-    #test_speciesmap(cp)
-    test_swissprot(cp)
+    test_speciesmap(cp)
+    #test_swissprot(cp)
 

@@ -57,7 +57,6 @@ import logging
 import tempfile
 
 import pandas as pd
-import pdpipe as pdp
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
