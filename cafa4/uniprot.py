@@ -192,7 +192,7 @@ class UniProtGOPlugin(object):
             self.log.debug("inbound row = %s" % str(row))
             #(query, evalue, score, bias, db, tacc, protein, species) = row[1:]
             (cafaid, evalue, score, bias, db, proteinacc, protein, species, cafaprot, cafaspec) = row[1:]
-            self.log.debug(f"Searching for match for {proteinacc}")
+            self.log.debug(f"Searching for match for '{proteinacc}'")
             gomatch = godf[ godf.proteinacc == proteinacc ]
             self.log.debug(f"gomatch is:\n {gomatch}")
             for gr in gomatch.itertuples():

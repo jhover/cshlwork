@@ -111,7 +111,7 @@ class PhmmerPlugin(CAFAPlugin):
         if not os.path.exists(targetfile):
             raise FileNotFoundError()
         (cmd, outfile) = self._make_phmmer_cmdline(targetfile)
-        self.log.debug("Running cmd='%s' outfile=%s " % (cmd, outfile))
+        self.log.info("Running cmd='%s' outfile=%s " % (cmd, outfile))
         cp = subprocess.run(cmd, 
                             shell=True, 
                             universal_newlines=True, 
@@ -139,7 +139,7 @@ class PhmmerPlugin(CAFAPlugin):
         return (cmd, outfile)
 
     def read_phmmer_table(self, filename):
-        self.log.debug("Reading %s" % filename)
+        self.log.info("Reading %s" % filename)
         df = pd.read_table(filename, 
                          names=['target','t-acc','cafaid','q-acc',
                                 'evalue', 'score', 'bias', 'e-value-dom','score-dom', 'bias-dom', 

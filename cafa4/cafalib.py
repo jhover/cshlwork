@@ -167,17 +167,8 @@ class CAFA4Run(object):
         df = ortho.execute(df)
         self.log.info("\n%s" % str(df))
         df.to_csv("%s/%s-%s-ortho.csv" % (self.outdir, self.name, self.outbase))
+
         
-        #gk = get_plugin('GOPlugin')
-        #go = gk(self.config)        
-        #df = go.execute(df)
-        #self.log.info("\n%s" % str(df))
-        #df.to_csv("%s/%s-%s-go.csv" % (self.outdir, self.name, self.outbase))        
-        
-        # not needed if we use quickgo. contains both evidence codes and go_aspect
-        #go = GOPlugin(self.config)
-        #df = go.execute(df)
-        #self.log.info("\n%s" % str(df))
         
         cfstr = self.cafafile(df)
         lines = cfstr.split('\n')
