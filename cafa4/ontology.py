@@ -109,8 +109,7 @@ class GOTerm(object):
             nl =  itemlist
             self.log.debug("%s new list is %s" % (self.goterm, nl))
             # add item term to item's isalist. 
-            #nl = list(collections.OrderedDict.fromkeys(gl))
-            #nl = list(self.goterm).extend(itemlist)
+
             self.log.debug("%s Storing cache entry= %s" % (self.goterm, nl))
             GOTerm.ISA_LISTCACHE[self.goterm] = nl
         

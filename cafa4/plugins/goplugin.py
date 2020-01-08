@@ -8,6 +8,7 @@ gitpath=os.path.expanduser("~/git/cshl-work")
 sys.path.append(gitpath)
 
 import pandas as pd
+import pronto as pt
 
 from cafa4.cafalib import CAFAPlugin
 from cafa4.ontology import GeneOntology
@@ -33,14 +34,16 @@ class GOPlugin(CAFAPlugin):
         
         """
         super(GOPlugin, self).__init__(config)
-        #self.configname = self.__class__.__name__.lower()
-        self.go = GeneOntology(self.config)
+        self.log.debug("Creating ontology with pronto...")
+        self.pgo = pt.Ontology(os.path.expanduser(self.config.get('goplugin','obofile')))
+        self.initprob = float(self.config.get('goplugin','initial_probability'))
+        self.probstep = float(self.config.get('goplugin','probability_step'))
         self.log.debug("GOPlugin initialized.")
+
 
     def execute(self, dataframe):
         # add column for probability
-        
-        dataframe['cafaprob'] = 0.01
+        dataframe['cafaprob'] = self.initprob
 
         # fan out for each go term up to root...
         newdfdict= {}
@@ -50,9 +53,15 @@ class GOPlugin(CAFAPlugin):
             (cafaid, evalue, score, bias, db, proteinacc, protein, species, 
             cafaprot, cafaspec, goterm, goaspect, goevidence, cafaprob) = row[1:]
             self.log.debug(f"Searching for parents of '{goterm}'...")        
-            gt = self.go.get_term(goterm)
-            isa_list = gt.get_isalist()
-            self.log.debug(f"Got list of parents of {goterm} : {isa_list}")
+            gt = self.pgo.get_term(goterm)
+            #try:
+            #    getattr(gt, 'cafaprob')
+            #except AttributeError:
+            #    gt.cafaprob = self.initprob
+            
+            superclasses = gt.superclasses()
+            self.log.debug(f"Got generator of superclasses for {goterm}")
+            
             # Add row for existing base goterm:
             newrow = [cafaid, evalue, score, bias, db, 
                          proteinacc, protein, species, cafaprot, 
@@ -61,11 +70,16 @@ class GOPlugin(CAFAPlugin):
             ix += 1
             
             # Add row for each parent:
-            for parentterm in isa_list:
-                cafaprob = cafaprob + .01 
+            for sclass in superclasses:
+                #try:
+                #    getattr(gt, 'cafaprob')
+                #except AttributeError:
+                #    gt.cafaprob = self.initprob
+                #cafaprob = sclass.cafaprob + self.probstep 
+                cafaprob = cafaprob + self.probstep
                 newrow = [cafaid, evalue, score, bias, db, 
                           proteinacc, protein, species, cafaprot, 
-                          cafaspec, parentterm, goaspect, goevidence, cafaprob ]
+                          cafaspec, sclass.id , goaspect, goevidence, cafaprob ]
                 newdfdict[ix] = newrow
                 ix += 1
                 
@@ -90,7 +104,7 @@ class GOPlugin(CAFAPlugin):
 
         self.log.debug(f"New dataframe with {len(newdf.index)} rows.")
         return newdf
-    
 
+ 
     
     

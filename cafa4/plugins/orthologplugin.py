@@ -29,8 +29,7 @@ class OrthologPlugin(CAFAPlugin):
 
         # self.exc_ec_list = [i.strip() for i in config.get(self.configname, 'excluded_evidence_codes').split(',')] 
         
-        
-
+      
         
     def execute(self, dataframe):
         """
