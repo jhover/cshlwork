@@ -48,9 +48,9 @@ class OrthologPlugin(CAFAPlugin):
         newdf = None
         
         if self.backend == 'uniprot':
-            self.uniprot = uniprot.UniProtGOPlugin(self.config) 
+            self.uniprot = uniprot.UniProt(self.config) 
             self.log.debug("Calling uniprot back end.")
-            newdf = self.uniprot.execute(dataframe)
+            newdf = self.uniprot.cafa_execute(dataframe)
             
         if self.backend == 'quickgo':
             self.quickgo = quickgo.QuickGOPlugin(self.config)

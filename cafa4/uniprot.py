@@ -110,7 +110,7 @@ class UniProtRecord(object):
         return s
 
 
-class UniProtGOPlugin(object):
+class UniProt(object):
     '''
     Aux info plugin.
     Takes dataframe, extracts entry_ids, adds info from uniprot.  
@@ -137,11 +137,18 @@ class UniProtGOPlugin(object):
         self.excluded_evidence_codes = excodes
         self.sprotdf = None
         self.udf = None
-        self.taxid_map = pd.read_csv(self.taxid_mapfile, index_col=0)
+        self.tdf = pd.read_csv(self.taxid_mapfile, index_col=0)
+        
+        # Create easy lookup mappings from taxon data frame...
+        itdf = self.tdf.set_index('taxonid')
+        self.taxiddict = itdf.to_dict(orient='index')
+        
+        isdf = self.tdf.set_index('species')
+        self.specdict = isdf.to_dict(orient='index')         
         self.log.debug("UniProtGOlugin initialized.")
         
 
-    def execute(self, dataframe, online=False):
+    def cafa_execute(self, dataframe, online=False):
         """
         Takes inbound dataframe of orthologs and adds in GO terms and evidence codes from 
         uniprot/swissprot.
@@ -156,8 +163,10 @@ class UniProtGOPlugin(object):
         # 1   T100900000001  4.100000e-155  518.4   7.7  sp    P35213   1433B     RAT    1433B    MOUSE    
         # 2   T100900000001  5.400000e-155  518.0   7.2  sp    A4K2U9   1433B   PONAB    1433B    MOUSE
         # 3   T100900000001  5.400000e-155  518.0   7.2  sp    P31946   1433B   HUMAN    1433B    MOUSE
-                
+        
+        # Get all unique target accession numbers.        
         entries = dataframe['proteinacc'].unique().tolist()
+        # Look up GOterms in uniprot...
         if online:
             self.uniprotapi = UniProt()
             self.log.debug("Querying uniprot API for %d unique entries" % len(entries))
@@ -190,7 +199,7 @@ class UniProtGOPlugin(object):
             # 0  001R_FRG3G  Q6GZX4      GO:0046782    bp        IEA
             # 1  002L_FRG3G  Q6GZX3      GO:0033644    cc        IEA
             
-
+        # For each go term add row...
         newdfdict= {}
         ix = 0
         for row in dataframe.itertuples():
@@ -412,7 +421,7 @@ class UniProtGOPlugin(object):
                     goterm = fields[1].strip()
                     goinfo = fields[2]
                     aspcode = goinfo.split(':')[0].strip()
-                    goaspect = UniProtGOPlugin.ASPECTMAP[aspcode]
+                    goaspect = UniProt.ASPECTMAP[aspcode]
                     goevsrc = fields[3]
                     (goevidence, evsrc) = goevsrc.split(':') 
                     goevidence = goevidence.strip()
@@ -553,34 +562,34 @@ class UniProtGOPlugin(object):
     def get_default_df(cls, usecache=True):
         cp = ConfigParser()
         cp.read(os.path.expanduser('~/git/cshl-work/etc/cafa4.conf'))
-        upg = UniProtGOPlugin(cp)
+        upg = UniProt(cp)
         df = upg.get_swissprot_df(usecache = usecache)
         return df 
         
 
 def test_uniprot(config):
-    upg = UniProtGOPlugin(config)
+    upg = UniProt(config)
     entrylist = ['Q9CQV8', 'P35213', 'A4K2U9', 'P31946', 'Q4R572', 'P68250']
     out = upg._query_entries(entrylist)
     print(out)     
 
 def test_datparse(config):
-    upg = UniProtGOPlugin(config)
+    upg = UniProt(config)
     df = upg.get_swissprot_df()
     return df
 
 def test_speciesmap(config):
-    upg = UniProtGOPlugin(config)
+    upg = UniProt(config)
     upg._make_species_map()
 
 def test_testset(config):
-    upg = UniProtGOPlugin(config)
+    upg = UniProt(config)
     df = upg.get_annotation_df()
     return df
 
 def test_swissprot(config):
     logging.debug("Running test_swissprot")
-    upg = UniProtGOPlugin(config)
+    upg = UniProt(config)
     out = upg.get_swissprot_df()
     print(str(out))
 

@@ -141,7 +141,7 @@ class CAFA4Run(object):
             target = row[1]['cafaid']
             goterm = row[1]['goterm']
             #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
-            probest = row[1]['probest'] # rounding not needed. format does it correctly below. 
+            probest = row[1]['cafaprob'] # rounding not needed. format does it correctly below. 
             s += "%s\t%s\t%.2f\n" % (target, goterm, probest)
         s+="END\n"
         
@@ -178,7 +178,7 @@ class CAFA4Run(object):
         cfstr = self.cafafile(df)
         lines = cfstr.split('\n')
         summary = '\n'.join(lines[:10] + ['.', '.','.']  + lines[-10:]) 
-        self.log.debug("\n%s" % summary)
+        self.log.info("\n%s" % summary)
         self.log.info("Ending run...")
 
 
