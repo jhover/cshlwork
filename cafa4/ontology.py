@@ -168,7 +168,7 @@ class GeneOntology(object):
         self.isalists = {}
         self.df = None
         self.get_tree_termindex()
-        self.log.debug("Object initialized.")
+        self.log.debug(f"GeneOntology with {len(self.goidx)} terms initialized.")
        
     
     def get_tree_termindex(self):

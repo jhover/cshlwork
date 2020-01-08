@@ -26,7 +26,8 @@ class OrthologPlugin(CAFAPlugin):
         super(OrthologPlugin, self).__init__(config)
         self.configname = self.__class__.__name__.lower()
         self.backend = config.get(self.configname ,'backend').strip()
-        self.exc_ec_list = [i.strip() for i in config.get(self.configname, 'excluded_evidence_codes').split(',')] 
+
+        # self.exc_ec_list = [i.strip() for i in config.get(self.configname, 'excluded_evidence_codes').split(',')] 
         
         
 
@@ -36,7 +37,7 @@ class OrthologPlugin(CAFAPlugin):
         within cafalib pipeline...
         
         for each row of dataframe, look up ortholog in uniprot and for each GO code
-        add a new row with gene, goterm, gocategory
+        add a new row with gene, goterm, goaspect
         
         iterate input df fully, putting new info in new df. 
         merge old + new df, return resulting dataframe
@@ -60,3 +61,4 @@ class OrthologPlugin(CAFAPlugin):
         
         self.log.debug("\n%s" % str(newdf))
         return newdf
+    

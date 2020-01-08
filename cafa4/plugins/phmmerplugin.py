@@ -35,7 +35,8 @@ class PhmmerPlugin(CAFAPlugin):
         super(PhmmerPlugin, self).__init__(config)
         self.targetfile = targetfile
         self.database = os.path.expanduser( config.get(self.lkname, 'database') )
-        self.score_threshold = config.get(self.lkname,'score_threshold')
+        self.score_threshold = config.get(self.lkname,'score_threshold', fallback=None)
+        self.eval_threshold = config.get(self.lkname, 'eval_threshold', fallback=None)
         self.cpus = config.get(self.lkname,'cpus')
         
 
@@ -132,6 +133,9 @@ class PhmmerPlugin(CAFAPlugin):
         cmdlist.append('--cpu %s ' % self.cpus)
         if self.score_threshold is not None:
             cmdlist.append("-T %s " % self.score_threshold)
+        elif self.eval_threshold is not None:
+            cmdlist.append("-E %s " % self.eval_threshold)
+        
         cmdlist.append(' %s ' % filename )
         cmdlist.append(' %s ' % self.database )
         cmd = ' '.join(cmdlist).strip()

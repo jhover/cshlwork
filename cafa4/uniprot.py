@@ -129,11 +129,16 @@ class UniProtGOPlugin(object):
         self.config = config
         self.uniprotapi = None
         self.outdir = os.path.expanduser( config.get('global','outdir') )
+        self.taxid_mapfile = os.path.expanduser( config.get('global','taxid_mapfile'))
         self.sprotdatfile = os.path.expanduser( config.get('goplugin','sprotdatfile') )
         self.cachedir = os.path.expanduser( config.get('goplugin','cachedir') )
-        self.speciesmap = os.path.expanduser( config.get('global','species_mapfile'))
+        excodes = config.get('goplugin' , 'excluded_evidence_codes', fallback=[] ).split(',')
+        excodes = [ x.strip() for x in excodes]
+        self.excluded_evidence_codes = excodes
         self.sprotdf = None
         self.udf = None
+        self.taxid_map = pd.read_csv(self.taxid_mapfile, index_col=0)
+        self.log.debug("UniProtGOlugin initialized.")
         
 
     def execute(self, dataframe, online=False):
@@ -217,7 +222,12 @@ class UniProtGOPlugin(object):
                                                                              'goaspect',
                                                                              'goevidence'                                                                             
                                                                              ])
-        self.log.debug("\n%s" % str(newdf))        
+        
+        for xc in self.excluded_evidence_codes:
+            self.log.debug(f"{len(newdf.index)} rows. Removing evidence code {xc}...")
+            newdf = newdf[newdf.goevidence != xc]
+            self.log.debug(f"{len(newdf.index)} rows after.")
+        self.log.debug(f"\n{str(newdf)}")        
         return newdf
         # Output:
         #             cafaid         evalue  score  bias  db proteinacc protein species cafaprot cafaspec      goterm goaspect goevidence

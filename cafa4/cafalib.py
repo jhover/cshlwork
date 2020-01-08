@@ -35,7 +35,6 @@
 #
 #
 
-
 __author__ = "John Hover"
 __copyright__ = "2019 John Hover"
 __credits__ = []
@@ -102,6 +101,7 @@ class CAFA4Run(object):
         self.pipeline = [ x.strip() for x in config.get( self.profile,'pipeline').split(',')]
         self.outbase = config.get( self.profile,'outbase')
     
+    
     def __repr__(self):
         s = "CAFA4Run:"
         for atr in ['name', 'outdir','targetfile','pipeline']:
@@ -141,12 +141,13 @@ class CAFA4Run(object):
             target = row[1]['cafaid']
             goterm = row[1]['goterm']
             #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
-            probest = float(1.0)
-            s += "%s\t%s\t%f\n" % (target, goterm, probest)
+            probest = row[1]['probest'] # rounding not needed. format does it correctly below. 
+            s += "%s\t%s\t%.2f\n" % (target, goterm, probest)
         s+="END\n"
         
         f.write(s)
         f.close()
+        self.log.info(f"Wrote cafafile with {len(dataframe.index)} entries. ")
         return s
     
     def execute(self):
@@ -168,7 +169,11 @@ class CAFA4Run(object):
         self.log.info("\n%s" % str(df))
         df.to_csv("%s/%s-%s-ortho.csv" % (self.outdir, self.name, self.outbase))
 
-        
+        gk = get_plugin('GOPlugin')
+        go = gk(self.config)
+        self.log.debug(go)
+        df = go.execute(df)
+        self.log.info(f"\n{str(df)}")
         
         cfstr = self.cafafile(df)
         lines = cfstr.split('\n')
