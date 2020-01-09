@@ -158,7 +158,7 @@ class GeneOntology(object):
         self.lkname = self.kname.lower()
         self.log = logging.getLogger(self.kname)
         self.outdir = os.path.expanduser( config.get('global','outdir') )
-        self.cachedir = os.path.expanduser(config.get(self.lkname ,'cachedir'))
+        self.cachedir = os.path.expanduser(config.get('global' ,'cachedir'))
         self.cachefile = "%s.csv" % self.lkname
         self.cachepath = "%s/%s" % (self.cachedir, self.cachefile)
         if obofile is None:

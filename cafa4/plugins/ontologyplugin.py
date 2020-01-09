@@ -77,6 +77,8 @@ class OntologyPlugin(CAFAPlugin):
                 #    gt.cafaprob = self.initprob
                 #cafaprob = sclass.cafaprob + self.probstep 
                 cafaprob = cafaprob + self.probstep
+                if cafaprob >= 1.0:
+                    cafaprob = 0.99
                 newrow = [cafaid, evalue, score, bias, db, 
                           proteinacc, protein, species, cafaprot, 
                           cafaspec, sclass.id , goaspect, goevidence, cafaprob ]

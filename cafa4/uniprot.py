@@ -571,6 +571,38 @@ class UniProt(object):
         df = upg.get_swissprot_df(usecache = usecache)
 
         return df 
+
+    @classmethod
+    def calculate_prior(cls, dataframe, species=None, goaspect=None):
+        """
+        @arg 
+           dataframe :  standard internal dataframe, 
+           species  :  NCBI species code   e.g. MOUSE | HUMAN
+           goaspect : internal aspect code   e.g. [cc | bp | mf ]
+           
+           proteinid proteinacc protein species      goterm goaspect goevidence
+           11K_PAVHV     P0DJZ0     11K   PAVHV  GO:0030430       cc        IDA
+           ...
+
+        returns:
+            dataframe w/ ranked list of goterms, within the specified species/aspect if supplied.
+            otherwise globally 
+            
+            goterm      goaspect    count    prob
+            GO:0045735  cc           3679    .142
+            GO:0030433  bp           1256    .086
+
+        """
+        df = dataframe
+        if species is not None:
+            df = df[df.species == species] 
+        if goaspect is not None:
+            df = df[df.goaspect == goaspect]
+
+        totalterms = df.goterm.count()
+        newdf = pd.DataFrame( df.goterm.value_counts() ).reset_index()
+        newdf.columns = ['goterm','counts']
+        
         
 
 def test_uniprot(config):

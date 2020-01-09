@@ -132,7 +132,7 @@ class CAFA4Run(object):
         f = open( cafafile, 'w' )
         
         s = ""
-        s += "%s\t%s\n" % (self.author, 'GILLIS_LAB')
+        s += f"AUTHOR\t{self.author}\n" 
         s += "MODEL\t%s\n" % 1
         s += "KEYWORDS\tortholog, gene expression\n"
         s += "ACCURACY\t1\tPR=%f;\tRC=%f\n" % (1.00, 1.00) 
