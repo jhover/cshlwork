@@ -53,7 +53,7 @@ def runphmmer(config, filename):
 
 def parsephmmer(config, filename):
     """
-    Read phmmer tbl out. Return dict indexed by  
+    Read phmmer tbl out. Return dict  
     """
     logging.info("Reading %s" % filename)
     df = pd.read_table(filename, 
@@ -91,6 +91,7 @@ def parsephmmer(config, filename):
     
     """
     return dict
+
 
 
 
