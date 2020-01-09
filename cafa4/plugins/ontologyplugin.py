@@ -15,7 +15,7 @@ from cafa4.ontology import GeneOntology
 
 
 
-class GOPlugin(CAFAPlugin):
+class OntologyPlugin(CAFAPlugin):
     """
     Pipeline object. 
     Takes Pandas dataframe 
@@ -33,12 +33,12 @@ class GOPlugin(CAFAPlugin):
         """
         
         """
-        super(GOPlugin, self).__init__(config)
+        super(OntologyPlugin, self).__init__(config)
         self.log.debug("Creating ontology with pronto...")
-        self.pgo = pt.Ontology(os.path.expanduser(self.config.get('goplugin','obofile')))
-        self.initprob = float(self.config.get('goplugin','initial_probability'))
-        self.probstep = float(self.config.get('goplugin','probability_step'))
-        self.log.debug("GOPlugin initialized.")
+        self.pgo = pt.Ontology(os.path.expanduser(self.config.get(self.lkname,'obofile')))
+        self.initprob = float(self.config.get(self.lkname,'initial_probability'))
+        self.probstep = float(self.config.get(self.lkname,'probability_step'))
+        self.log.debug("OntologyPlugin initialized.")
 
 
     def execute(self, dataframe):

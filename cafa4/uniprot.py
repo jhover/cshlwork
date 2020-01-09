@@ -130,9 +130,9 @@ class UniProt(object):
         self.uniprotapi = None
         self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.taxid_mapfile = os.path.expanduser( config.get('global','taxid_mapfile'))
-        self.sprotdatfile = os.path.expanduser( config.get('goplugin','sprotdatfile') )
-        self.cachedir = os.path.expanduser( config.get('goplugin','cachedir') )
-        excodes = config.get('goplugin' , 'excluded_evidence_codes', fallback=[] ).split(',')
+        self.sprotdatfile = os.path.expanduser( config.get('ontologyplugin','sprotdatfile') )
+        self.cachedir = os.path.expanduser( config.get('ontologyplugin','cachedir') )
+        excodes = config.get('ontologyplugin' , 'excluded_evidence_codes', fallback=[] ).split(',')
         excodes = [ x.strip() for x in excodes]
         self.excluded_evidence_codes = excodes
         self.sprotdf = None
@@ -210,7 +210,7 @@ class UniProt(object):
             gomatch = godf[ godf.proteinacc == proteinacc ]
             self.log.debug(f"gomatch is:\n {gomatch}")
             for gr in gomatch.itertuples():
-                (entry, proteinacc, goterm, goaspect, goevidence) = gr[1:]
+                (entry, proteinacc, protein, species, goterm, goaspect, goevidence) = gr[1:]
                 newrow = [cafaid, evalue, score, bias, db, 
                           proteinacc, protein, species, cafaprot, 
                           cafaspec, goterm, goaspect, goevidence ]
@@ -231,12 +231,12 @@ class UniProt(object):
                                                                              'goaspect',
                                                                              'goevidence'                                                                             
                                                                              ])
-        
         for xc in self.excluded_evidence_codes:
             self.log.debug(f"{len(newdf.index)} rows. Removing evidence code {xc}...")
             newdf = newdf[newdf.goevidence != xc]
             self.log.debug(f"{len(newdf.index)} rows after.")
-        self.log.debug(f"\n{str(newdf)}")        
+            self.log.debug(f"\n{str(newdf)}")  
+     
         return newdf
         # Output:
         #             cafaid         evalue  score  bias  db proteinacc protein species cafaprot cafaspec      goterm goaspect goevidence
@@ -390,10 +390,13 @@ class UniProt(object):
             #for line in filehandle:
                 if line.startswith("ID "):
                     # ID   001R_FRG3G              Reviewed;         256 AA.
-                    proteinid = line[5:15].strip()
+                    #      <prot_name>_<prot_spec>
+                    proteinid = line[5:16].strip()
                     current = defaultdict(dict)
                     current['proteinid'] = proteinid
-                    
+                    (protein, species) = proteinid.split('_')
+                    current['protein'] = protein
+                    current['species'] = species
                     self.log.debug("Handling ID. New entry.")                
                 
                 elif line.startswith("AC "):
@@ -485,6 +488,8 @@ class UniProt(object):
             newdict = {}
             newdict['proteinid'] = currentinfo['proteinid']
             newdict['proteinacc'] = currentinfo['proteinacc']
+            newdict['protein'] = currentinfo['protein']
+            newdict['species'] = currentinfo['species']
             newdict['goterm'] = gt
             newdict['goaspect'] = currentinfo['goterms'][gt][0]             
             newdict['goevidence'] = currentinfo['goterms'][gt][1]        
@@ -564,6 +569,7 @@ class UniProt(object):
         cp.read(os.path.expanduser('~/git/cshl-work/etc/cafa4.conf'))
         upg = UniProt(cp)
         df = upg.get_swissprot_df(usecache = usecache)
+
         return df 
         
 

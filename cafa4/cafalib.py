@@ -169,11 +169,12 @@ class CAFA4Run(object):
         self.log.info("\n%s" % str(df))
         df.to_csv("%s/%s-%s-ortho.csv" % (self.outdir, self.name, self.outbase))
 
-        gk = get_plugin('GOPlugin')
+        gk = get_plugin('OntologyPlugin')
         go = gk(self.config)
         self.log.debug(go)
         df = go.execute(df)
         self.log.info(f"\n{str(df)}")
+        df.to_csv("%s/%s-%s-go.csv" % (self.outdir, self.name, self.outbase))
         
         cfstr = self.cafafile(df)
         lines = cfstr.split('\n')
