@@ -1,5 +1,28 @@
 #!/usr/bin/env python
-
+#   ************************CANONICAL COLUMNS*********************************
+#   
+# COLUMN    DESCRIPTION               MAPPINGS                         EXAMPLES
+# cid       cafa4 target identifier   N/A                              T2870000001
+# cafaprot  cafa4 target protein id                                    1433B
+# cafaspec  cafa4 target protien species                               MOUSE
+# id        UniProtKB: entry/ID                                        1433B_RAT
+# pacc      UniProtKB: accession  ?quickgo:gene product_id             P63103
+# protein   all caps name                                              1433B
+# gene      Free-text gene name.                                       Lrrk2  Ywahb
+# geneid    Gene name+species.                                         LRRK2_MOUSE     
+# taxonid   NCBI taxon id                                              9606                 
+# species   all caps code                                              MOUSE   PONAB
+# goterm    Gene Ontology Annotation ID                                GO:0005634
+# goasp     biological process|molecular function|cellular component   bp       mf   cc
+# goev      evidence codes for GO annotation.                          IEA 
+# eval      BLAST/HMMER/PHMMER expect statistic                        1.000000e-126
+# bias      Adjustement to score for char prevalence                   3.5
+# score     BLAST/HMMER/PHMMER bit-score                               400.3
+# db        database against which orthology query is done             sp (swissprot)
+# probest   Probability estimate for prediction.                       0.68  [.01-1.0]  
+#
+#
+#
 __author__ = "John Hover"
 __copyright__ = "2019 John Hover"
 __credits__ = []
@@ -19,15 +42,26 @@ from configparser import ConfigParser
 import logging
 import subprocess
 import tempfile
+import traceback
+
 
 import pandas as pd
 import numpy as np
 
+
+GONSMAP= { 'biological_process' : 'bp',
+             'cellular_component' : 'cc',
+             'molecular_function' : 'mf',
+             'external'           : 'ex'
+            }
+
+
 def dorun(config, filename, runname):
     logging.info("starting...")
     outfile = runphmmer(config, filename)
-    parsephmmer(config, outfile )
-    
+    phdict = parsephmmer(config, outfile )
+    logging.debug(phdict)
+    ont = build_ontology(config)
 
 def runphmmer(config, filename):
     """
@@ -93,6 +127,80 @@ def parsephmmer(config, filename):
     return dict
 
 
+def build_ontology(config):
+    """
+    obofile=~/data/go/go.obo
+    
+    """
+    dict = parse_obo(config)
+    #for k in dict.keys():
+    #    po = dict[k]['part_of']
+    #    print(po)
+    logging.debug(f"got dict: {dict}")
+    
+    
+
+def calc_prior(config,species=None):
+    """
+    
+    
+    """
+    
+
+def parse_obo(config):
+    """
+    creates dict of dicts. key is goterm, contents is dict of 
+       goterm  ""
+       goname  ""
+       goasp   ""
+       godef   ""
+       goisa   [] of goterms
+       gohasa  [] 
+    
+    """
+    obofile = os.path.expanduser(config.get('ontology','obofile'))
+    filehandle = open(obofile)
+    goidx = {}
+    current = None
+    logging.info(f"Parsing file {obofile}")
+    try:
+        for line in filehandle:
+            if line.startswith("[Term]"):     
+                if current is not None:
+                    goidx[current['goterm']]= current
+                # create new item...
+                current = {}
+                current['is_a'] = []
+                current['part_of'] = []
+                
+            elif line.startswith("id: "):
+                current['goterm'] = line[4:].strip()
+                
+            elif line.startswith("name: "):
+                current['goname'] = line[6:].strip()
+            
+            elif line.startswith("namespace: "):
+                asp = line[11:].strip()
+                current['goasp'] = GONSMAP[asp]
+            
+            elif line.startswith("def: "):
+                current['godef'] = line[5:].strip()
+
+            #elif line.startswith("synonym: "):
+            #    current.synonym.append(line[9:].strip())
+
+            elif line.startswith("is_a: "):
+                current['is_a'].append(line[6:16].strip())
+            
+            elif line.startswith("relationship"):
+                if "part_of" in line:
+                    current['part_of'].append(line[22:32])
+                                 
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)                
+    
+    logging.info(f"Parsed file with {len(goidx)} terms")    
+    return goidx
 
 
 

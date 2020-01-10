@@ -102,6 +102,7 @@ class CAFA4Run(object):
         self.outbase = config.get( self.profile,'outbase')
     
     
+    
     def __repr__(self):
         s = "CAFA4Run:"
         for atr in ['name', 'outdir','targetfile','pipeline']:
@@ -127,7 +128,8 @@ class CAFA4Run(object):
         .
         
         """
-        cafafile = "%s/gillislab_1_%s_go.txt" % (self.outdir,  "287")
+        species = dataframe['cafaspec'][0]
+        cafafile = "%s/gillislab_1_%s_go.txt" % (self.outdir, species)
         self.log.debug("Opening cafafile=%s" % cafafile)
         f = open( cafafile, 'w' )
         
@@ -137,12 +139,18 @@ class CAFA4Run(object):
         s += "KEYWORDS\tortholog, gene expression\n"
         s += "ACCURACY\t1\tPR=%f;\tRC=%f\n" % (1.00, 1.00) 
         self.log.debug("dataframe columns=%s" % dataframe.columns )
-        for row in dataframe.iterrows():
-            target = row[1]['cafaid']
-            goterm = row[1]['goterm']
+        #for row in dataframe.iterrows():
+        #    target = row[1]['cafaid']
+        #    goterm = row[1]['goterm']
             #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
-            probest = row[1]['cafaprob'] # rounding not needed. format does it correctly below. 
-            s += "%s\t%s\t%.2f\n" % (target, goterm, probest)
+        #    probest = row[1]['cafaprob'] # rounding not needed. format does it correctly below. 
+        #    s += "%s\t%s\t%.2f\n" % (target, goterm, probest)
+        for row in dataframe.itertuples():
+            target = row.cafaid
+            goterm = row.goterm
+            #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
+            probest = row.cafaprob # rounding not needed. format does it correctly below. 
+            s += f"{target}\t{goterm}\t{probest:.2f}\n"        
         s+="END\n"
         
         f.write(s)

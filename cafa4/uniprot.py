@@ -233,7 +233,8 @@ class UniProt(object):
                                                                              ])
         for xc in self.excluded_evidence_codes:
             self.log.debug(f"{len(newdf.index)} rows. Removing evidence code {xc}...")
-            newdf = newdf[newdf.goevidence != xc]
+            #newdf = newdf[newdf.goevidence != xc]
+            newdf.drop(newdf.loc[newdf['goevidence'] == xc ].index, inplace=True)
             self.log.debug(f"{len(newdf.index)} rows after.")
             self.log.debug(f"\n{str(newdf)}")  
      

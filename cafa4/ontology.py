@@ -80,10 +80,11 @@ class GOTerm(object):
         self.godef = None
         self.synonym = []
         self.is_a = []
+        self.part_of = []
     
-    def get_isalist(self):
+    def superclasses(self):
         '''
-        Return non-redundant list of all goterm strings that are is_a parents of this term
+        Return non-redundant list of all goterm strings that are is_a|part_of parents of this term
         '''
         # Root terms
         nl = None
@@ -104,7 +105,7 @@ class GOTerm(object):
             # no entry for this isa_list. Must construct...
             self.log.debug("%s Cache miss" % self.goterm)
             item = self.is_a[0]
-            itemlist = [item.goterm] + item.get_isalist()
+            itemlist = [item.goterm] + item.superclasses()
             self.log.debug("%s Got itemlist %s for %s" % (self.goterm, itemlist, item.goterm))
             nl =  itemlist
             self.log.debug("%s new list is %s" % (self.goterm, nl))
@@ -118,7 +119,7 @@ class GOTerm(object):
             self.log.debug("%s Cache miss" % self.goterm)   
             gl = []              
             for item in self.is_a:
-                gl.extend( [item.goterm] + item.get_isalist())
+                gl.extend( [item.goterm] + item.superclasses())
             
             nl = list(collections.OrderedDict.fromkeys(gl))
             # store de-duped list to cache, preserving order
@@ -128,12 +129,12 @@ class GOTerm(object):
         self.log.debug("%s returning %s" % (self.goterm, nl))
         return nl    
     
-    def get_isastr(self):
+    def superclassesstr(self):
         '''
-        Return string representation of all is_a parents of this term. 
+        Return string representation of all is_a|part_of parents of this term. 
         
         '''
-        il = self.get_isalist()
+        il = self.superclasses()
         s = ' '.join(il)
         return s   
     
@@ -157,12 +158,13 @@ class GeneOntology(object):
         self.kname = self.__class__.__name__
         self.lkname = self.kname.lower()
         self.log = logging.getLogger(self.kname)
-        self.outdir = os.path.expanduser( config.get('global','outdir') )
         self.cachedir = os.path.expanduser(config.get('global' ,'cachedir'))
         self.cachefile = "%s.csv" % self.lkname
         self.cachepath = "%s/%s" % (self.cachedir, self.cachefile)
+        self.obofile = os.path.expanduser(obofile)
         if obofile is None:
             self.obofile = os.path.expanduser(self.config.get('ontology','obofile'))
+        
         self.goidx = {}   #  { 'GO:XXXXXX' : GoTermObject, }      
         self.isalists = {}
         self.df = None
@@ -185,11 +187,12 @@ class GeneOntology(object):
             filehandle.close()
                 
         except FileNotFoundError:
-            self.log.error("No such file %s" % filename)        
+            self.log.error("No such file %s" % self.obofile)        
         
         finally:
             if filehandle is not None:
                 filehandle.close()
+        
         self._add_references()
         
         return self.goidx
@@ -202,7 +205,7 @@ class GeneOntology(object):
     def get_parent_list(self, goterm):
         self.log.debug(f"Parents for {goterm}")
         gtobj = self.goidx[goterm]
-        pl = gtobj.get_isalist()
+        pl = gtobj.superclasses()
         # print("goterm: %s -> is_a: %s" % (gt,  gtobj.get_isastr()) )
         return pl
 
@@ -298,85 +301,10 @@ class GeneOntology(object):
         self.log.debug(str(self.df))
         return self.df
 
-    
     def get_dict(self):
-        dict = self._handle_obo(self.obofile)
-        return dict    
+        pass
 
-    def _handle_obo(self, filename):
-        '''
-        Create dictionary from obo:
-        
-        { 0  : [ 'GO:0000002', 'mitochondrial genome maintenance','biological_process'],
-          1  : [ 'GO:0000186', 'activation of MAPKK activity','biological_process']
-        }  
-        
-        '''       
-        godict = {}
-        try:
-            self.log.debug( f"Opening file {filename}")
-            filehandle = open(filename, 'r')
-            godict = self._parsefile(filehandle)
-            filehandle.close()
-                
-        except FileNotFoundError:
-            self.log.error(f"No such file {filename}")                
-        return godict   
-
-        
-    def _parsefile(self, filehandle):
-        od = {}
-        keyid = 0
-        current = None
-        try:
-            for line in filehandle:
-                if line.startswith("[Term]"):
-                    #self.log.debug("found term")
-                    if current is not None:
-                        od[keyid] = current
-                        current = []
-                        keyid += 1
-                    else:
-                        current = []
-                    
-                elif line.startswith("id: "):
-                    #self.log.debug("found id:")
-                    (key, val ) = line.split(":",1) # only parse to first occurence of ':'
-                    val = val.strip()
-                    current.append(val)
-                
-                elif line.startswith("name: "):
-                    #self.log.debug("found name")
-                    (key, val ) = line.split(":",1)
-                    val = val.strip()
-                    current.append(val)
-                
-                elif line.startswith("namespace: "):
-                    #self.log.debug("found namespace")
-                    (key, val ) = line.split(":",1)
-                    val = val.strip()
-                    val = GeneOntology.NSMAP[val]
-                    current.append(val)
-
-                elif line.strip().startswith("#"):
-                    pass          
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)                
-        self.log.debug("Parsed file with %d terms" % keyid )
-        return od  
-
-    def _handle_file(self, filename):
-        try:
-            self.log.debug("opening file %s" % filename)
-            filehandle = open(filename, 'r')
-            self._parsefile(filehandle)
-            filehandle.close()
-                
-        except FileNotFoundError:
-            self.log.error("No such file %s" % filename)                  
-
-        self._add_references()
-
+    
     @classmethod
     def get_default_df(cls):
         cp = ConfigParser()
@@ -413,7 +341,7 @@ def test(config):
         gt = line.strip()
         print("looking up term: %s" % gt)
         gtobj = goidx[gt]
-        print("goterm: %s -> is_a: %s" % (gt,  gtobj.get_isastr()) )
+        print("goterm: %s -> is_a: %s" % (gt,  gtobj.superclassesstr()) )
     
 
 
