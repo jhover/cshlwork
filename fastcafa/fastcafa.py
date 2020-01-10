@@ -131,15 +131,74 @@ def build_ontology(config):
     """
     obofile=~/data/go/go.obo
     
+    { 'GO:2001315': 
+         {'is_a': ['GO:0009226', 'GO:0046349', 'GO:2001313'], 
+         'part_of': [], 
+         'goterm': 'GO:2001315', 
+         'goname': 'UDP-4-deoxy-4-formamido-beta-L-arabinopyranose biosynthetic process', 
+         'goasp': 'bp', 
+       ...  
+    }   
+     
     """
-    dict = parse_obo(config)
-    #for k in dict.keys():
-    #    po = dict[k]['part_of']
-    #    print(po)
-    logging.debug(f"got dict: {dict}")
+    godict = parse_obo(config)
+    #print(dict)
+    gotermlist = list(godict)
+    logging.debug("sorting goterms")
+    gotermlist.sort()
+    #print(gotermlist)
+    
+    logging.debug("creating goterm index dict.")
+    termidx = {}
+    i = 0
+    for gt in gotermlist:
+        termidx[gt] = i
+        i = i + 1   
+    logging.debug(f"creating zero matrix of dimension {len(gotermlist)}")
+    gomatrix = np.zeros( (len(gotermlist), len(gotermlist)))
+    
+    logging.debug(f"filling in parent matrix for all goterms...")
+    for gt in godict.keys():
+        for parent in godict[gt]['is_a']:
+                gomatrix[termidx[parent]][termidx[gt]] = 1     
+    # print(gomatrix)
+    logging.debug("converging matrix...")
+    gomatrix = converge_matrix(gomatrix)
+    logging.debug("got converged matrix.")
     
     
 
+    
+    
+    
+    
+    #for k in dict.keys():
+    #    po = dict[k]['part_of']
+    #    print(po)
+    #logging.debug(f"got dict: {dict}")
+
+def converge_matrix(mat):
+    oldval = 0
+    logging.debug("multiplying matrix by itself...")
+    mat2 = np.matmul(mat, mat)
+    logging.debug("adding back original matrix...")
+    mat2 = mat + mat2
+    logging.debug("adjusting values back to 1")
+    mat2 = np.where(mat2 > 0, 1, 0)
+    logging.debug("calculating matrix sum...")
+    newval = np.sum(mat2)
+    logging.debug(f"initial sum is {newval}")
+    while newval != oldval:
+        logging.debug(f"newval {newval} != oldval {oldval}")
+        oldval = newval
+        mat2 = np.matmul(mat, mat)
+        mat2 = mat + mat2
+        mat2 = np.where(mat2 > 0, 1, 0)
+        newval = np.sum(mat2)
+    logging.debug(f"done. values converged with newval {newval}")   
+    return mat2
+    
+    
 def calc_prior(config,species=None):
     """
     
@@ -183,8 +242,8 @@ def parse_obo(config):
                 asp = line[11:].strip()
                 current['goasp'] = GONSMAP[asp]
             
-            elif line.startswith("def: "):
-                current['godef'] = line[5:].strip()
+            #elif line.startswith("def: "):
+            #    current['godef'] = line[5:].strip()
 
             #elif line.startswith("synonym: "):
             #    current.synonym.append(line[9:].strip())
