@@ -155,8 +155,8 @@ def build_ontology(config):
         termidx[gt] = i
         i = i + 1   
     logging.debug(f"creating zero matrix of dimension {len(gotermlist)}")
-    gomatrix = np.zeros( (len(gotermlist), len(gotermlist)))
-    
+    #gomatrix = np.zeros( (len(gotermlist), len(gotermlist)))
+    gomatrix = np.full( (len(gotermlist), len(gotermlist) ), False, dtype=bool    )
     logging.debug(f"filling in parent matrix for all goterms...")
     for gt in godict.keys():
         for parent in godict[gt]['is_a']:
