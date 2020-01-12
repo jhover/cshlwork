@@ -47,6 +47,7 @@ import traceback
 
 import pandas as pd
 import numpy as np
+from scipy import sparse
 
 
 GONSMAP= { 'biological_process' : 'bp',
@@ -155,23 +156,29 @@ def build_ontology(config):
         termidx[gt] = i
         i = i + 1   
     logging.debug(f"creating zero matrix of dimension {len(gotermlist)}")
-    #gomatrix = np.zeros( (len(gotermlist), len(gotermlist)))
-    gomatrix = np.full( (len(gotermlist), len(gotermlist) ), False, dtype=bool    )
+    shape = (len(gotermlist), len(gotermlist))
+    gomatrix = np.zeros( shape, dtype=np.int8 )
+    #gomatrix = np.full( shape, False, dtype=bool    )
+    #gomatrix = sparse.csr_matrix( shape, dtype=bool )
     logging.debug(f"filling in parent matrix for all goterms...")
     for gt in godict.keys():
         for parent in godict[gt]['is_a']:
                 gomatrix[termidx[parent]][termidx[gt]] = 1     
+    logging.debug("Calculating sparsity...")
+    sparsity = 1.0 - np.count_nonzero(gomatrix) / gomatrix.size
+    logging.debug(f"sparsity = {sparsity}")
     # print(gomatrix)
+    logging.debug("converting to sparse matrix.")
+    gomatrix = sparse.lil_matrix(gomatrix, dtype=bool)
+    #logging.debug(f" gomatrix= {gomatrix}")
     logging.debug("converging matrix...")
     gomatrix = converge_matrix(gomatrix)
     logging.debug("got converged matrix.")
-    
-    
-
-    
-    
-    
-    
+    logging.debug("convert to dense matrix")
+    gomatrix = gomatrix.todense()
+    logging.debug("Calculating sparsity...")
+    sparsity = 1.0 - np.count_nonzero(gomatrix) / gomatrix.size
+    logging.debug(f"sparsity = {sparsity}")        
     #for k in dict.keys():
     #    po = dict[k]['part_of']
     #    print(po)
@@ -180,21 +187,23 @@ def build_ontology(config):
 def converge_matrix(mat):
     oldval = 0
     logging.debug("multiplying matrix by itself...")
-    mat2 = np.matmul(mat, mat)
+    #mat2 = np.matmul(mat, mat)
+    #mat2 = mat.multiply(mat)
+    mat2 = mat @ mat
     logging.debug("adding back original matrix...")
-    mat2 = mat + mat2
-    logging.debug("adjusting values back to 1")
-    mat2 = np.where(mat2 > 0, 1, 0)
+    mat2 = mat.dot(mat2)
     logging.debug("calculating matrix sum...")
     newval = np.sum(mat2)
     logging.debug(f"initial sum is {newval}")
     while newval != oldval:
         logging.debug(f"newval {newval} != oldval {oldval}")
         oldval = newval
-        mat2 = np.matmul(mat, mat)
+        #mat2 = np.matmul(mat, mat)
+        #mat2 = mat.multiply(mat)
+        mat2 = mat.dot(mat)
         mat2 = mat + mat2
-        mat2 = np.where(mat2 > 0, 1, 0)
         newval = np.sum(mat2)
+        logging.debug(f" newval={newval} oldval={oldval}")
     logging.debug(f"done. values converged with newval {newval}")   
     return mat2
     
