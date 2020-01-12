@@ -59,23 +59,25 @@ def testmatrix():
 
 def converge_matrix(mat):
     oldval = 0
+    newval = np.sum(mat)
+    logging.debug(f"initial sum is {newval}")    
+    
     logging.debug("multiplying matrix by itself...")
     #mat2 = np.matmul(mat, mat)
     #mat2 = mat.multiply(mat)
     mat2 = mat @ mat
     logging.debug("adding back original matrix...")
-    mat2 = mat.dot(mat2)
+    mat2 = mat2 + mat
     #mat2 = np.where(mat2 > 0, 1, 0)
     logging.debug("calculating matrix sum...")
-    newval = np.sum(mat2)
-    logging.debug(f"initial sum is {newval}")
+    
     while newval != oldval:
         logging.debug(f"newval {newval} != oldval {oldval}")
         oldval = newval
         #mat2 = np.matmul(mat, mat)
         #mat2 = mat.multiply(mat)
-        mat2 = mat.dot(mat)
-        mat2 = mat + mat2
+        mat2 = mat @ mat
+        mat2 = mat2 + mat
         #mat2 = np.where(mat2 > 0, 1, 0)
         newval = np.sum(mat2)
         logging.debug(f" newval={newval} oldval={oldval}")
