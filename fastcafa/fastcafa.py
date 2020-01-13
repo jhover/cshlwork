@@ -49,7 +49,7 @@ import traceback
 
 import pandas as pd
 import numpy as np
-np.set_printoptions(threshold=1000)
+np.set_printoptions(threshold=400)
 from scipy import sparse
 
 
@@ -64,6 +64,8 @@ UPASPECTMAP = { 'C': 'cc',
                   'P': 'bp'
                 }
 
+SPECMAPS = None
+
 
 def dorun(config, filename, runname, usecache):
     logging.debug(f"filename={filename}, runname={runname},usecache={usecache}")
@@ -72,6 +74,7 @@ def dorun(config, filename, runname, usecache):
     #outfile = runphmmer(config, filename)
     #phdict = parsephmmer(config, outfile )
     #logging.debug(phdict)
+    
     logging.info("building ontology...")
     gomatrix = build_ontology(config, usecache)
     logging.info(f"got ontology matrix:\n{matrix_info(gomatrix)} ")
@@ -82,7 +85,7 @@ def dorun(config, filename, runname, usecache):
     logging.info("got species map.")    
     
     logging.info("calculating prior..")
-    priormatrix = calc_prior(config, species=None)
+    priormatrix = calc_prior(config, usecache, species=None)
 
     
     logging.info("done.")
@@ -256,7 +259,7 @@ def matrix_debug(matrix):
     return f"type: {type(matrix)} shape: {matrix.shape} dtype: {matrix.dtype} sum: {matrix.sum()}\n{matrix}"
     
     
-def calc_prior(config,species=None):
+def calc_prior(config, usecache=False, species=None):
     """
     take ontology matrix. goterms x goterms
     build protein x goterm matrix. 
@@ -266,23 +269,61 @@ def calc_prior(config,species=None):
     
     """
     logging.debug("building sprot...")
-    sprot = build_uniprot_df(config)
+    sprot = get_uniprot_df(config, usecache)
+    #sprot = build_uniprot(config, usecache)
     logging.debug(f"{sprot}")
     if species is None:
         pass
     else:
-        pass
-        
+        logging.debug(f"Species is {species} ")
+        sprot = sprot
+
+
+
+
+def get_uniprot_df(config, usecache):
+    lod = build_uniprot(config, usecache)
+    df = pd.DataFrame(lod)
+    logging.debug(f"Built dataframe {df}")    
+    return df    
+    
     
 
-def build_uniprot_df(config):
+def build_uniprot(config, usecache):
     """
     
     """
-    listofdicts = parse_uniprot_dat(config)
-    df = pd.DataFrame(listofdicts)
-    logging.debug(f"Built dataframe {df}")
-    return df
+    logging.debug(f"usecache={usecache}")
+    cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
+    cachefile = f"{cachedir}/uniprot.pickle"    
+    listofdicts = None
+    if os.path.exists(cachefile) and usecache:
+        logging.debug("Cache hit. Using existing info...")    
+        try:
+            cf = open(cachefile, 'rb')    
+            listofdicts = pickle.load(cf)
+        except Exception:
+            logging.error(f'unable to load via pickle from {cachefile}')
+            traceback.print_exc(file=sys.stdout)    
+        finally:
+            cf.close()       
+    else:
+        
+        listofdicts = parse_uniprot_dat(config)
+        logging.debug(f"saving listofdicts: to {cachefile}")
+        try:
+            cf = open(cachefile, 'wb')    
+            pickle.dump(listofdicts, cf )
+            
+        except Exception as e:
+            logging.error(f'unable to dump via pickle to {cachefile}')
+            traceback.print_exc(file=sys.stdout)     
+        finally:
+            cf.close()        
+    
+    #df = pd.DataFrame(listofdicts)
+    #logging.debug(f"Built dataframe {df}")
+    return listofdicts
 
 
 def build_specmaps(config, usecache=False):
@@ -334,6 +375,7 @@ def build_specmaps(config, usecache=False):
         
     logging.debug(f"map: {map}")
     logging.info(f"saving map: to {cachefile}")
+    SPECMAPS = map
     return map
 
 
