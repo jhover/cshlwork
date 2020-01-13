@@ -15,8 +15,6 @@ from scipy import sparse
 #            D 0 0 0 0 1 0      D 0 0 0 0 1 1
 #            E 0 0 0 0 0 1      E 0 0 0 0 0 1 
 #            F 0 0 0 0 0 0      F 0 0 0 0 0 0
-#
-
 
 DATA = [ [ 0, 1, 0, 0, 0, 0 ],
          [ 0, 0, 1, 1, 0, 0 ],
@@ -27,7 +25,7 @@ DATA = [ [ 0, 1, 0, 0, 0, 0 ],
 
 
 def testmatrix():
-    gomatrix = np.array(DATA)
+    gomatrix = np.array(DATA, dtype=np.int8)
     #gomatrix = np.zeros( shape, dtype=np.int8 )
     #gomatrix = np.full( shape, False, dtype=bool    )
     #gomatrix = sparse.csr_matrix( shape, dtype=bool )
@@ -40,47 +38,87 @@ def testmatrix():
     sparsity = 1.0 - np.count_nonzero(gomatrix) / gomatrix.size
     logging.debug(f"sparsity = {sparsity}")
     # print(gomatrix)
+
     logging.debug("converting to sparse matrix.")
-    gomatrix = sparse.lil_matrix(gomatrix, dtype=bool)
-    #gomatrix = sparse.lil_matrix(gomatrix, dtype=bool)
-    #logging.debug(f" gomatrix= {gomatrix}")
+    gomatrix = sparse.lil_matrix(gomatrix, dtype=np.int8)
     logging.debug("converging matrix...")
-    gomatrix = converge_matrix(gomatrix)
+    gomatrix = converge_sparse(gomatrix)
     logging.debug("convert to dense matrix")
     gomatrix = gomatrix.todense()
     logging.debug(f"got converged matrix:\n{gomatrix}")
-    logging.debug("Calculating sparsity...")
-    sparsity = 1.0 - np.count_nonzero(gomatrix) / gomatrix.size
-    logging.debug(f"sparsity = {sparsity}")        
-    #for k in dict.keys():
-    #    po = dict[k]['part_of']
-    #    print(po)
-    #logging.debug(f"got dict: {dict}")
+    
+
+
+def converge(matrix):
+    logging.debug(f"starting matrix: \n{matrix}")
+    sh = matrix.shape
+    ones = np.ones(sh, dtype=matrix.dtype)
+    oldval = matrix.sum()
+    newval = 0
+    while oldval != newval:
+        logging.debug(f"oldval={oldval} newval={newval}")
+        oldval = newval
+        mult = matrix @ matrix
+        matrix = mult + matrix
+        matrix = np.minimum(matrix, ones)
+        newval = matrix.sum()
+        logging.debug(f"matrix:\n{matrix}")
+    return matrix
+
+def converge_sparse(matrix):
+    logging.debug(f"starting matrix: \n{matrix}")
+    sh = matrix.shape
+    ones = np.ones(sh, dtype=matrix.dtype)
+    ones = sparse.lil_matrix(ones)
+    oldval = matrix.sum()
+    newval = 0
+    while oldval != newval:
+        logging.debug(f"oldval={oldval} newval={newval}")
+        oldval = newval
+        mult = matrix @ matrix
+        matrix = mult + matrix
+        matrix = matrix.minimum(ones)
+        newval = matrix.sum()
+        logging.debug(f"matrix:\n{matrix}")
+    return matrix
+
 
 def converge_matrix(mat):
+    sh = mat.shape
+    allones = np.ones(sh, dtype=np.int8)
     oldval = 0
     newval = np.sum(mat)
     logging.debug(f"initial sum is {newval}")    
-    
     logging.debug("multiplying matrix by itself...")
     #mat2 = np.matmul(mat, mat)
     #mat2 = mat.multiply(mat)
     mat2 = mat @ mat
+    logging.debug(f"got multiplied matrix:\n{mat2}")
     logging.debug("adding back original matrix...")
     mat2 = mat2 + mat
+    logging.debug(f"got re-summed matrix:\n{mat2}")
+    mat2 = np.minimum(mat2,allones)
+    #mat2 = np.where(mat2 > 0, 1, 0)    
+    logging.debug(f"got flattened matrix:\n{mat2}")
     #mat2 = np.where(mat2 > 0, 1, 0)
-    logging.debug("calculating matrix sum...")
-    
-    while newval != oldval:
+    #logging.debug("calculating matrix sum...")
+    #while newval != oldval:
+    i = 0
+    while i < 10:
         logging.debug(f"newval {newval} != oldval {oldval}")
         oldval = newval
         #mat2 = np.matmul(mat, mat)
         #mat2 = mat.multiply(mat)
         mat2 = mat @ mat
+        logging.debug(f"got multiplied matrix:\n{mat2}")
         mat2 = mat2 + mat
+        logging.debug(f"got re-summed matrix:\n{mat2}")
         #mat2 = np.where(mat2 > 0, 1, 0)
+        mat2 = np.minimum(mat2,allones)
+        logging.debug(f"got flattened matrix:\n{mat2}")        
         newval = np.sum(mat2)
         logging.debug(f" newval={newval} oldval={oldval}")
+        i += 1
     logging.debug(f"done. values converged with newval {newval}")   
     return mat2
     

@@ -502,7 +502,7 @@ class UniProt(object):
 
     def _make_species_map(self):
         '''
-        Parses uniport speclist.txt    https://www.uniprot.org/docs/speclist.txt
+        Parses uniprot speclist.txt    https://www.uniprot.org/docs/speclist.txt
         to local .CSV
         
         taxonid   species   lineanname       commonname
