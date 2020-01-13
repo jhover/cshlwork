@@ -46,12 +46,10 @@ import subprocess
 import tempfile
 import traceback
 
-
 import pandas as pd
 import numpy as np
 np.set_printoptions(threshold=400)
 from scipy import sparse
-
 
 GOASPECTMAP= { 'biological_process' : 'bp',
              'cellular_component' : 'cc',
@@ -60,14 +58,18 @@ GOASPECTMAP= { 'biological_process' : 'bp',
             }
 
 UPASPECTMAP = { 'C': 'cc',
-                  'F': 'mf',
-                  'P': 'bp'
-                }
+                'F': 'mf',
+                'P': 'bp'
+              }
 
 SPECMAPS = None
+# filled in by build_specmaps()
+
+GOTERMIDX = None
+# filled in by build_ontology()
 
 
-def dorun(config, filename, runname, usecache):
+def dorun(config, filename, runname, usecache, species):
     logging.debug(f"filename={filename}, runname={runname},usecache={usecache}")
     logging.info("starting...")
     #logging.info("running phummer")
@@ -78,7 +80,6 @@ def dorun(config, filename, runname, usecache):
     logging.info("building ontology...")
     gomatrix = build_ontology(config, usecache)
     logging.info(f"got ontology matrix:\n{matrix_info(gomatrix)} ")
-
     
     logging.info("creating species maps...")
     map = build_specmaps(config, usecache)
@@ -86,9 +87,9 @@ def dorun(config, filename, runname, usecache):
     
     logging.info("calculating prior..")
     priormatrix = calc_prior(config, usecache, species=None)
-
-    
+ 
     logging.info("done.")
+
 
 def runphmmer(config, filename):
     """
@@ -187,7 +188,8 @@ def build_ontology(config, usecache=False):
         i = 0
         for gt in gotermlist:
             termidx[gt] = i
-            i = i + 1   
+            i = i + 1
+        GOTERMIDX = termidx   
         logging.debug(f"creating zero matrix of dimension {len(gotermlist)}")
         shape = (len(gotermlist), len(gotermlist))
         #gomatrix = np.zeros( shape, dtype=np.int8 )
@@ -262,11 +264,19 @@ def matrix_debug(matrix):
 def calc_prior(config, usecache=False, species=None):
     """
     take ontology matrix. goterms x goterms
-    build protein x goterm matrix. 
-    for each
+    make total_termvector[ 17k ]
+    for each protein:
+        for each protein.goterm:
+            gtvector = get_vector(goterm)
+            total_termvector += gtvector
     
-    if species is specified, calculate prior for species only, otherwise global
+    if species is specified (as species code, e.g CAEEL), calculate prior for species only, otherwise global
     
+    
+    ->
+    
+    vector of prob (.0001 - .99999)  [ 0.001, .0020, ... ] indexed by sorted gotermlist. 
+
     """
     logging.debug("building sprot...")
     sprot = get_uniprot_df(config, usecache)
@@ -614,6 +624,13 @@ def parse_speclist(config, filepath):
     return datalist
 
 
+def get_default_config():
+    cp = ConfigParser()
+    cp.read(os.path.expanduser("~/git/cshl-work/etc/fastcafa.conf"))
+    #logging.debug("")
+    return cp
+
+
 
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
@@ -647,6 +664,12 @@ if __name__ == '__main__':
                         dest='runname', 
                         default='default',
                         help='Run-specific identifier to use in file output.')
+
+    parser.add_argument('-s', '--species',
+                        action="store", 
+                        dest='species', 
+                        default=None,
+                        help='Limit to species where relevant.')
     
     parser.add_argument('-C', '--usecache',
                         action='store_true', 
@@ -664,6 +687,5 @@ if __name__ == '__main__':
     cp = ConfigParser()
     cp.read(args.conffile)
            
-    dorun(cp, args.infile, args.runname, args.usecache)
-    
-    
+    dorun(cp, args.infile, args.runname, args.usecache, args.species)
+        
