@@ -10,6 +10,7 @@ import argparse
 from configparser import ConfigParser
 import logging
 import tempfile
+import traceback
 
 import pandas as pd
 import pdpipe as pdp

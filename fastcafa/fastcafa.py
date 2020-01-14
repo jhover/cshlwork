@@ -173,6 +173,8 @@ def build_ontology(config, usecache=False):
     logging.debug(f"usecache={usecache}")
     cachedir = os.path.expanduser(config.get('ontology','cachedir'))
     cachefile = f"{cachedir}/ontology.npy"
+    include_partof = config.getboolean('ontology','include_partof')
+    
     gomatrix = None
     if os.path.exists(cachefile) and usecache:
         logging.debug("Cache hit. Using existing matrix...")
@@ -197,7 +199,13 @@ def build_ontology(config, usecache=False):
         logging.debug(f"filling in parent matrix for all goterms...")
         for gt in godict.keys():
             for parent in godict[gt]['is_a']:
-                    gomatrix[termidx[parent]][termidx[gt]] = True     
+                    gomatrix[termidx[parent]][termidx[gt]] = True
+        if include_partof:
+            logging.debug("Including part_of relationships as is_a")
+            for gt in godict.keys():
+                for parent in godict[gt]['part_of']:
+                        gomatrix[termidx[parent]][termidx[gt]] = True    
+             
         logging.debug("Calculating sparsity...")
         logging.debug(f"sparsity = { 1.0 - np.count_nonzero(gomatrix) / gomatrix.size }")
         logging.debug("converting to sparse matrix.")
@@ -514,7 +522,7 @@ def parse_obo(config):
        goasp   ""
        godef   ""
        goisa   [] of goterms
-       gohasa  [] 
+       gohasa  [] of goterms
     
     """
     obofile = os.path.expanduser(config.get('ontology','obofile'))
