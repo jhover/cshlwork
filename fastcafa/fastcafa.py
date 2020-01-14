@@ -52,9 +52,9 @@ np.set_printoptions(threshold=400)
 from scipy import sparse
 
 GOASPECTMAP= { 'biological_process' : 'bp',
-             'cellular_component' : 'cc',
-             'molecular_function' : 'mf',
-             'external'           : 'ex'
+               'cellular_component' : 'cc',
+               'molecular_function' : 'mf',
+              'external'           : 'ex'
             }
 
 UPASPECTMAP = { 'C': 'cc',
@@ -62,14 +62,19 @@ UPASPECTMAP = { 'C': 'cc',
                 'P': 'bp'
               }
 
-SPECMAPS = None
 # filled in by build_specmaps()
+SPECMAPS = None
 
-GOTERMIDX = None
 # filled in by build_ontology()
+GOTERMIDX = None
+ALTIDDICT = None
+
+# filled in by dorun()
+GOMATRIX = None
 
 
 def dorun(config, filename, runname, usecache, species):
+    global GOMATRIX
     logging.debug(f"filename={filename}, runname={runname},usecache={usecache}")
     logging.info("starting...")
     #logging.info("running phummer")
@@ -79,6 +84,7 @@ def dorun(config, filename, runname, usecache, species):
     
     logging.info("building ontology...")
     gomatrix = build_ontology(config, usecache)
+    GOMATRIX = gomatrix
     logging.info(f"got ontology matrix:\n{matrix_info(gomatrix)} ")
     
     logging.info("creating species maps...")
@@ -86,9 +92,16 @@ def dorun(config, filename, runname, usecache, species):
     logging.info("got species map.")    
     
     logging.info("calculating prior..")
-    priormatrix = calc_prior(config, usecache, species=None)
- 
+    #priormatrix = calc_prior(config, usecache, species=None)
+    priormatrix = calc_prior(config, usecache, species)    
+    #priormatrix = priormatrix.transpose()
+    logging.debug(f"priormatrix shape: {priormatrix.shape}")
+    columns=list(GOTERMIDX)
+    logging.debug(f"columns in goterm list: {len(columns)}")
+    df = pd.DataFrame(priormatrix, index=columns)
+    print(df.to_csv())
     logging.info("done.")
+
 
 
 def runphmmer(config, filename):
@@ -158,7 +171,9 @@ def parsephmmer(config, filename):
 def build_ontology(config, usecache=False):
     """
     obofile=~/data/go/go.obo
+    cachedir = ~/play/cafa4      
     
+    from parse_obo():
     { 'GO:2001315': 
          {'is_a': ['GO:0009226', 'GO:0046349', 'GO:2001313'], 
          'part_of': [], 
@@ -167,34 +182,63 @@ def build_ontology(config, usecache=False):
          'goasp': 'bp', 
        ...  
     }
-    cachedir = ~/play/cafa4   
-     
+ 
+    result:  Numpy boolean matrix of all relations in ontology, ordered by sorted goterm name.  
+       
     """
+    global GOTERMIDX
+    global ALTIDDICT
+    
     logging.debug(f"usecache={usecache}")
     cachedir = os.path.expanduser(config.get('ontology','cachedir'))
     cachefile = f"{cachedir}/ontology.npy"
+    termidxfile = f"{cachedir}/gotermindex.pickle"
+    altiddictfile = f"{cachedir}/altiddict.pickle"
     include_partof = config.getboolean('ontology','include_partof')
     
     gomatrix = None
     if os.path.exists(cachefile) and usecache:
         logging.debug("Cache hit. Using existing matrix...")
         gomatrix = np.load(cachefile)
+        f = open(termidxfile, 'rb')
+        termidx = pickle.load(f)
+        f.close()
+        GOTERMIDX = termidx
+        
+        f = open(altiddictfile, 'rb')
+        altiddict = pickle.load(f)
+        f.close()
+        ALTIDDICT = altiddict
+        
+        logging.debug(f"goterm index, e.g. : \n{list(termidx)[0]} :  {termidx[list(termidx)[0]]} ")
+    
     else:
-        godict = parse_obo(config)
+        (godict, altids) = parse_obo(config)
+        logging.debug(f"storing {len(altids)} altids to global.")
+        ALTIDDICT = altids
+        f = open(altiddictfile, 'wb')
+        pickle.dump(altids, f)
+        f.close()        
+        # get keys from dict
         gotermlist = list(godict)
         logging.debug(f"parsed obo with {len(gotermlist)} entries. ")
+        logging.debug(f"example entry:\n{gotermlist[0]}")
         logging.debug("sorting goterms")
         gotermlist.sort()
+        logging.debug(f"sorted: e.g. {gotermlist[0:5]} ")
         logging.debug("creating goterm index dict.")
         termidx = {}
         i = 0
         for gt in gotermlist:
             termidx[gt] = i
             i = i + 1
-        GOTERMIDX = termidx   
+        GOTERMIDX = termidx
+        f = open(termidxfile, 'wb')   
+        pickle.dump(termidx, f )
+        f.close()
+
         logging.debug(f"creating zero matrix of dimension {len(gotermlist)}")
         shape = (len(gotermlist), len(gotermlist))
-        #gomatrix = np.zeros( shape, dtype=np.int8 )
         gomatrix = np.zeros( shape, dtype=bool )
         logging.debug(f"filling in parent matrix for all goterms...")
         for gt in godict.keys():
@@ -273,39 +317,113 @@ def calc_prior(config, usecache=False, species=None):
     """
     take ontology matrix. goterms x goterms
     make total_termvector[ 17k ]
+    
+       0 proteinacc   1 species  2 goterm       3 goevidence
+    0  '3AHDP'       'RUMGV'    'GO:0016491'    'IEA'
+    1  '3AHDP'       'RUMGV'    'GO:0006694'    'TAS'
+
     for each protein:
         for each protein.goterm:
             gtvector = get_vector(goterm)
             total_termvector += gtvector
     
-    if species is specified (as species code, e.g CAEEL), calculate prior for species only, otherwise global
-    
+    if species is specified (as species code, e.g CAEEL), calculate prior for species only, 
+    otherwise global
     
     ->
     
     vector of prob (.0001 - .99999)  [ 0.001, .0020, ... ] indexed by sorted gotermlist. 
 
     """
+    global GOMATRIX
+    global GOTERMIDX
+    
     logging.debug("building sprot...")
-    sprot = get_uniprot_df(config, usecache)
-    #sprot = build_uniprot(config, usecache)
-    logging.debug(f"{sprot}")
-    if species is None:
-        pass
+    #sprot = get_uniprot_df(config, usecache)
+    sprot = get_uniprot_byterm(config, usecache)
+    logging.debug(f"\n{sprot[0:5]}")
+    if species is not None:
+        df = pd.DataFrame(sprot, columns=['proteinacc','species', 'goterm', 'goevidence'])
+        logging.debug(f"species specified. converted to df with {df.shape[0]} rows: {df}")
+        df = df[df.species == species ]
+        sprot = df.to_numpy().tolist()
+        logging.debug(f"removed other species. {df.shape[0]} rows left.")
     else:
         logging.debug(f"Species is {species} ")
         sprot = sprot
+    logging.debug(f"got uniprot by term:\n{sprot[0:5]} ")
+    
+    gomatrix = GOMATRIX
+    gomatrix = gomatrix.astype(np.int)
+    logging.debug(f"gomatrix e.g. {gomatrix[0:5]}")
+    gtidx = GOTERMIDX   
+    #logging.debug(f"gtidx: {gtidx}")
+    shape = (len(gomatrix))
+    sumarray = np.zeros(shape, dtype=np.int)
+    logging.debug(f"made array {sumarray}")
+    i = 0
+    e = 0 
+    elist = []
+    logging.debug("summing over all terms and parents...")
+    for r in sprot:
+        gt = r[2]
+        try:
+            sumarray = sumarray + gomatrix[gtidx[gt]]
+            i += 1
+        except KeyError:
+            #logging.debug(f"got missing key: {gt} look up"  )
+            primeid = ALTIDDICT[gt]
+            #logging.debug(f"primeid is: {primeid}, using...")
+            sumarray = sumarray + gomatrix[gtidx[ primeid ]]
+            elist.append(gt)
+            e += 1
+    eset = set(elist)
+    logging.debug(f"missing keys: {list(eset)}")
+    logging.debug(f"added {i} gomatrix lines, with {len(eset)} distinct missing keys. ")
+    logging.debug(f"sumarray: {sumarray}")    
+    divisor = len(sumarray)
+    freqarray = sumarray / divisor
+    logging.debug(f"sumarray: {freqarray.dtype} {freqarray}")    
+    return freqarray
 
-
-
-
-def get_uniprot_df(config, usecache):
+def get_uniprot_df(config, usecache=True):
     lod = build_uniprot(config, usecache)
     df = pd.DataFrame(lod)
     logging.debug(f"Built dataframe {df}")    
     return df    
+
+def get_uniprot_byterm(config, usecache):
+    """
+    [ {'proteinid': '3AHD_EGGLE',
+      'protein': '3AHD',
+      'species': 'EGGLE',
+      'proteinacc': 'C8WMP0',
+      'taxonid': '479437',
+      'goterms': {'GO:0047043': ['mf', 'IEA'],
+       'GO:0006694': ['bp', 'IEA']}}),
+      ...
+    ]
+    
+    Generate non-redundant uniprot with a row for every goterm:
+       proteinacc   species   goterm       goevidence
+    0  '3AHDP'      'RUMGV'   'GO:0016491'  'IEA'
+    1  '3AHDP'      'RUMGV'   'GO:0006694'  'TAS'
     
     
+    """    
+    lod = build_uniprot(config, usecache)
+    ubt = []
+    for p in lod:
+        for gt in p['goterms'].keys():
+            item = [ p['proteinacc'],
+                     p['species'],
+                     gt, 
+                     p['goterms'][gt][1] 
+                    ]
+            ubt.append(item)
+    logging.debug(f"created uniprot_byterm with {len(ubt)} entries.")          
+    return ubt          
+
 
 def build_uniprot(config, usecache):
     """
@@ -347,14 +465,16 @@ def build_uniprot(config, usecache):
 def build_specmaps(config, usecache=False):
     """
     builds three maps in form of list of dicts:
-    
-       taxid   -> speccode, linnean
-       speccode  -> taxonid, linnean 
-       linnean   -> taxonid, speccode
-    
+       [
+         { taxid     : speccode, ...  },
+         { speccode  : taxonid, ...},
+         { linnean   : taxonid, ...}
+       ]
     caches as pickle object. 
     
-    """    
+    """
+    global SPECMAPS
+        
     logging.debug(f"usecache={usecache}")
     cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
     cachefile = f"{cachedir}/specfile.pickle"
@@ -390,8 +510,9 @@ def build_specmaps(config, usecache=False):
             traceback.print_exc(file=sys.stdout)     
         finally:
             cf.close()
-        
-    logging.debug(f"map: {map}")
+    
+    #s = next(iter(map[0]))
+    #logging.debug(f"map e.g. :\n{map} ")
     logging.info(f"saving map: to {cachefile}")
     SPECMAPS = map
     return map
@@ -517,6 +638,7 @@ def parse_uniprot_dat(config):
 def parse_obo(config):
     """
     creates dict of dicts. key is goterm, contents is dict of 
+       
        goterm  ""
        goname  ""
        goasp   ""
@@ -524,17 +646,22 @@ def parse_obo(config):
        goisa   [] of goterms
        gohasa  [] of goterms
     
+    
     """
     obofile = os.path.expanduser(config.get('ontology','obofile'))
     filehandle = open(obofile)
-    goidx = {}
+    godict = {}
+    altids = {}
     current = None
     logging.info(f"Parsing file {obofile}")
     try:
         for line in filehandle:
-            if line.startswith("[Term]"):     
+            if line.startswith("[Typedef]"):
+                godict[current['goterm']]= current
+                break
+            elif line.startswith("[Term]"):     
                 if current is not None:
-                    goidx[current['goterm']]= current
+                    godict[current['goterm']]= current
                 # create new item...
                 current = {}
                 current['is_a'] = []
@@ -550,6 +677,14 @@ def parse_obo(config):
                 asp = line[11:].strip()
                 
                 current['goasp'] = GOASPECTMAP[asp]
+
+            # must create a separate mapping from alt_ids that maps to
+            # primary, so it can be added to gomatrix properly
+            elif line.startswith("alt_id: "):
+                #current['alt_id'] = line[8:18].strip()
+                #current['goasp'] = GOASPECTMAP[asp]            
+                altid = line[8:18].strip()
+                altids[altid] = current['goterm'] 
             
             #elif line.startswith("def: "):
             #    current['godef'] = line[5:].strip()
@@ -567,8 +702,8 @@ def parse_obo(config):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)                
     
-    logging.info(f"Parsed file with {len(goidx)} terms")    
-    return goidx
+    logging.info(f"Parsed file with {len(godict)} terms and {len(altids)} alt terms.")    
+    return (godict, altids)
 
 
 def parse_speclist(config, filepath):
