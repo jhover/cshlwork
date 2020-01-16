@@ -85,26 +85,29 @@ def dorun(config, filename, runname, usecache, species):
     gomatrix = build_ontology(config, usecache)
     logging.info(f"got ontology matrix:\n{matrix_info(gomatrix)} ")
   
-    logging.info("getting uniprot/sprot info..")
-    ubt = get_uniprot_byterm(config, usecache)
-    logging.info(f"got ubt list:\n{ubt[0:20]}")
+    #logging.info("getting uniprot/sprot info..")
+    #ubt = get_uniprot_byterm(config, usecache)
+    #logging.info(f"got ubt list:\n{ubt[0:20]}")
 
-    logging.info("getting uniprot/sprot info df..")
-    ubtdf = get_uniprot_byterm_df(config, usecache)
-    logging.info(f"got ubtdf:\n{ubtdf}")
+    #logging.info("getting uniprot/sprot info df..")
+    #ubtdf = get_uniprot_byterm_df(config, usecache)
+    #logging.info(f"got ubtdf:\n{ubtdf}")
 
     logging.info("calculating prior..")
     priormatrix = calc_prior(config, usecache, species=None)
-    #df = get_prior_df(config, usecache)
+    logging.info(f"priormatrix = {matrix_info(priormatrix)}")
+    #priordf = get_prior_df(config, usecache)
+    #logging.info(f"priordf:\n{priordf}")
 
 
-    logging.info("running phmmer")
-    pdf = get_phmmer_df(config, filename)
-    logging.info(f"got phmmer df:\n{pdf}")
 
-    logging.info("making phmmer prediction...")
-    out = calc_phmmer_prediction(config, pdf, usecache)
-    logging.debug(f"prediction={out}")
+    #logging.info("running phmmer")
+    #pdf = get_phmmer_df(config, filename)
+    #logging.info(f"got phmmer df:\n{pdf}")
+
+    #logging.info("making phmmer prediction...")
+    #out = calc_phmmer_prediction(config, pdf, usecache)
+    #logging.debug(f"prediction={out}")
 
     #logging.info("generating test targetset...")
     #testfile = generate_targetset(config, species)
@@ -512,7 +515,7 @@ def get_prior_df(config, usecache=False, species = None):
         build_ontology(config, usecache)
     
     priormatrix = calc_prior(config, usecache, species)    
-    #priormatrix = priormatrix.transpose()
+    priormatrix = priormatrix.transpose()
     logging.debug(f"priormatrix shape: {priormatrix.shape}")
     gotermlist=list(GOTERMIDX)
     logging.debug(f"terms in goterm list: {len(gotermlist)}")
@@ -557,23 +560,23 @@ def calc_prior(config, usecache, species=None):
     
     logging.debug(f"usecache={usecache}")
     if species is None:
-        species = 'GLOBAL'
+        filespecies = 'GLOBAL'
+    else:
+        filespecies = species
     cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
-    cachefile = f"{cachedir}/uniprot.goprior.{species}.npy"       
+    cachefile = f"{cachedir}/uniprot.goprior.{filespecies}.npy"       
     
     if usecache and os.path.exists(cachefile):
         freqarray = np.load(cachefile)
         logging.debug(f"Loaded prior freqarray from file: {cachefile}")
     else:
-        if species is not None:
-            df = pd.DataFrame(sprot, columns=['proteinacc','species', 'goterm', 'goevidence'])
-            logging.debug(f"species specified. converted to df with {df.shape[0]} rows: {df}")
+        df = pd.DataFrame(sprot, columns=['proteinacc','species', 'goterm', 'goevidence'])
+        if species is not None: 
+            logging.debug(f"species {species} specified. converted to df with {df.shape[0]} rows: {df}")
             df = df[df.species == species ]
-            sprot = df.to_numpy().tolist()
             logging.debug(f"removed other species. {df.shape[0]} rows left.")
-        else:
-            logging.debug(f"Species is {species} ")
-            sprot = sprot
+        
+        sprot = df.to_numpy().tolist()
         logging.debug(f"got uniprot by term, e.g.:\n{pp.pformat(sprot[0:5])} ")
         
         gomatrix = GOMATRIX
@@ -604,7 +607,7 @@ def calc_prior(config, usecache, species=None):
         logging.debug(f"missing keys: {list(eset)}")
         logging.debug(f"added {i} gomatrix lines, with {len(eset)} distinct missing keys. ")
         logging.debug(f"sumarray: {sumarray} max={sumarray.max()} min={sumarray.min()} dtype={sumarray.dtype}")    
-        divisor = len(sumarray)
+        divisor = sumarray.sum()
         logging.debug(f"divisor={divisor}")
         freqarray = sumarray / divisor
         np.save(cachefile, freqarray)
