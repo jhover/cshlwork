@@ -93,21 +93,21 @@ def dorun(config, filename, runname, usecache, species):
     #ubtdf = get_uniprot_byterm_df(config, usecache)
     #logging.info(f"got ubtdf:\n{ubtdf}")
 
-    logging.info("calculating prior..")
-    priormatrix = calc_prior(config, usecache, species=None)
-    logging.info(f"priormatrix = {matrix_info(priormatrix)}")
+    #logging.info("calculating prior..")
+    #priormatrix = calc_prior(config, usecache, species=None)
+    #logging.info(f"priormatrix = {matrix_info(priormatrix)}")
     #priordf = get_prior_df(config, usecache)
     #logging.info(f"priordf:\n{priordf}")
 
 
 
-    #logging.info("running phmmer")
-    #pdf = get_phmmer_df(config, filename)
-    #logging.info(f"got phmmer df:\n{pdf}")
+    logging.info("running phmmer")
+    pdf = get_phmmer_df(config, filename)
+    logging.info(f"got phmmer df:\n{pdf}")
 
-    #logging.info("making phmmer prediction...")
-    #out = calc_phmmer_prediction(config, pdf, usecache)
-    #logging.debug(f"prediction={out}")
+    logging.info("making phmmer prediction...")
+    out = calc_phmmer_prediction(config, pdf, usecache)
+    logging.debug(f"prediction={out}")
 
     #logging.info("generating test targetset...")
     #testfile = generate_targetset(config, species)
@@ -310,7 +310,7 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
       cid         goterm       pest
    
     """
-    logging.debug("getting uniport_byterm_df..")
+    logging.debug("getting uniprot_byterm_df..")
     ubtdf = get_uniprot_byterm_df(config, usecache)
     logging.debug("getting gomatrix...")
     gomatrix = get_ontology_matrix(config, usecache)
@@ -318,13 +318,26 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
     gotermidx = GOTERMIDX
     logging.debug(f" ubtdf:\n{ubtdf}\ngomatrix: {matrix_info(gomatrix)}\ngotermidx: {len(gotermidx)} items.")
 
-
-    cidlist = list(dataframe.cid.unique())
+    pdf = dataframe
+    cidlist = list(pdf.cid.unique())
     logging.debug(f"cid list: {cidlist}")
     for cid in cidlist:
         gv = np.zeros(len(gotermidx))
-        df = dataframe[dataframe.cid == cid]
-        logging.debug(f"one cid df: {df}")
+        cdf = pdf[pdf.cid == cid]
+        #logging.debug(f"one cid df:\n{cdf}")
+        for (i, ser) in cdf.iterrows():
+            logging.debug(f"pacc is {ser.pacc}")
+            udf = ubtdf[ubtdf.pacc == ser.pacc]
+            for (j, upser) in udf.iterrows():
+                #logging.debug(f"j is {j} -> upser is {upser}")
+                #logging.debug(f"upacc is {upser.pacc}")
+                logging.debug(f"gv={gv} addgv={gomatrix[gotermidx[upser.goterm]].astype(np.int8)}")
+                gv = gv + gomatrix[gotermidx[upser.goterm]].astype(np.int8)
+            logging.debug(f"sum is {gv.sum()} ")
+            
+                
+            
+            
 
     
     return dataframe
