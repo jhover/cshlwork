@@ -331,7 +331,7 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
             for (j, upser) in udf.iterrows():
                 #logging.debug(f"j is {j} -> upser is {upser}")
                 #logging.debug(f"upacc is {upser.pacc}")
-                logging.debug(f"gv={gv} addgv={gomatrix[gotermidx[upser.goterm]].astype(np.int8)}")
+                logging.debug(f"goterm is {upser.goterm} gv={gv} addgv={gomatrix[gotermidx[upser.goterm]].astype(np.int8)}")
                 gv = gv + gomatrix[gotermidx[upser.goterm]].astype(np.int8)
             logging.debug(f"sum is {gv.sum()} ")
             
