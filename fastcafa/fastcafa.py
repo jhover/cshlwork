@@ -19,10 +19,10 @@
 # bias      Adjustement to score for char prevalence                   3.5
 # score     BLAST/HMMER/PHMMER bit-score                               400.3
 # db        database against which orthology query is done             sp (swissprot)
-# probest   Probability estimate for prediction.                       0.68  [.01-1.0]  
+# pest      Probability estimate for prediction.                       0.68  [.01-1.0]  
 #
 #
-#
+
 __author__ = "John Hover"
 __copyright__ = "2019 John Hover"
 __credits__ = []
@@ -42,6 +42,7 @@ from collections import defaultdict
 from configparser import ConfigParser
 import logging
 import pickle
+import pprint as pp
 import subprocess
 import tempfile
 import traceback
@@ -68,48 +69,106 @@ SPECMAPS = None
 # filled in by build_ontology()
 GOTERMIDX = None
 ALTIDDICT = None
-
-# filled in by dorun()
 GOMATRIX = None
+
+# filled in by calc_prior()
+GOPRIOR = None
 
 
 def dorun(config, filename, runname, usecache, species):
-    global GOMATRIX
-    logging.debug(f"filename={filename}, runname={runname},usecache={usecache}")
+
+
+    logging.debug(f"filename={filename}, runname={runname},usecache={usecache},species={species}")
     logging.info("starting...")
-    #logging.info("running phummer")
-    #outfile = runphmmer(config, filename)
-    #phdict = parsephmmer(config, outfile )
-    #logging.debug(phdict)
     
     logging.info("building ontology...")
     gomatrix = build_ontology(config, usecache)
-    GOMATRIX = gomatrix
     logging.info(f"got ontology matrix:\n{matrix_info(gomatrix)} ")
-    
-    logging.info("creating species maps...")
-    map = build_specmaps(config, usecache)
-    logging.info("got species map.")    
-    
+  
+    logging.info("getting uniprot/sprot info..")
+    ubt = get_uniprot_byterm(config, usecache)
+    logging.info(f"got ubt list:\n{ubt[0:20]}")
+
+    logging.info("getting uniprot/sprot info df..")
+    ubtdf = get_uniprot_byterm_df(config, usecache)
+    logging.info(f"got ubtdf:\n{ubtdf}")
+
     logging.info("calculating prior..")
-    #priormatrix = calc_prior(config, usecache, species=None)
-    priormatrix = calc_prior(config, usecache, species)    
-    #priormatrix = priormatrix.transpose()
-    logging.debug(f"priormatrix shape: {priormatrix.shape}")
-    columns=list(GOTERMIDX)
-    logging.debug(f"columns in goterm list: {len(columns)}")
-    df = pd.DataFrame(priormatrix, index=columns)
-    print(df.to_csv())
+    priormatrix = calc_prior(config, usecache, species=None)
+    #df = get_prior_df(config, usecache)
+
+
+    logging.info("running phmmer")
+    pdf = get_phmmer_df(config, filename)
+    logging.info(f"got phmmer df:\n{pdf}")
+
+    logging.info("making phmmer prediction...")
+    out = calc_phmmer_prediction(config, pdf, usecache)
+    logging.debug(f"prediction={out}")
+
+    #logging.info("generating test targetset...")
+    #testfile = generate_targetset(config, species)
+    #logging.info(f"done generating targetset in file {testfile}")
+      
+
+
+   
+
+
+       
+    #logging.info("evaluate test prediction...")
+       
+       
+    #logging.info("creating species maps...")
+    #map = build_specmaps(config, usecache)
+    #logging.info("got species map.")    
+    
+
+    
+    
+    #priormatrix = calc_prior(config, usecache, species)    
+    ###priormatrix = priormatrix.transpose()
+    #logging.debug(f"priormatrix shape: {priormatrix.shape}")
+    #gotermlist=list(GOTERMIDX)
+    #logging.debug(f"terms in goterm list: {len(gotermlist)}")
+    #df = pd.DataFrame(priormatrix, index=gotermlist, columns=['pest'])
+    #df = df.sort_values(by='pest', ascending=False)
+    
     logging.info("done.")
 
 
+def run_phmmer(config, filename):
+    (outfile, exclude_list) = execute_phmmer(config, filename)
+    phdict = parse_phmmer(config, outfile, exclude_list )
+    return phdict
 
-def runphmmer(config, filename):
+def get_phmmer_dict(config, filepath):
+    logging.info("running phummer")
+    phdict = run_phmmer(config, filepath)
+    logging.debug(f"got phmmer dict length: {len(phdict)}")
+    return phdict
+
+def get_phmmer_df(config, filepath):
+    """
+    orders by target,  evalue ascending (best fit first). 
+    
+    """
+    phd = get_phmmer_dict(config, filepath)
+    df = pd.DataFrame.from_dict(phd, orient='index')
+    df = df.sort_values(by=['cid','eval'], ascending=[True, True]) 
+    return df
+
+def execute_phmmer(config, filename):
     """
     cpus = 8
     eval_threshold = 1.0e-120
     database=~/data/uniprot/uniprot_sprot.fasta
+    remove_self_hits = True
+    
+    
     """
+    exclude_list = None 
+    exclude_list = get_tfa_geneids(filename)
     outdir = config.get('global','outdir')
     outpath = os.path.dirname(filename)
     filebase = os.path.splitext(os.path.basename(filename))[0]
@@ -118,19 +177,52 @@ def runphmmer(config, filename):
     eval_threshold = config.get('phmmer','eval_threshold')
     database = config.get('phmmer','database')
     cmd = f"time phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}"
+    logging.debug(f"Running: {cmd}")
     cp = subprocess.run(cmd, 
                         shell=True, 
                         universal_newlines=True, 
                         stdout=subprocess.PIPE, 
                         stderr=subprocess.PIPE)
     logging.debug("Ran cmd='%s' outfile=%s returncode=%s " % (cmd, outfile, cp.returncode))
-    return outfile
+    return (outfile, exclude_list)
 
-def parsephmmer(config, filename):
+def get_tfa_geneids(filename):
+    """
+    Get the geneids of the TargetFiles in order to exclude these results from, e.g. 
+    phmmer runs. This wouldn't necessarily cause a problem with the real files, because they 
+    will be un-annotated. But for validation testing, the targets *will* be annotated (and
+    need to be excluded). 
+        
+    """
+    gids = []
+    
+    try:
+        f = open(filename, 'r')
+    except FileNotFoundError:
+        logging.error(f"file not readable {filename} ")
+    for line in f:
+        # >T100900000004 1433G_MOUSE
+        if line.startswith(">"):
+            fields = line[1:].split()
+            cid = fields[0].strip()
+            geneid = fields[1].strip()
+            gids.append(geneid)
+    logging.debug(f"got {len(gids)} geneids to exclude from results.")
+    return gids
+            
+
+def parse_phmmer(config, filename, excludelist):
     """
     Read phmmer tbl out. Return dict  
+    
+    excludelist = [ '<pids of inbound target files.>'] e.g. 2A5D_ARATH
+     
+    remove_self_hits = True|False
+        shouldn't be necessary in standard case. 
+        
+    
     """
-    logging.info("Reading %s" % filename)
+    logging.info(f"Reading {filename}")
     df = pd.read_table(filename, 
                      names=['target','t-acc','cid','q-acc',
                             'eval', 'score', 'bias', 'e-value-dom','score-dom', 'bias-dom', 
@@ -147,12 +239,21 @@ def parsephmmer(config, filename):
              'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 
              'description'] , axis=1)
     dict = df.to_dict(orient='index')
+    
+    idxtodel = []
     for idx in dict.keys():
          (db,pacc,pid) = dict[idx]['target'].split('|')
-         (protein, species) = pid.split('_')
-         dict[idx]['pacc'] = pacc
-         dict[idx]['pid'] = pid
-         del dict[idx]['target']
+         if pid in excludelist:
+             logging.debug(f"Found exluded pid {pid} in exclude list. Removing...")
+             idxtodel.append(idx)
+         else:
+             (protein, species) = pid.split('_')
+             dict[idx]['pacc'] = pacc
+             dict[idx]['pid'] = pid
+             del dict[idx]['target']
+    for idx in idxtodel:
+        del dict[idx]
+    
     if logging.root.level >= logging.DEBUG: 
         s ="{"
         for k in dict.keys():
@@ -166,6 +267,96 @@ def parsephmmer(config, filename):
     
     """
     return dict
+
+
+def calc_phmmer_prediction(config, dataframe, usecache):
+    """
+    Takes phmmer df PDF: 
+                cid           eval  score  bias    pacc          pid
+1     T100900000001  4.100000e-155  518.4   7.7  P35213    1433B_RAT
+2     T100900000001  5.400000e-155  518.0   7.2  A4K2U9  1433B_PONAB
+    
+    Gets uniprot_byterm_df UBTDF:
+         pacc    speecies      goterm   goev
+0        Q6GZX4   FRG3G     GO:0046782   IEA
+1        Q6GZX3   FRG3G     GO:0033644   IEA
+    
+    Gets gomatrix:
+type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool     
+
+    Gets gotermidx map:
+      47417    
+
+    Algorithm:
+    
+    CIDGV = govector(0)
+    for each cid in PDF:
+        GV  = govector(0)
+        for each row of PDF (where cid == target):
+            for each (goterm) row of UBTDF (where pacc == pacc):
+                  UGV = gomatrix[gotermidx[goterm]]
+                  GV = GV + UGV
+            GV * PDF.score (for that pacc)
+            CIDGV = CIDGV + GV
+    [ for a target we now have a goterm vector with aggregate scores ]
+    CIDGV to DF:   cid  goterm  score
+    sort by cid, score   
+    [ normalize score to .01 - 1.0 ]
+    
+    create dataframe with 
+      cid         goterm       pest
+   
+    """
+    logging.debug("getting uniport_byterm_df..")
+    ubtdf = get_uniprot_byterm_df(config, usecache)
+    logging.debug("getting gomatrix...")
+    gomatrix = get_ontology_matrix(config, usecache)
+    logging.debug("Local goterm index for lookup...")
+    gotermidx = GOTERMIDX
+    logging.debug(f" ubtdf:\n{ubtdf}\ngomatrix: {matrix_info(gomatrix)}\ngotermidx: {len(gotermidx)} items.")
+
+
+    cidlist = list(dataframe.cid.unique())
+    logging.debug(f"cid list: {cidlist}")
+    for cid in cidlist:
+        gv = np.zeros(len(gotermidx))
+        df = dataframe[dataframe.cid == cid]
+        logging.debug(f"one cid df: {df}")
+
+    
+    return dataframe
+
+
+
+
+
+
+
+
+
+
+def generate_targetset(config, name,  species):
+    """
+    
+    Creates random target set from annotated swissprot proteins for given species. 
+    
+    Creates FASTA files exactly like CAFA TargetFiles
+    <name>.<taxonid>.tfa
+    
+        
+    :param    type    name:   desc
+    :return    testfile  Path to test file generated in fasta format.
+    :rtype
+    :raise:   Xerror if blah. 
+    
+    """
+
+
+def get_ontology_matrix(config, usecache):
+    gmtx = build_ontology(config, usecache)
+    mi = matrix_debug(gmtx)
+    logging.debug(f"got ontology matrix: {mi} ")
+    return gmtx
 
 
 def build_ontology(config, usecache=False):
@@ -186,6 +377,7 @@ def build_ontology(config, usecache=False):
     result:  Numpy boolean matrix of all relations in ontology, ordered by sorted goterm name.  
        
     """
+    global GOMATRIX
     global GOTERMIDX
     global ALTIDDICT
     
@@ -264,6 +456,7 @@ def build_ontology(config, usecache=False):
         gomatrix = gomatrix.todense()
         logging.debug(f"saving matrix: {matrix_info(gomatrix)} to {cachefile}")
         np.save(cachefile, gomatrix)
+    GOMATRIX = gomatrix
     return gomatrix
 
 
@@ -311,9 +504,25 @@ def matrix_debug(matrix):
     
     """
     return f"type: {type(matrix)} shape: {matrix.shape} dtype: {matrix.dtype} sum: {matrix.sum()}\n{matrix}"
+
+
+
+def get_prior_df(config, usecache=False, species = None):
+    if GOTERMIDX is None:  
+        build_ontology(config, usecache)
     
+    priormatrix = calc_prior(config, usecache, species)    
+    #priormatrix = priormatrix.transpose()
+    logging.debug(f"priormatrix shape: {priormatrix.shape}")
+    gotermlist=list(GOTERMIDX)
+    logging.debug(f"terms in goterm list: {len(gotermlist)}")
+    df = pd.DataFrame(priormatrix, index=gotermlist, columns=['pest'])
+    df = df.sort_values(by='pest', ascending=False)
+    return df
+
+   
     
-def calc_prior(config, usecache=False, species=None):
+def calc_prior(config, usecache, species=None):
     """
     take ontology matrix. goterms x goterms
     make total_termvector[ 17k ]
@@ -337,60 +546,88 @@ def calc_prior(config, usecache=False, species=None):
     """
     global GOMATRIX
     global GOTERMIDX
-    
-    logging.debug("building sprot...")
-    #sprot = get_uniprot_df(config, usecache)
+    global GOPRIOR
+ 
+
+    logging.debug(f"building sprot. species={species}")
     sprot = get_uniprot_byterm(config, usecache)
-    logging.debug(f"\n{sprot[0:5]}")
-    if species is not None:
-        df = pd.DataFrame(sprot, columns=['proteinacc','species', 'goterm', 'goevidence'])
-        logging.debug(f"species specified. converted to df with {df.shape[0]} rows: {df}")
-        df = df[df.species == species ]
-        sprot = df.to_numpy().tolist()
-        logging.debug(f"removed other species. {df.shape[0]} rows left.")
-    else:
-        logging.debug(f"Species is {species} ")
-        sprot = sprot
-    logging.debug(f"got uniprot by term:\n{sprot[0:5]} ")
+    logging.debug(f"sprot, e.g.:\n{pp.pformat(sprot[0:5])} ... ")
+   
+    freqarray = None
     
-    gomatrix = GOMATRIX
-    gomatrix = gomatrix.astype(np.int)
-    logging.debug(f"gomatrix e.g. {gomatrix[0:5]}")
-    gtidx = GOTERMIDX   
-    #logging.debug(f"gtidx: {gtidx}")
-    shape = (len(gomatrix))
-    sumarray = np.zeros(shape, dtype=np.int)
-    logging.debug(f"made array {sumarray}")
-    i = 0
-    e = 0 
-    elist = []
-    logging.debug("summing over all terms and parents...")
-    for r in sprot:
-        gt = r[2]
-        try:
-            sumarray = sumarray + gomatrix[gtidx[gt]]
-            i += 1
-        except KeyError:
-            #logging.debug(f"got missing key: {gt} look up"  )
-            primeid = ALTIDDICT[gt]
-            #logging.debug(f"primeid is: {primeid}, using...")
-            sumarray = sumarray + gomatrix[gtidx[ primeid ]]
-            elist.append(gt)
-            e += 1
-    eset = set(elist)
-    logging.debug(f"missing keys: {list(eset)}")
-    logging.debug(f"added {i} gomatrix lines, with {len(eset)} distinct missing keys. ")
-    logging.debug(f"sumarray: {sumarray}")    
-    divisor = len(sumarray)
-    freqarray = sumarray / divisor
-    logging.debug(f"sumarray: {freqarray.dtype} {freqarray}")    
+    logging.debug(f"usecache={usecache}")
+    if species is None:
+        species = 'GLOBAL'
+    cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
+    cachefile = f"{cachedir}/uniprot.goprior.{species}.npy"       
+    
+    if usecache and os.path.exists(cachefile):
+        freqarray = np.load(cachefile)
+        logging.debug(f"Loaded prior freqarray from file: {cachefile}")
+    else:
+        if species is not None:
+            df = pd.DataFrame(sprot, columns=['proteinacc','species', 'goterm', 'goevidence'])
+            logging.debug(f"species specified. converted to df with {df.shape[0]} rows: {df}")
+            df = df[df.species == species ]
+            sprot = df.to_numpy().tolist()
+            logging.debug(f"removed other species. {df.shape[0]} rows left.")
+        else:
+            logging.debug(f"Species is {species} ")
+            sprot = sprot
+        logging.debug(f"got uniprot by term, e.g.:\n{pp.pformat(sprot[0:5])} ")
+        
+        gomatrix = GOMATRIX
+        gomatrix = gomatrix.astype(np.int)
+        logging.debug(f"gomatrix e.g. {gomatrix[0:5]}")
+        gtidx = GOTERMIDX   
+        #logging.debug(f"gtidx: {gtidx}")
+        shape = (len(gomatrix))
+        sumarray = np.zeros(shape, dtype=np.int)
+        logging.debug(f"made array {sumarray}")
+        i = 0
+        e = 0 
+        elist = []
+        logging.debug("summing over all terms and parents...")
+        for r in sprot:
+            gt = r[2]
+            try:
+                sumarray = sumarray + gomatrix[gtidx[gt]]
+                i += 1
+            except KeyError:
+                #logging.debug(f"got missing key: {gt} look up"  )
+                primeid = ALTIDDICT[gt]
+                #logging.debug(f"primeid is: {primeid}, using...")
+                sumarray = sumarray + gomatrix[gtidx[ primeid ]]
+                elist.append(gt)
+                e += 1
+        eset = set(elist)
+        logging.debug(f"missing keys: {list(eset)}")
+        logging.debug(f"added {i} gomatrix lines, with {len(eset)} distinct missing keys. ")
+        logging.debug(f"sumarray: {sumarray} max={sumarray.max()} min={sumarray.min()} dtype={sumarray.dtype}")    
+        divisor = len(sumarray)
+        logging.debug(f"divisor={divisor}")
+        freqarray = sumarray / divisor
+        np.save(cachefile, freqarray)
+        logging.debug(f"Saved freqarray to {cachefile}")
+
+    logging.debug(f"freqarray: {freqarray.dtype} {freqarray} max={freqarray.max()} min={freqarray.min()}")    
+    GOPRIOR = freqarray
     return freqarray
+
 
 def get_uniprot_df(config, usecache=True):
     lod = build_uniprot(config, usecache)
-    df = pd.DataFrame(lod)
-    logging.debug(f"Built dataframe {df}")    
+    df = pd.DataFrame(lod )
+    logging.debug(f"Built dataframe:\n{df}")    
     return df    
+
+
+def get_uniprot_byterm_df(config, usecache=True):
+    lol = get_uniprot_byterm(config, usecache)
+    df = pd.DataFrame(lol,columns=['pacc','species','goterm','goev'])
+    logging.debug(f"Built dataframe:\n{df}")    
+    return df 
+
 
 def get_uniprot_byterm(config, usecache):
     """
@@ -405,7 +642,7 @@ def get_uniprot_byterm(config, usecache):
     ]
     
     Generate non-redundant uniprot with a row for every goterm:
-       proteinacc   species   goterm       goevidence
+       pacc   species   goterm       goev
     0  '3AHDP'      'RUMGV'   'GO:0016491'  'IEA'
     1  '3AHDP'      'RUMGV'   'GO:0006694'  'TAS'
     
@@ -539,11 +776,13 @@ def parse_uniprot_dat(config):
            .
     
         """
+        logging.debug(f"using config with sections: {config.sections()}...")
         try:
             filepath = os.path.expanduser(config.get('uniprot','datfile'))
+            logging.debug(f" attempting to open '{filepath}'")
             filehandle = open(filepath, 'r')
         except FileNotFoundError:
-            logging.error("No such file %s" % filepath)                
+            logging.error(f"No such file {filepath}")                
         
         allentries = []
         current = None
@@ -813,7 +1052,13 @@ if __name__ == '__main__':
                         dest='species', 
                         default=None,
                         help='Limit to species where relevant.')
-    
+
+    parser.add_argument('-a', '--aspect',
+                        action="store", 
+                        dest='goaspect', 
+                        default=None,
+                        help='Generate/score only for specific GO aspect. [bp|cc|mf] ')
+
     parser.add_argument('-C', '--usecache',
                         action='store_true', 
                         dest='usecache',
