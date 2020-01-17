@@ -70,6 +70,7 @@ SPECMAPS = None
 GOTERMIDX = None
 ALTIDDICT = None
 GOMATRIX = None
+GOTERMLIST = None
 
 # filled in by calc_prior()
 GOPRIOR = None
@@ -100,24 +101,18 @@ def dorun(config, filename, runname, usecache, species):
     #logging.info(f"priordf:\n{priordf}")
 
 
-
     logging.info("running phmmer")
     pdf = get_phmmer_df(config, filename)
     logging.info(f"got phmmer df:\n{pdf}")
 
     logging.info("making phmmer prediction...")
     out = calc_phmmer_prediction(config, pdf, usecache)
-    logging.debug(f"prediction={out}")
+    logging.debug(f"prediction=\n{out}")
 
     #logging.info("generating test targetset...")
     #testfile = generate_targetset(config, species)
     #logging.info(f"done generating targetset in file {testfile}")
       
-
-
-   
-
-
        
     #logging.info("evaluate test prediction...")
        
@@ -218,11 +213,13 @@ def parse_phmmer(config, filename, excludelist):
     """
     Read phmmer tbl out. Return dict  
     
-    excludelist = [ '<pids of inbound target files.>'] e.g. 2A5D_ARATH
+    excludelist = [ '<pids of inbound target geneid.>'] e.g. 2A5D_ARATH
      
     remove_self_hits = True|False
         shouldn't be necessary in standard case. 
-        
+    
+    topx_threshold=<int>
+        only include top X hits 
     
     """
     logging.info(f"Reading {filename}")
@@ -241,6 +238,12 @@ def parse_phmmer(config, filename, excludelist):
     df = df.drop(['t-acc', 'q-acc','e-value-dom','score-dom', 'bias-dom', 'exp', 
              'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 
              'description'] , axis=1)
+           
+    topx = config.getint('phmmer','topx_threshold')
+    if topx is not None:
+        df = df.groupby('cid').head(topx).reset_index(drop=True) 
+    
+    
     dict = df.to_dict(orient='index')
     
     idxtodel = []
@@ -299,7 +302,8 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
             for each (goterm) row of UBTDF (where pacc == pacc):
                   UGV = gomatrix[gotermidx[goterm]]
                   GV = GV + UGV
-            GV * PDF.score (for that pacc)
+            #  if we want to weight by score, rather than topX...
+            # GV * PDF.score (for that pacc)
             CIDGV = CIDGV + GV
     [ for a target we now have a goterm vector with aggregate scores ]
     CIDGV to DF:   cid  goterm  score
@@ -316,38 +320,61 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
     gomatrix = get_ontology_matrix(config, usecache)
     logging.debug("Local goterm index for lookup...")
     gotermidx = GOTERMIDX
+    example = gomatrix[gotermidx['GO:0005737']]
+    logging.debug(f"example: term GO:0005737: {example}")
+    logging.debug(f"example: sum={example.sum()} min={example.sum()} max={example.max()}")
+    example = example
     logging.debug(f" ubtdf:\n{ubtdf}\ngomatrix: {matrix_info(gomatrix)}\ngotermidx: {len(gotermidx)} items.")
-
+    
+    max_goterms = config.getint('global','max_goterms')
+    
+    #phmmer dataframe inbound. 
     pdf = dataframe
     cidlist = list(pdf.cid.unique())
     logging.debug(f"cid list: {cidlist}")
+    
+    gtarray = np.array(list(GOTERMIDX))
+    
+    topdf = pd.DataFrame(columns=['cid','goterm','pest'])
+    
     for cid in cidlist:
         gv = np.zeros(len(gotermidx))
         cdf = pdf[pdf.cid == cid]
         #logging.debug(f"one cid df:\n{cdf}")
         for (i, ser) in cdf.iterrows():
-            logging.debug(f"pacc is {ser.pacc}")
+            #logging.debug(f"pacc is {ser.pacc}")
             udf = ubtdf[ubtdf.pacc == ser.pacc]
             for (j, upser) in udf.iterrows():
-                #logging.debug(f"j is {j} -> upser is {upser}")
-                #logging.debug(f"upacc is {upser.pacc}")
-                logging.debug(f"goterm is {upser.goterm} gv={gv} addgv={gomatrix[gotermidx[upser.goterm]].astype(np.int8)}")
-                gv = gv + gomatrix[gotermidx[upser.goterm]].astype(np.int8)
-            logging.debug(f"sum is {gv.sum()} ")
-            
-                
-            
-            
+                #logging.debug(f"goterm is {upser.goterm} gv={gv} addgv={gomatrix[gotermidx[upser.goterm]].astype(np.int8)}")
+                gv = gv + gomatrix[gotermidx[upser.goterm]].astype(np.int64)
+            #logging.debug(f"sum is {gv.sum()} ")
+        # we now have a govector with all goterms indicated by all targets.
+        # each entry is sum of number of times that goterm was indicated (as annoated or
+        # parent of an annotation term).
+        # gv = array([123,   0,   3,   7, 345, 0])
+        # handle this cid
+        
+        # gv has been coerced from array to matrix, back to array??
+        #gv = 
+        logging.debug(f"gv: {matrix_debug(gv)}")
+        gvnz = gv > 0
+        logging.debug(f"gvnz: {matrix_debug(gvnz)}")
+        logging.debug(f"gtarray:length: {len(gtarray)} type:{type(gtarray)}\n{gtarray}")
+        gotermar = gtarray[gvnz]
+        #logging.debug(f"goterms with val > 0: {gotermar}")
 
-    
-    return dataframe
+        govalar = gv[gvnz]
+        #logging.debug(f"values for element with val> 0: {govalar}")
+        cidar = np.full( len(govalar), fill_value=cid)      
+        df = pd.DataFrame({ 'cid': cidar, 'goterm': gotermar, 'pest' : govalar })
+        df = df.nlargest(max_goterms, 'pest')
+        #df.sort_values(by='pest', ascending=False)
+        logging.debug(f"made dataframe for cid {cid}:\n{df}")
+        topdf = topdf.append(df, ignore_index=True)
+        
+    logging.debug(f"made dataframe for all:\n{topdf}")
 
-
-
-
-
-
-
+    return topdf
 
 
 
@@ -396,6 +423,7 @@ def build_ontology(config, usecache=False):
     global GOMATRIX
     global GOTERMIDX
     global ALTIDDICT
+    global GOTERMLIST
     
     logging.debug(f"usecache={usecache}")
     cachedir = os.path.expanduser(config.get('ontology','cachedir'))
@@ -408,10 +436,13 @@ def build_ontology(config, usecache=False):
     if os.path.exists(cachefile) and usecache:
         logging.debug("Cache hit. Using existing matrix...")
         gomatrix = np.load(cachefile)
+        logging.debug(f"loaded matrix: {matrix_info(gomatrix)} from {cachefile}")
+        
         f = open(termidxfile, 'rb')
         termidx = pickle.load(f)
         f.close()
         GOTERMIDX = termidx
+        GOTERMLIST = list(GOTERMIDX)
         
         f = open(altiddictfile, 'rb')
         altiddict = pickle.load(f)
@@ -441,6 +472,8 @@ def build_ontology(config, usecache=False):
             termidx[gt] = i
             i = i + 1
         GOTERMIDX = termidx
+        GOTERMLIS = list(GOTERMIDX)
+        
         f = open(termidxfile, 'wb')   
         pickle.dump(termidx, f )
         f.close()
@@ -470,42 +503,40 @@ def build_ontology(config, usecache=False):
         #sparsity = 1.0 - np.count_nonzero(gomatrix) / gomatrix.size
         #logging.debug(f"sparsity = { 1.0 - np.count_nonzero(gomatrix) / gomatrix.size }")        
         gomatrix = gomatrix.todense()
-        logging.debug(f"saving matrix: {matrix_info(gomatrix)} to {cachefile}")
+        # gomatrix = gomatrix.asA()
+        gomatrix = np.asarray(gomatrix)
+        logging.debug(f"saving matrix: type: {matrix_info(gomatrix)} to {cachefile}")
         np.save(cachefile, gomatrix)
+
     GOMATRIX = gomatrix
     return gomatrix
 
 
 def converge_sparse(matrix):
     logging.debug(f"starting matrix: \n{matrix_info(matrix)}")
-    sh = matrix.shape
-    logging.debug("Creating ones matrix as mask...")
-    ones = np.ones(sh, dtype=matrix.dtype)
-    #logging.debug("Converting mask to lil_matrix")
-    #ones = sparse.lil_matrix(ones)
+    oldval = 0
     logging.debug("Summing inbound matrix...")
-    oldval = matrix.sum()
-    newval = 0
+    newval = matrix.sum()
     logging.debug("Beginning convergence loop.")
+    icount = 0
     while oldval != newval:
-        logging.debug(f"Inbound matrix:\n{matrix_info(matrix)}")
-        logging.debug(f"oldval={oldval} newval={newval}")
+        #logging.debug(f"Inbound matrix:\n{matrix_info(matrix)}")
+        #logging.debug(f"oldval={oldval} newval={newval}")
         oldval = newval
-        logging.debug("If not lil_matrix, convert...")
         if not isinstance(matrix,  sparse.lil.lil_matrix): 
             logging.debug(f"{type(matrix)} is not scipy.sparse.lil.lil_matrix, converting... ")
             matrix = sparse.lil_matrix(matrix, dtype=np.bool)
         else:
-            logging.debug("matrix already lil_matrix...")
-        logging.debug("Multiplying...")
+            pass
+            #logging.debug("matrix already lil_matrix...")
+        #logging.debug("Multiplying...")
         mult = matrix @ matrix
-        logging.debug("Adding back original...")
+        #logging.debug("Adding back original...")
         matrix = mult + matrix
-        #logging.debug("Taking minimum with mask...")
-        #matrix = matrix.minimum(ones)
-        logging.debug("Getting new sum...")
+        #logging.debug("Getting new sum...")
         newval = matrix.sum()
-        logging.debug(f"matrix:\n{matrix_info(matrix)}")
+        icount += 1
+    logging.debug(f"Convergence complete. {icount} iterations. matrix:\n{matrix_info(matrix)}")
     return matrix
 
 def matrix_info(matrix):
@@ -519,7 +550,7 @@ def matrix_debug(matrix):
     Returns string of somewhat more expensive info on large matrix for logging.
     
     """
-    return f"type: {type(matrix)} shape: {matrix.shape} dtype: {matrix.dtype} sum: {matrix.sum()}\n{matrix}"
+    return f"type: {type(matrix)} shape: {matrix.shape} dtype: {matrix.dtype} sum: {matrix.sum()} min: {matrix.min()} max {matrix.max()}\n{matrix}"
 
 
 
@@ -1046,16 +1077,18 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
 
-    parser.add_argument('infile', 
-                        metavar='infile', 
-                        type=str, 
-                        help='a .fasta sequence files')
-    
     parser.add_argument('-c', '--config', 
                         action="store", 
                         dest='conffile', 
                         default='~/etc/cafa4.conf',
                         help='Config file path [~/etc/cafa4.conf]')
+    
+    parser.add_argument('infile', 
+                        metavar='infile', 
+                        type=str, 
+                        help='a .fasta sequence files')
+    
+
 
     parser.add_argument('-n', '--name',
                         action="store", 
