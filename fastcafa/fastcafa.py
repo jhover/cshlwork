@@ -12,16 +12,17 @@
 # geneid    Gene name+species.                                         LRRK2_MOUSE     
 # taxonid   NCBI taxon id                                              9606                 
 # species   all caps code                                              MOUSE   PONAB
+# goterms
 # goterm    Gene Ontology Annotation ID                                GO:0005634
 # goasp     biological process|molecular function|cellular component   bp       mf   cc
-# goev      evidence codes for GO annotation.                          IEA 
+# goev      evidence code for GO annotation.                          IEA 
 # eval      BLAST/HMMER/PHMMER expect statistic                        1.000000e-126
 # bias      Adjustement to score for char prevalence                   3.5
 # score     BLAST/HMMER/PHMMER bit-score                               400.3
 # db        database against which orthology query is done             sp (swissprot)
 # pest      Probability estimate for prediction.                       0.68  [.01-1.0]  
-#
-#
+# seq
+# seqlen
 
 __author__ = "John Hover"
 __copyright__ = "2019 John Hover"
@@ -43,6 +44,7 @@ from configparser import ConfigParser
 import logging
 import pickle
 import pprint as pp
+import random
 import subprocess
 import tempfile
 import traceback
@@ -71,9 +73,6 @@ GOTERMIDX = None
 ALTIDDICT = None
 GOMATRIX = None
 GOTERMLIST = None
-
-# filled in by calc_prior()
-GOPRIOR = None
 
 
 def dorun(config, filename, runname, usecache, species):
@@ -124,15 +123,57 @@ def dorun(config, filename, runname, usecache, species):
 
     
     
-    #priormatrix = calc_prior(config, usecache, species)    
-    ###priormatrix = priormatrix.transpose()
-    #logging.debug(f"priormatrix shape: {priormatrix.shape}")
-    #gotermlist=list(GOTERMIDX)
-    #logging.debug(f"terms in goterm list: {len(gotermlist)}")
-    #df = pd.DataFrame(priormatrix, index=gotermlist, columns=['pest'])
-    #df = df.sort_values(by='pest', ascending=False)
-    
     logging.info("done.")
+
+def do_build_ontology(config, usecache=False):
+    """
+    Rebuild all cached information.
+    """
+    logging.info("building ontology...")
+    gomatrix = build_ontology(config, usecache)
+    logging.info(f"got ontology matrix:\n{matrix_info(gomatrix)} ")
+  
+
+def do_build_uniprot(config, usecache=False):
+
+    logging.info("getting uniprot/sprot info..")
+    ubt = get_uniprot_byterm(config, usecache)
+    logging.info(f"got ubt list:\n{ubt[0:20]}")
+
+
+def do_build_prior(config, usecache=True ):    
+
+    logging.info("calculating prior..")
+    priormatrix = calc_prior(config, usecache, species=None)
+    logging.info(f"priormatrix = {matrix_info(priormatrix)}")
+    priordf = get_prior_df(config, usecache)
+    logging.info(f"priordf:\n{priordf}")    
+
+
+
+def do_phmmer(config, infile, outfile, usecache=True):
+    """
+    Perform phmmer on infile sequences. 
+    Output prediction to outfile.
+    
+    """
+    
+    logging.info("running phmmer")
+    pdf = get_phmmer_df(config, infile)
+    logging.info(f"got phmmer df:\n{pdf}")
+
+    logging.info("making phmmer prediction...")
+    df = calc_phmmer_prediction(config, pdf, usecache)
+    logging.debug(f"prediction=\n{df}")
+
+    logging.info(f"writing to outfile {outfile}")
+    df.to_csv(outfile)
+    logging.info("done.")
+  
+
+def do_evaluate():
+    pass
+
 
 
 def run_phmmer(config, filename):
@@ -141,7 +182,7 @@ def run_phmmer(config, filename):
     return phdict
 
 def get_phmmer_dict(config, filepath):
-    logging.info("running phummer")
+    logging.info("running phmmer")
     phdict = run_phmmer(config, filepath)
     logging.debug(f"got phmmer dict length: {len(phdict)}")
     return phdict
@@ -183,6 +224,7 @@ def execute_phmmer(config, filename):
                         stderr=subprocess.PIPE)
     logging.debug("Ran cmd='%s' outfile=%s returncode=%s " % (cmd, outfile, cp.returncode))
     return (outfile, exclude_list)
+
 
 def get_tfa_geneids(filename):
     """
@@ -378,22 +420,10 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
 
 
 
-def generate_targetset(config, name,  species):
-    """
     
-    Creates random target set from annotated swissprot proteins for given species. 
     
-    Creates FASTA files exactly like CAFA TargetFiles
-    <name>.<taxonid>.tfa
     
-        
-    :param    type    name:   desc
-    :return    testfile  Path to test file generated in fasta format.
-    :rtype
-    :raise:   Xerror if blah. 
     
-    """
-
 
 def get_ontology_matrix(config, usecache):
     gmtx = build_ontology(config, usecache)
@@ -401,8 +431,48 @@ def get_ontology_matrix(config, usecache):
     logging.debug(f"got ontology matrix: {mi} ")
     return gmtx
 
+#
+# all filled in by build_ontology()
+# GOTERMIDX = None
+# ALTIDDICT = None
+# GOMATRIX = None
+# GOTERMLIST = None
+#
 
-def build_ontology(config, usecache=False):
+def get_goprior(config, usecache, species=None):
+    gp = calc_prior(config, usecache,species)
+    return gp
+
+def get_gomatrix(config, usecache):
+    if GOMATRIX is not None:
+        return GOMATRIX
+    else:
+        build_ontology(config)
+        return GOMATRIX
+
+def get_gotermidx(config, usecache):
+    if GOTERMIDX is not None:
+        return GOTERMIDX
+    else:
+        build_ontology(config, usecache)
+        return GOTERMIDX
+
+def get_gotermlist(config, usecache):
+    if GOTERMLIST is not None:
+        return GOTERMLIST
+    else:
+        build_ontology(config, usecache)    
+        return GOTERMLIST
+
+def get_altiddict(config, usecache):
+    if ALTIDDICT is not None:
+        return ALTIDDICT
+    else:
+        build_ontology(config, usecache)    
+        return ALTIDDICT
+
+
+def build_ontology(config, usecache):
     """
     obofile=~/data/go/go.obo
     cachedir = ~/play/cafa4      
@@ -472,7 +542,7 @@ def build_ontology(config, usecache=False):
             termidx[gt] = i
             i = i + 1
         GOTERMIDX = termidx
-        GOTERMLIS = list(GOTERMIDX)
+        GOTERMLIST = list(GOTERMIDX)
         
         f = open(termidxfile, 'wb')   
         pickle.dump(termidx, f )
@@ -554,19 +624,16 @@ def matrix_debug(matrix):
 
 
 
-def get_prior_df(config, usecache=False, species = None):
-    if GOTERMIDX is None:  
-        build_ontology(config, usecache)
-    
+def get_prior_df(config, usecache=True, species = None):
+    gotermlist=get_gotermlist(config, usecache)
     priormatrix = calc_prior(config, usecache, species)    
     priormatrix = priormatrix.transpose()
     logging.debug(f"priormatrix shape: {priormatrix.shape}")
-    gotermlist=list(GOTERMIDX)
+
     logging.debug(f"terms in goterm list: {len(gotermlist)}")
     df = pd.DataFrame(priormatrix, index=gotermlist, columns=['pest'])
     df = df.sort_values(by='pest', ascending=False)
     return df
-
    
     
 def calc_prior(config, usecache, species=None):
@@ -593,16 +660,15 @@ def calc_prior(config, usecache, species=None):
     """
     global GOMATRIX
     global GOTERMIDX
-    global GOPRIOR
  
-
     logging.debug(f"building sprot. species={species}")
-    sprot = get_uniprot_byterm(config, usecache)
+    sprot = get_uniprot_byterm(config, usecache=True)
     logging.debug(f"sprot, e.g.:\n{pp.pformat(sprot[0:5])} ... ")
    
     freqarray = None
     
     logging.debug(f"usecache={usecache}")
+    
     if species is None:
         filespecies = 'GLOBAL'
     else:
@@ -613,7 +679,10 @@ def calc_prior(config, usecache, species=None):
     if usecache and os.path.exists(cachefile):
         freqarray = np.load(cachefile)
         logging.debug(f"Loaded prior freqarray from file: {cachefile}")
+    
     else:
+        altiddict = get_altiddict(config, usecache)
+        
         df = pd.DataFrame(sprot, columns=['proteinacc','species', 'goterm', 'goevidence'])
         if species is not None: 
             logging.debug(f"species {species} specified. converted to df with {df.shape[0]} rows: {df}")
@@ -623,10 +692,10 @@ def calc_prior(config, usecache, species=None):
         sprot = df.to_numpy().tolist()
         logging.debug(f"got uniprot by term, e.g.:\n{pp.pformat(sprot[0:5])} ")
         
-        gomatrix = GOMATRIX
+        gomatrix = get_gomatrix(config, usecache=True)
         gomatrix = gomatrix.astype(np.int)
         logging.debug(f"gomatrix e.g. {gomatrix[0:5]}")
-        gtidx = GOTERMIDX   
+        gtidx = get_gotermidx(config, usecache=True)   
         #logging.debug(f"gtidx: {gtidx}")
         shape = (len(gomatrix))
         sumarray = np.zeros(shape, dtype=np.int)
@@ -642,7 +711,7 @@ def calc_prior(config, usecache, species=None):
                 i += 1
             except KeyError:
                 #logging.debug(f"got missing key: {gt} look up"  )
-                primeid = ALTIDDICT[gt]
+                primeid = altiddict[gt]
                 #logging.debug(f"primeid is: {primeid}, using...")
                 sumarray = sumarray + gomatrix[gtidx[ primeid ]]
                 elist.append(gt)
@@ -658,7 +727,6 @@ def calc_prior(config, usecache, species=None):
         logging.debug(f"Saved freqarray to {cachefile}")
 
     logging.debug(f"freqarray: {freqarray.dtype} {freqarray} max={freqarray.max()} min={freqarray.min()}")    
-    GOPRIOR = freqarray
     return freqarray
 
 
@@ -678,24 +746,28 @@ def get_uniprot_byterm_df(config, usecache=True):
 
 def get_uniprot_byterm(config, usecache):
     """
-    [ {'proteinid': '3AHD_EGGLE',
-      'protein': '3AHD',
-      'species': 'EGGLE',
-      'proteinacc': 'C8WMP0',
-      'taxonid': '479437',
-      'goterms': {'GO:0047043': ['mf', 'IEA'],
-       'GO:0006694': ['bp', 'IEA']}}),
-      ...
+    [ {'proteinid': '001R_FRG3G', 
+       'protein': '001R', 
+       'species': 'FRG3G', 
+       'proteinacc': 'Q6GZX4', 
+       'taxonid': '654924', 
+       'goterms': {'GO:0046782': 'IEA'}, 
+       'seqlength': 256, 
+       'sequence': 'MAFSAEDVL......LYDDSFRKIYTDLGWKFTPL'},
+       .
+       .
+       .
     ]
     
+    
     Generate non-redundant uniprot with a row for every goterm:
-       pacc   species   goterm       goev
+       pacc         species    goterm       goev
     0  '3AHDP'      'RUMGV'   'GO:0016491'  'IEA'
     1  '3AHDP'      'RUMGV'   'GO:0006694'  'TAS'
     
     
     """    
-    lod = build_uniprot(config, usecache)
+    lod = build_uniprot(config, usecache=True)
     ubt = []
     for p in lod:
         for gt in p['goterms'].keys():
@@ -708,9 +780,158 @@ def get_uniprot_byterm(config, usecache):
     logging.debug(f"created uniprot_byterm with {len(ubt)} entries.")          
     return ubt          
 
+def get_uniprot_testset(config, usecache, species, evidence=[ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ]):
+    """
+    species  = 'MOUSE' 'HUMAN' -> taxonid matched. 
+    evidence = list of OK codes | None means any
+        Experimental: [ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ] 
+    
+    Generate DataFrame with data for export as CAFA test file:
+    G<taxonid>_<datetime>_<5-digit-number>    <proteinid>   <sequence>
+      
+    """
+    lodt = build_uniprot_test(config, usecache)
+    #print(lodt)
+
+    tdf = pd.DataFrame(lodt, columns=['protein','species','goterm','goev','seqlen','seq'])
+    if evidence is not None:
+        tdf = tdf[tdf['goev'].isin(evidence)] 
+    tdf = tdf[tdf['species'] == species]
+    tdf.reset_index(inplace=True)
+    un = tdf.protein.unique()
+    evcodes = tdf.goev.unique()
+    logging.debug(f"generated {len(tdf)} item DF with {len(un)} proteins. evcode={evcodes}")
+    return tdf
+
+
+
+def do_testset(config, numseq, species, outfile):
+    """
+    Creates random target set from *annotated* swissprot proteins for given species. 
+    Creates FASTA files exactly like CAFA TargetFiles
+        
+    :param    type      name:   desc
+    :param    str       species          Species to generate, code form: 
+    :return   testfile  Path to test file generated in fasta format.
+    :rtype
+    :raise:
+    
+    """
+    outfile = os.path.expanduser(outfile)
+    numseq = int(numseq)
+    logging.debug(f"numseq={numseq} species={species} outfile={outfile}")
+    tdf = get_uniprot_testset(config, usecache=True, species=species)
+
+    logging.debug(f"got testset dataframe {len(tdf)} entries. ")
+    
+    #  [  { taxid     : speccode, ...  },
+    #     { speccode  : taxonid, ...},
+    #     { linnean   : taxonid, ...}   ]
+    specmaps = get_specmaps(config)
+    taxonid = specmaps[1][species.strip()]
+    logging.debug(f"taxonid is {taxonid} for {species}")    
+    up = tdf.protein.unique()
+    upl = up.tolist()
+    spl = random.sample(upl, numseq)
+    snum = 1
+    x = 60
+    s = ""
+    for p in spl:
+        r = tdf[tdf.protein == p].reset_index().iloc[0]
+        s += f">G{taxonid}{snum:08} {r.protein}_{r.species}\n"
+        chunklist = [ r.seq[y-x:y] for y in range(x, len(r.seq)+x, x) ] 
+        #logging.debug(f"chunklist {chunklist}")
+        for c in chunklist:
+            s += f"{c}\n"
+
+        snum += 1
+    #logging.debug(s)
+    
+    try:
+        f = open(outfile, 'w')
+        f.write(s)
+        f.close()
+        logging.debug(f"Wrote test data to file {outfile}")
+    except IOError:
+        logging.error(f"could not write to file {outfile}")
+        traceback.print_exc(file=sys.stdout) 
+
+    return outfile
+
+
+
+def build_uniprot_test(config, usecache):
+    """
+   
+    [ {'proteinid': '001R_FRG3G', 
+       'protein': '001R', 
+       'species': 'FRG3G', 
+       'proteinacc': 'Q6GZX4', 
+       'taxonid': '654924', 
+       'goterms': {'GO:0047043': 'IEA', 'GO:0006694': 'IEA'}, 
+       'seqlength': 256, 
+       'sequence': 'MAFSAEDVL......LYDDSFRKIYTDLGWKFTPL'},
+       .
+       .
+    ]
+   
+    Create redundant dataframe for later slimming. Include sequence. Cache. 
+   
+    """    
+    cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
+    cachefile = f"{cachedir}/uniprottest.pickle"    
+    lodt = None
+    
+    if os.path.exists(cachefile) and usecache:
+        logging.debug("Cache hit. Using existing info...")    
+        try:
+            cf = open(cachefile, 'rb')    
+            lodt = pickle.load(cf)
+        except Exception:
+            logging.error(f'unable to load via pickle from {cachefile}')
+            traceback.print_exc(file=sys.stdout)    
+        finally:
+            cf.close()       
+    else:    
+        lod = build_uniprot(config, usecache=True)
+       
+    
+        lodt = []
+        for p in lod:
+            newgts = {}
+            for gt in p['goterms'].keys():
+                evcode = p['goterms'][gt]
+                item = [ p['proteinacc'],
+                         p['species'],
+                         gt, 
+                         evcode,
+                         p['seqlength'],
+                         p['sequence'] 
+                      ]
+                lodt.append(item)
+                
+        logging.debug(f"saving listofdicts: to {cachefile}")
+        try:
+            cf = open(cachefile, 'wb')    
+            pickle.dump(lodt, cf )
+            logging.debug(f"saved listofdicts: to {cachefile}")
+        except Exception as e:
+            logging.error(f'unable to dump via pickle to {cachefile}')
+            traceback.print_exc(file=sys.stdout)     
+        finally:
+            cf.close() 
+        logging.debug(f"created uniprot test source with {len(lodt)} entries.")
+    return lodt
+
+
+def build_prior(config, usecache, species=None):
+    logging.debug(f"running calc_prior with species {species}")
+    calc_prior(config, usecache, species=species)
+    
 
 def build_uniprot(config, usecache):
     """
+    Builds list of dictionaries, each element is item in uniprot/sprot
     
     """
     logging.debug(f"usecache={usecache}")
@@ -734,7 +955,7 @@ def build_uniprot(config, usecache):
         try:
             cf = open(cachefile, 'wb')    
             pickle.dump(listofdicts, cf )
-            
+            logging.debug(f"saved listofdicts: to {cachefile}")
         except Exception as e:
             logging.error(f'unable to dump via pickle to {cachefile}')
             traceback.print_exc(file=sys.stdout)     
@@ -746,7 +967,7 @@ def build_uniprot(config, usecache):
     return listofdicts
 
 
-def build_specmaps(config, usecache=False):
+def build_specmaps(config, usecache):
     """
     builds three maps in form of list of dicts:
        [
@@ -800,6 +1021,10 @@ def build_specmaps(config, usecache=False):
     logging.info(f"saving map: to {cachefile}")
     SPECMAPS = map
     return map
+
+def get_specmaps(config):
+    sm = build_specmaps(config, usecache=True)
+    return sm
 
 
 
@@ -882,23 +1107,29 @@ def parse_uniprot_dat(config):
                     goevsrc = fields[3]
                     (goevidence, evsrc) = goevsrc.split(':') 
                     goevidence = goevidence.strip()
-                    current['goterms'][goterm] = [ goaspect, goevidence]
+                    current['goterms'][goterm] = goevidence
 
                 elif line.startswith("SQ   SEQUENCE"):
                     #logging.debug("Handling SQ:  XXX")
                     # line = filehandle.readline()
-                    pass
+                    current['seqlength'] = int(line.split()[2])
+                    current['sequence'] = ""
+                    seqlen = current['seqlength']
+                    aaread = 0
+                    while aaread < seqlen:
+                        line = filehandle.readline()
+                        lineseq = line.strip().replace(" ","")
+                        current['sequence'] = "%s%s" % (current['sequence'], lineseq)
+                        aaread += len(lineseq) 
 
                 elif line.startswith("GN   "):
                     # Examples:
                     #  GN   ABL1 {ECO:0000303|PubMed:21546455},
                     #  GN   Name=BRCA1; Synonyms=RNF53;
                     #  GN   ORFNames=T13E15.24/T13E15.23, T14P1.25/T14P1.24;
-                    #   
-                    
                     #logging.debug("Handling GN.")
                     val = line[5:]
-
+                    
             
                 elif line.startswith("//"):
                     #logging.debug("End of entry.")                  
@@ -1082,13 +1313,6 @@ if __name__ == '__main__':
                         dest='conffile', 
                         default='~/etc/cafa4.conf',
                         help='Config file path [~/etc/cafa4.conf]')
-    
-    parser.add_argument('infile', 
-                        metavar='infile', 
-                        type=str, 
-                        help='a .fasta sequence files')
-    
-
 
     parser.add_argument('-n', '--name',
                         action="store", 
@@ -1096,11 +1320,6 @@ if __name__ == '__main__':
                         default='default',
                         help='Run-specific identifier to use in file output.')
 
-    parser.add_argument('-s', '--species',
-                        action="store", 
-                        dest='species', 
-                        default=None,
-                        help='Limit to species where relevant.')
 
     parser.add_argument('-a', '--aspect',
                         action="store", 
@@ -1110,11 +1329,98 @@ if __name__ == '__main__':
 
     parser.add_argument('-C', '--usecache',
                         action='store_true', 
-                        dest='usecache',
+                        dest='nocache',
                         default=False, 
-                        help='Use any cached information to speed processing.')
-                    
+                        help='Use cached information.' )
+    
+    
+    subparsers = parser.add_subparsers( dest='subcommand',
+                                        help='sub-command help.')
+    
+    parser_phmmer = subparsers.add_parser('phmmer',
+                                          help='run phmmer and output prediction')
+    
+    parser_phmmer.add_argument('-n','--infile', 
+                               metavar='infile', 
+                               type=str, 
+                               help='a .fasta sequence files')
+
+    parser_phmmer.add_argument('-o','--outfile', 
+                               metavar='outfile', 
+                               type=str, 
+                               help='a DF .csv prediction file')
+
+    parser_buildontology = subparsers.add_parser('build_ontology',
+                                          help='build and cache GO ontology')    
+
+    parser_builduniprot = subparsers.add_parser('build_uniprot',
+                                          help='build and cache uniprot info')
+    
+    parser_buildprior = subparsers.add_parser('build_prior',
+                                          help='build and cache uniprot prior')
+    
+    parser_buildprior.add_argument('-s', '--species',
+                        action="store", 
+                        dest='species', 
+                        default=None,
+                        help='Limit to species where relevant.')
+
+
+    parser_buildspecies = subparsers.add_parser('build_species',
+                                          help='build and cache NCBI species maps')             
+    
+        
+    parser_evaluate = subparsers.add_parser('evaluate',
+                                          help='evaluate prediction against known. output stats.')
+    
+   
+    parser_evaluate.add_argument('-p', '--predictcsv', 
+                               metavar='csvfile', 
+                               type=str, 
+                               help='a .csv prediction file')        
+
+    parser_evaluate.add_argument('-P','--predictcafa', 
+                               metavar='cfile', 
+                               type=str, 
+                               help='a prediction file in CAFA standard format.')        
+
+    parser_evaluate.add_argument('-o', '--outcsv', 
+                               metavar='outcsv', 
+                               type=str, 
+                               help='a .csv output file with stats')    
+
+    parser_builduniprot_test = subparsers.add_parser('build_uniprot_test',
+                                          help='build and cache uniprot test source info')
+
+    parser_testset = subparsers.add_parser('testset',
+                                          help='generate a set of input .TFA files from species')
+
+    parser_testset.add_argument('-n','--numseq', 
+                               metavar='numseq',
+                               dest='numseq', 
+                               default=10,
+                               type=int, 
+                               help='Number of sequences to select.')   
+    
+    parser_testset.add_argument('-s', '--species', 
+                               metavar='species',                                
+                               dest='species', 
+                               required=True,
+                               type=str, 
+                               help='a .fasta sequence file with exp. annotated proteins')   
+    
+    parser_testset.add_argument('-o', '--out',  
+                               metavar='outfile',
+                               dest='outfile',
+                               required=True, 
+                               type=str, 
+                               help='a DF .csv prediction file')
+    
+
     args= parser.parse_args()
+    
+    # default to INFO
+    logging.getLogger().setLevel(logging.INFO)
     
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -1123,6 +1429,31 @@ if __name__ == '__main__':
     
     cp = ConfigParser()
     cp.read(args.conffile)
-           
-    dorun(cp, args.infile, args.runname, args.usecache, args.species)
+    
+    logging.debug(f"args: {args}")
+    
+    if args.subcommand == 'phmmer':
+        do_phmmer(cp, args.infile, args.outfile, usecache=True )
+    
+    if args.subcommand == 'build_ontology':
+        build_ontology(cp, usecache=False)
+
+    if args.subcommand == 'build_uniprot':
+        build_uniprot(cp, usecache=False)
+
+    if args.subcommand == 'build_species':
+        build_specmaps(cp,  usecache=False)
+
+    if args.subcommand == 'build_prior':
+        build_prior(cp, args.species )
+
+    if args.subcommand == 'build_uniprot_test':
+        build_uniprot_test(cp, usecache=False )
+
+    if args.subcommand == 'testset':
+        do_testset(cp, args.numseq, args.species, args.outfile )
+
+    if args.subcommand == 'evaluate':
+        do_evaluate(cp, args.csvfile)
+    
         
