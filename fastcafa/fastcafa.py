@@ -203,7 +203,7 @@ def do_evaluate(config, predictdf, goaspect,  threshold ):
         cudf = udf[udf.pid == cgid]
         for (i, ser) in cudf.iterrows():
             # ser is the row. 
-            logging.debug(f"goterm is {ser.goterm}")  
+            #logging.debug(f"goterm is {ser.goterm}")  
             try:
                 cgv = cgv + gomatrix[gotermidx[ser.goterm]].astype(np.int64)
             except KeyError:
@@ -221,7 +221,7 @@ def do_evaluate(config, predictdf, goaspect,  threshold ):
         pdf = predictdf[predictdf.cgid == cgid]
         for (i, ser) in pdf.iterrows():
             # ser is the row. 
-            logging.debug(f"goterm is {ser.goterm}")  
+            #logging.debug(f"goterm is {ser.goterm}")  
             try:
                 pgv = pgv + gomatrix[gotermidx[ser.goterm]].astype(np.int64)
             except KeyError:
@@ -247,6 +247,20 @@ def do_evaluate(config, predictdf, goaspect,  threshold ):
     return outlist
 
 
+def get_evaluate_df(config, predictdf, goaspect=None,  threshold=None ):
+    """
+    lol:
+         cid            numpredict   numcorrect  numannotated
+    [['G960600000001',  4317,        539,        1637], 
+     ['G960600000002',  10782,       0,          2], 
+     ['G960600000003',  5634,        371,        555], 
+    ]
+    
+    """
+    
+    lol = do_evaluate(config, predictdf, goaspect,  threshold )
+    df = pd.DataFrame(lol, columns=['cid','predicted','correct','annotated'])
+    return df
 
 
 def run_phmmer(config, filename):
