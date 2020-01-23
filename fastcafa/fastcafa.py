@@ -5,11 +5,12 @@
 # cid       cafa4 target identifier   N/A                              T2870000001
 # cafaprot  cafa4 target protein id                                    1433B
 # cafaspec  cafa4 target protien species                               MOUSE
-# id        UniProtKB: entry/ID                                        1433B_RAT
+# cgid      cafa4 target gene id                                       LRRK2_MOUSE 
+# pid       UniProtKB: entry/ID                                        1433B_RAT
 # pacc      UniProtKB: accession  ?quickgo:gene product_id             P63103
 # protein   all caps name                                              1433B
 # gene      Free-text gene name.                                       Lrrk2  Ywahb
-# geneid    Gene name+species.                                         LRRK2_MOUSE     
+# ?? geneid    Gene name+species.                                         LRRK2_MOUSE     
 # taxonid   NCBI taxon id                                              9606                 
 # species   all caps code                                              MOUSE   PONAB
 # goterms
@@ -75,55 +76,6 @@ GOMATRIX = None
 GOTERMLIST = None
 
 
-def dorun(config, filename, runname, usecache, species):
-
-
-    logging.debug(f"filename={filename}, runname={runname},usecache={usecache},species={species}")
-    logging.info("starting...")
-    
-    logging.info("building ontology...")
-    gomatrix = build_ontology(config, usecache)
-    logging.info(f"got ontology matrix:\n{matrix_info(gomatrix)} ")
-  
-    #logging.info("getting uniprot/sprot info..")
-    #ubt = get_uniprot_byterm(config, usecache)
-    #logging.info(f"got ubt list:\n{ubt[0:20]}")
-
-    #logging.info("getting uniprot/sprot info df..")
-    #ubtdf = get_uniprot_byterm_df(config, usecache)
-    #logging.info(f"got ubtdf:\n{ubtdf}")
-
-    #logging.info("calculating prior..")
-    #priormatrix = calc_prior(config, usecache, species=None)
-    #logging.info(f"priormatrix = {matrix_info(priormatrix)}")
-    #priordf = get_prior_df(config, usecache)
-    #logging.info(f"priordf:\n{priordf}")
-
-
-    logging.info("running phmmer")
-    pdf = get_phmmer_df(config, filename)
-    logging.info(f"got phmmer df:\n{pdf}")
-
-    logging.info("making phmmer prediction...")
-    out = calc_phmmer_prediction(config, pdf, usecache)
-    logging.debug(f"prediction=\n{out}")
-
-    #logging.info("generating test targetset...")
-    #testfile = generate_targetset(config, species)
-    #logging.info(f"done generating targetset in file {testfile}")
-      
-       
-    #logging.info("evaluate test prediction...")
-       
-       
-    #logging.info("creating species maps...")
-    #map = build_specmaps(config, usecache)
-    #logging.info("got species map.")    
-    
-
-    
-    
-    logging.info("done.")
 
 def do_build_ontology(config, usecache=False):
     """
@@ -171,14 +123,136 @@ def do_phmmer(config, infile, outfile, usecache=True):
     logging.info("done.")
   
 
-def do_evaluate():
-    pass
+def run_evaluate(config, predictfile, goaspect=None, threshold=None):
+    """
+    Consume a prediction.csv file, and score based on accuracy. 
+    X.prediction.csv
+   
+    """
+
+    df = pd.read_csv(os.path.expanduser(predictfile))
+    edf = do_evaluate(config, df, goaspect, threshold)
+    logging.debug(f"got evaluation df {edf}")
+
+    
+
+
+
+def do_evaluate(config, predictdf, goaspect,  threshold ):
+    """
+    i    cid           goterm       pest    cgid
+    0    G960600000001 GO:0086041   53.0   Q9Y3Q4_HUMAN
+    1    G960600000001 GO:0086089   49.0   Q9Y3Q4_HUMAN
+    2    G960600000001 GO:0086090   49.0   Q9Y3Q4_HUMAN
+    
+    For each CID of predictions:
+        # create correct numbers
+        correctv = zeros()
+        Get corresponding 'gid' from uniprot.  Q9Y3Q4_HUMAN
+        For each goterm for that gid:
+            Get goterm boolean vector gbv for that goterm
+                correctv = correctv + gbv
+        
+        # process predictions (at this threshold?)
+        predictv = zeros()
+        For each goterm in prediction:
+            Get goterm boolean vector gbvp for that goterm
+                predictv = predictv + gbvp
+        
+        num-predicted = predictv.sum()
+        num-correct = (correctv AND predictv).sum()
+        num-annotated = correctv.sum() 
+   
+    cid    numpredict     numcorrect   numannotated    
+    0001       27             18             37                   
+    0002       30             30             36     
+    
+    #-----------------------------------------------
+    #         totalpred     totalcorr    totalannot
+    #
+    #   % correct prediction     numcorrect / numpredict
+    #   % correct answers        numcorrect / totalannot         
+    #
+    
+    
+    """
+    logging.debug(f"goaspect={goaspect} threshold={threshold} predictdf=\n{predictdf}\n")
+
+    outlist = []
+    
+    logging.debug("getting experimentally validated uniprot_byterm_df..")
+    udf = get_uniprot_byterm_exponly_df(config, usecache=True)
+    
+    logging.debug("getting gomatrix...")
+    gomatrix = get_ontology_matrix(config, usecache=True)
+    logging.debug("getting goterm index for lookup...")
+    gotermidx = get_gotermidx(config, usecache=True )
+    
+    cidlist = list(predictdf.cid.unique())
+    logging.debug(f"cid list: {cidlist}")
+
+    for cid in cidlist:
+        # build correct govector for all annotated terms in cid
+        logging.debug(f"build correct govector for cid {cid}")
+        cdf = predictdf[predictdf.cid == cid]
+        # get gene ide. 
+        cgid = cdf.cgid.unique()[0]
+        logging.debug(f"geneid for this target is is {cgid}")
+        cgv = np.zeros(len(gotermidx), dtype=bool)
+        # get true goterms for geneid
+        cudf = udf[udf.pid == cgid]
+        for (i, ser) in cudf.iterrows():
+            # ser is the row. 
+            logging.debug(f"goterm is {ser.goterm}")  
+            try:
+                cgv = cgv + gomatrix[gotermidx[ser.goterm]].astype(np.int64)
+            except KeyError:
+                logging.debug("got keyerror for goterm index lookup. trying alt...")
+                realgt = altidx[upser.goterm]
+                logging.debug(f"real goterm is {realgt}")
+                realidx = gotermidx[realgt]
+                cgv2 = gomatrix[realidx].astype(np.int64)
+                cgv = cgv + cgv2
+        # cgv is now full vector of correct terms. 
+
+        # build govector for prediction
+        logging.debug(f"build prediction govector for cid {cid}")
+        pgv = np.zeros(len(gotermidx), dtype=bool)
+        pdf = predictdf[predictdf.cgid == cgid]
+        for (i, ser) in pdf.iterrows():
+            # ser is the row. 
+            logging.debug(f"goterm is {ser.goterm}")  
+            try:
+                pgv = pgv + gomatrix[gotermidx[ser.goterm]].astype(np.int64)
+            except KeyError:
+                logging.debug("got keyerror for goterm index lookup. trying alt...")
+                realgt = altidx[upser.goterm]
+                logging.debug(f"real goterm is {realgt}")
+                realidx = gotermidx[realgt]
+                pgv2 = gomatrix[realidx].astype(np.int64)
+                pgv = pgv + pgv2
+        # pgv is now full vector of predicted terms.         
+        #num-predicted = predictv.sum()
+        #num-correct = (correctv AND predictv).sum()
+        #num-annotated = correctv.sum() 
+        #cid    numpredict     numcorrect   numannotated    
+        #0001       27             18             37                   
+        
+        numpredict = pgv.sum()
+        numcorrect = np.logical_and(pgv,cgv).sum()
+        numannotated = cgv.sum()
+        outlist.append([cid, numpredict, numcorrect, numannotated])
+    
+    logging.debug(f"outlist={outlist}")
+    return outlist
+
 
 
 
 def run_phmmer(config, filename):
-    (outfile, exclude_list) = execute_phmmer(config, filename)
-    phdict = parse_phmmer(config, outfile, exclude_list )
+    (outfile, exclude_list, cidcgidmap) = execute_phmmer(config, filename)
+    logging.debug(f"cidcgidmap is {cidcgidmap}")
+    phdict = parse_phmmer(config, outfile, exclude_list, cidcgidmap )
     return phdict
 
 def get_phmmer_dict(config, filepath):
@@ -204,10 +278,16 @@ def execute_phmmer(config, filename):
     database=~/data/uniprot/uniprot_sprot.fasta
     remove_self_hits = True
     
+    *Excludes geneids ( <protein>_<species> ) of sample from phmmer hit results*
+    So the inbound sequence files *must* contain correct geneids (or some other
+    method must be used to exclude self-hits). 
+
     
     """
-    exclude_list = None 
-    exclude_list = get_tfa_geneids(filename)
+    exclude_list = [] 
+    cidgidmap = get_tfa_geneids(filename)
+    for c in cidgidmap.keys():
+        exclude_list.append(c)     
     outdir = config.get('global','outdir')
     outpath = os.path.dirname(filename)
     filebase = os.path.splitext(os.path.basename(filename))[0]
@@ -223,7 +303,7 @@ def execute_phmmer(config, filename):
                         stdout=subprocess.PIPE, 
                         stderr=subprocess.PIPE)
     logging.debug("Ran cmd='%s' outfile=%s returncode=%s " % (cmd, outfile, cp.returncode))
-    return (outfile, exclude_list)
+    return (outfile, exclude_list, cidgidmap)
 
 
 def get_tfa_geneids(filename):
@@ -232,9 +312,12 @@ def get_tfa_geneids(filename):
     phmmer runs. This wouldn't necessarily cause a problem with the real files, because they 
     will be un-annotated. But for validation testing, the targets *will* be annotated (and
     need to be excluded). 
+    
+    Also need the mappings between cid and geneids for validation, where we need
+    to look up the correct, annotated geneid to check predicitons. 
         
     """
-    gids = []
+    cidgids = {}
     
     try:
         f = open(filename, 'r')
@@ -246,16 +329,16 @@ def get_tfa_geneids(filename):
             fields = line[1:].split()
             cid = fields[0].strip()
             geneid = fields[1].strip()
-            gids.append(geneid)
-    logging.debug(f"got {len(gids)} geneids to exclude from results.")
-    return gids
+            cidgids[cid] = geneid
+    logging.debug(f"got {len(cidgids)} cids with geneids to exclude from results.")
+    return cidgids
             
 
-def parse_phmmer(config, filename, excludelist):
+def parse_phmmer(config, filename, excludelist, cidcgidmap):
     """
     Read phmmer tbl out. Return dict  
     
-    excludelist = [ '<pids of inbound target geneid.>'] e.g. 2A5D_ARATH
+    excludelist = [ '<geneids of inbound target proteins.>'] e.g. 2A5D_ARATH
      
     remove_self_hits = True|False
         shouldn't be necessary in standard case. 
@@ -298,6 +381,7 @@ def parse_phmmer(config, filename, excludelist):
              (protein, species) = pid.split('_')
              dict[idx]['pacc'] = pacc
              dict[idx]['pid'] = pid
+             dict[idx]['cgid'] = cidcgidmap[dict[idx]['cid']]
              del dict[idx]['target']
     for idx in idxtodel:
         del dict[idx]
@@ -320,12 +404,12 @@ def parse_phmmer(config, filename, excludelist):
 def calc_phmmer_prediction(config, dataframe, usecache):
     """
     Takes phmmer df PDF: 
-                cid           eval  score  bias    pacc          pid
-1     T100900000001  4.100000e-155  518.4   7.7  P35213    1433B_RAT
+                cid           eval  score  bias    pacc          pid   cgid
+1     T100900000001  4.100000e-155  518.4   7.7  P35213    1433B_RAT   1A1L1_MOUSE
 2     T100900000001  5.400000e-155  518.0   7.2  A4K2U9  1433B_PONAB
     
     Gets uniprot_byterm_df UBTDF:
-         pacc    speecies      goterm   goev
+         pacc     species      goterm   goev
 0        Q6GZX4   FRG3G     GO:0046782   IEA
 1        Q6GZX3   FRG3G     GO:0033644   IEA
     
@@ -360,12 +444,16 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
     ubtdf = get_uniprot_byterm_df(config, usecache)
     logging.debug("getting gomatrix...")
     gomatrix = get_ontology_matrix(config, usecache)
-    logging.debug("Local goterm index for lookup...")
-    gotermidx = GOTERMIDX
-    example = gomatrix[gotermidx['GO:0005737']]
-    logging.debug(f"example: term GO:0005737: {example}")
-    logging.debug(f"example: sum={example.sum()} min={example.sum()} max={example.max()}")
-    example = example
+    logging.debug("goterm index for lookup...")
+    gotermidx = get_gotermidx(config, usecache)
+    logging.debug("altid index for lookup...")
+    altidx = get_altiddict(config, usecache)
+        
+    #example = gomatrix[gotermidx['GO:0005737']]
+    #logging.debug(f"example: term GO:0005737: {example}")
+    #logging.debug(f"example: sum={example.sum()} min={example.sum()} max={example.max()}")
+    #example = example
+    
     logging.debug(f" ubtdf:\n{ubtdf}\ngomatrix: {matrix_info(gomatrix)}\ngotermidx: {len(gotermidx)} items.")
     
     max_goterms = config.getint('global','max_goterms')
@@ -377,18 +465,30 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
     
     gtarray = np.array(list(GOTERMIDX))
     
-    topdf = pd.DataFrame(columns=['cid','goterm','pest'])
+    topdf = pd.DataFrame(columns=['cid','goterm','pest','cgid'])
     
     for cid in cidlist:
         gv = np.zeros(len(gotermidx))
         cdf = pdf[pdf.cid == cid]
+        cgid = cdf.reset_index().iloc[0].cgid       
+        logging.debug(f"cgid for cid {cid} is {cgid}")
+        
         #logging.debug(f"one cid df:\n{cdf}")
         for (i, ser) in cdf.iterrows():
             #logging.debug(f"pacc is {ser.pacc}")
             udf = ubtdf[ubtdf.pacc == ser.pacc]
             for (j, upser) in udf.iterrows():
                 #logging.debug(f"goterm is {upser.goterm} gv={gv} addgv={gomatrix[gotermidx[upser.goterm]].astype(np.int8)}")
-                gv = gv + gomatrix[gotermidx[upser.goterm]].astype(np.int64)
+                #logging.debug(f"goterm is {upser.goterm}")
+                try:
+                    gv = gv + gomatrix[gotermidx[upser.goterm]].astype(np.int64)
+                except KeyError:
+                    logging.debug("got keyerror for goterm index lookup. trying alt...")
+                    realgt = altidx[upser.goterm]
+                    logging.debug(f"real goterm is {realgt}")
+                    realidx = gotermidx[realgt]
+                    gv2 = gomatrix[realidx].astype(np.int64)
+                    gv = gv + gv2
             #logging.debug(f"sum is {gv.sum()} ")
         # we now have a govector with all goterms indicated by all targets.
         # each entry is sum of number of times that goterm was indicated (as annoated or
@@ -396,8 +496,7 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
         # gv = array([123,   0,   3,   7, 345, 0])
         # handle this cid
         
-        # gv has been coerced from array to matrix, back to array??
-        #gv = 
+        # gv has been coerced from array to matrix, back to array?? 
         logging.debug(f"gv: {matrix_debug(gv)}")
         gvnz = gv > 0
         logging.debug(f"gvnz: {matrix_debug(gvnz)}")
@@ -406,9 +505,14 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
         #logging.debug(f"goterms with val > 0: {gotermar}")
 
         govalar = gv[gvnz]
+        
         #logging.debug(f"values for element with val> 0: {govalar}")
-        cidar = np.full( len(govalar), fill_value=cid)      
-        df = pd.DataFrame({ 'cid': cidar, 'goterm': gotermar, 'pest' : govalar })
+        cidar = np.full( len(govalar), fill_value=cid)        
+        cgidar = np.full(len(govalar), fill_value=cgid)
+        df = pd.DataFrame({ 'cid': cidar, 
+                           'goterm': gotermar, 
+                           'pest' : govalar, 
+                           'cgid' : cgidar })
         df = df.nlargest(max_goterms, 'pest')
         #df.sort_values(by='pest', ascending=False)
         logging.debug(f"made dataframe for cid {cid}:\n{df}")
@@ -419,10 +523,6 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
     return topdf
 
 
-
-    
-    
-    
     
 
 def get_ontology_matrix(config, usecache):
@@ -447,7 +547,7 @@ def get_gomatrix(config, usecache):
     if GOMATRIX is not None:
         return GOMATRIX
     else:
-        build_ontology(config)
+        build_ontology(config, usecache)
         return GOMATRIX
 
 def get_gotermidx(config, usecache):
@@ -541,6 +641,13 @@ def build_ontology(config, usecache):
         for gt in gotermlist:
             termidx[gt] = i
             i = i + 1
+        # ???XXX  does this cause problems elsewhere when .keys() is called
+        # on the gotermidx??
+        #for alt in altids:
+        #    termidx[alt] = termidx[altids[alt]]
+        #    logging.debug(f"Created index from {alt} to {altids[alt]}")
+        
+        
         GOTERMIDX = termidx
         GOTERMLIST = list(GOTERMIDX)
         
@@ -739,9 +846,18 @@ def get_uniprot_df(config, usecache=True):
 
 def get_uniprot_byterm_df(config, usecache=True):
     lol = get_uniprot_byterm(config, usecache)
-    df = pd.DataFrame(lol,columns=['pacc','species','goterm','goev'])
+    df = pd.DataFrame(lol,columns=['pacc','species','goterm','goev', 'pid'])
     logging.debug(f"Built dataframe:\n{df}")    
     return df 
+
+def get_uniprot_byterm_exponly_df(config, usecache=True):
+    lol = get_uniprot_byterm(config, usecache)
+    df = pd.DataFrame(lol,columns=['pacc','species','goterm','goev', 'pid'])
+    logging.debug(f"Built dataframe:\n{df}")    
+    exp_goev=[ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ]
+    df = df[df['goev'].isin(exp_goev)] 
+    df.reset_index(drop=True, inplace=True)
+    return df
 
 
 def get_uniprot_byterm(config, usecache):
@@ -761,7 +877,7 @@ def get_uniprot_byterm(config, usecache):
     
     
     Generate non-redundant uniprot with a row for every goterm:
-       pacc         species    goterm       goev
+       pacc         species    goterm       goev    
     0  '3AHDP'      'RUMGV'   'GO:0016491'  'IEA'
     1  '3AHDP'      'RUMGV'   'GO:0006694'  'TAS'
     
@@ -774,7 +890,8 @@ def get_uniprot_byterm(config, usecache):
             item = [ p['proteinacc'],
                      p['species'],
                      gt, 
-                     p['goterms'][gt][1] 
+                     p['goterms'][gt],
+                     p['proteinid'], 
                     ]
             ubt.append(item)
     logging.debug(f"created uniprot_byterm with {len(ubt)} entries.")          
@@ -793,7 +910,7 @@ def get_uniprot_testset(config, usecache, species, evidence=[ 'EXP', 'IDA', 'IMP
     lodt = build_uniprot_test(config, usecache)
     #print(lodt)
 
-    tdf = pd.DataFrame(lodt, columns=['protein','species','goterm','goev','seqlen','seq'])
+    tdf = pd.DataFrame(lodt, columns=['pacc','protein','species','goterm','goev','seqlen','seq'])
     if evidence is not None:
         tdf = tdf[tdf['goev'].isin(evidence)] 
     tdf = tdf[tdf['species'] == species]
@@ -902,6 +1019,7 @@ def build_uniprot_test(config, usecache):
             for gt in p['goterms'].keys():
                 evcode = p['goterms'][gt]
                 item = [ p['proteinacc'],
+                         p['protein'],
                          p['species'],
                          gt, 
                          evcode,
@@ -1287,9 +1405,7 @@ def parse_speclist(config, filepath):
 def get_default_config():
     cp = ConfigParser()
     cp.read(os.path.expanduser("~/git/cshl-work/etc/fastcafa.conf"))
-    #logging.debug("")
     return cp
-
 
 
 if __name__ == '__main__':
@@ -1375,15 +1491,23 @@ if __name__ == '__main__':
     
    
     parser_evaluate.add_argument('-p', '--predictcsv', 
-                               metavar='csvfile', 
+                               metavar='predictcsv', 
                                type=str, 
                                help='a .csv prediction file')        
 
-    parser_evaluate.add_argument('-P','--predictcafa', 
-                               metavar='cfile', 
-                               type=str, 
-                               help='a prediction file in CAFA standard format.')        
+    parser_evaluate.add_argument('-a', '--aspect', 
+                               metavar='goaspect', 
+                               type=str,
+                               default=None, 
+                               help='GO aspect to limit evaluation to.') 
 
+    parser_evaluate.add_argument('-t', '--threshold', 
+                               metavar='threshold', 
+                               type=str,
+                               default=None, 
+                               help='threshold to limit evaluation on.')
+
+           
     parser_evaluate.add_argument('-o', '--outcsv', 
                                metavar='outcsv', 
                                type=str, 
@@ -1454,6 +1578,5 @@ if __name__ == '__main__':
         do_testset(cp, args.numseq, args.species, args.outfile )
 
     if args.subcommand == 'evaluate':
-        do_evaluate(cp, args.csvfile)
+        run_evaluate(cp, args.predictcsv, args.goaspect, args.threshold)
     
-        
