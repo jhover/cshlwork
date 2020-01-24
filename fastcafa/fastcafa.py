@@ -76,6 +76,61 @@ GOMATRIX = None
 GOTERMLIST = None
 
 
+class Ontology(dict):
+    """
+    gomatrix:  goterm x goterm np.ndarray fully propagated relationships. 
+    gotermidx: { <str> goterm : <int> index in gomatrix, ... } 
+    gotermlist: 
+    
+    """
+    
+    def __init__(self, gomatrix, gotermidx, altidx):
+        # a list of np.arrays
+        self.data = gomatrix
+        # a dictionary of goterms -> array_index
+        self.gotermidx = gotermidx
+        # a dictionary of (alternate) goterms -> (real) goterms
+        self.altidx = altidx
+        # list of go terms
+        self.gotermlist = list(gotermidx)
+        
+        
+    def __getitem__(self, key):
+        #
+        try:
+            val = self.data[self.gotermidx[key]]
+        except KeyError:
+            realgt = self.altidx[key]
+            realidx = self.gotermidx[realgt]
+            val = self.data[realidx]
+        return val
+
+    def __repr__(self):
+        #return repr(self.__dict__)
+        s = "{"
+        for k in self.gotermidx.keys(): 
+            s += f"'{k}' : {self.data[self.gotermidx[k]]} "
+        s += "}"
+        return s 
+
+
+    def __len__(self):
+        return len(self.data)
+
+    def keys(self):
+        return self.gotermidx.keys()
+    
+    def indexof(self, key):
+        return self.gotermidx[key]
+    
+        
+def get_ontology_object(config, usecache=True):
+    gomatrix = get_gomatrix(config, usecache)
+    gotermidx = get_gotermidx(config,usecache)
+    altidx = get_altiddict(config, usecache)
+    obj = Ontology(gomatrix, gotermidx, altidx)
+    return obj
+
 
 def do_build_ontology(config, usecache=False):
     """
@@ -123,22 +178,57 @@ def do_phmmer(config, infile, outfile, usecache=True):
     logging.info("done.")
   
 
-def run_evaluate(config, predictfile, goaspect=None, threshold=None):
+def run_evaluate(config, predictfile, outfile, goaspect=None, threshold=None):
     """
     Consume a prediction.csv file, and score based on accuracy. 
     X.prediction.csv
    
     """
 
-    df = pd.read_csv(os.path.expanduser(predictfile))
-    edf = do_evaluate(config, df, goaspect, threshold)
+    df = pd.read_csv(os.path.expanduser(predictfile), index_col=0)
+    edf = do_evaluate_map(config, df, goaspect, threshold)
     logging.debug(f"got evaluation df {edf}")
+    edf.to_csv(outfile)
 
+
+def do_evaluate_map(config, predictdf, goaspect,  threshold):
+    """
+    i    cid           goterm       pest    cgid
+    0    G960600000001 GO:0086041   53.0   Q9Y3Q4_HUMAN
+    1    G960600000001 GO:0086089   49.0   Q9Y3Q4_HUMAN
+    2    G960600000001 GO:0086090   49.0   Q9Y3Q4_HUMAN
+
+
+
+    Return:
+    0    cid           cgid             MAP
+    1 G960600000001    Q9Y3Q4_HUMAN     0.467
+    2 G960600000022    TF7L2_HUMAN      0.76 
+    3 G960600000003
     
+    
+    """
+    logging.debug(f"got predictdf {predictdf}evaluating...")
+    udf = get_uniprot_byterm_exponly_df(config, usecache=True)
+    ontobj = get_ontology_object(config, usecache=True)
+    logging.debug(f"got known uniprot and ontology object.")
+    
+    cidlist = list(predictdf.cid.unique())
+    logging.debug(f"cid list: {cidlist}")
+    for cid in cidlist:
+        cdf = predictdf[predictdf.cid == cid]
+        # get gene id. 
+        cgid = cdf.cgid.unique()[0]
+        #logging.debug(f"geneid for this target is is {cgid}")
+        
+    
+    
+    
+    return predictdf
 
 
 
-def do_evaluate(config, predictdf, goaspect,  threshold ):
+def do_evaluate_pr(config, predictdf, goaspect,  threshold ):
     """
     i    cid           goterm       pest    cgid
     0    G960600000001 GO:0086041   53.0   Q9Y3Q4_HUMAN
@@ -197,7 +287,7 @@ def do_evaluate(config, predictdf, goaspect,  threshold ):
         cdf = predictdf[predictdf.cid == cid]
         # get gene ide. 
         cgid = cdf.cgid.unique()[0]
-        logging.debug(f"geneid for this target is is {cgid}")
+        #logging.debug(f"geneid for this target is is {cgid}")
         cgv = np.zeros(len(gotermidx), dtype=bool)
         # get true goterms for geneid
         cudf = udf[udf.pid == cgid]
@@ -258,8 +348,8 @@ def get_evaluate_df(config, predictdf, goaspect=None,  threshold=None ):
     
     """
     
-    lol = do_evaluate(config, predictdf, goaspect,  threshold )
-    df = pd.DataFrame(lol, columns=['cid','predicted','correct','annotated'])
+    df = do_evaluate_map(config, predictdf, goaspect,  threshold )
+    #df = pd.DataFrame(lol, columns=['cid','predicted','correct','annotated'])
     return df
 
 
@@ -322,7 +412,7 @@ def execute_phmmer(config, filename):
 
 def get_tfa_geneids(filename):
     """
-    Get the geneids of the TargetFiles in order to exclude these results from, e.g. 
+    Get the geneids of the TargetFiles in order to exclude these results from queries, e.g. 
     phmmer runs. This wouldn't necessarily cause a problem with the real files, because they 
     will be un-annotated. But for validation testing, the targets *will* be annotated (and
     need to be excluded). 
@@ -491,6 +581,7 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
         for (i, ser) in cdf.iterrows():
             #logging.debug(f"pacc is {ser.pacc}")
             udf = ubtdf[ubtdf.pacc == ser.pacc]
+            #logging.debug(f"one uniprot with correct pacc df:\n{udf}")
             for (j, upser) in udf.iterrows():
                 #logging.debug(f"goterm is {upser.goterm} gv={gv} addgv={gomatrix[gotermidx[upser.goterm]].astype(np.int8)}")
                 #logging.debug(f"goterm is {upser.goterm}")
@@ -505,15 +596,17 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
                     gv = gv + gv2
             #logging.debug(f"sum is {gv.sum()} ")
         # we now have a govector with all goterms indicated by all targets.
-        # each entry is sum of number of times that goterm was indicated (as annoated or
+        # each entry is sum of number of times that goterm was indicated (as annotated or
         # parent of an annotation term).
         # gv = array([123,   0,   3,   7, 345, 0])
         # handle this cid
         
         # gv has been coerced from array to matrix, back to array?? 
-        logging.debug(f"gv: {matrix_debug(gv)}")
+        #logging.debug(f"gv: {matrix_debug(gv)}")
+        #gv = np.asarray(gv)
+        logging.debug(f"gv: {matrix_info(gv)}")
         gvnz = gv > 0
-        logging.debug(f"gvnz: {matrix_debug(gvnz)}")
+        logging.debug(f"gvnz: {matrix_info(gvnz)}")
         logging.debug(f"gtarray:length: {len(gtarray)} type:{type(gtarray)}\n{gtarray}")
         gotermar = gtarray[gvnz]
         #logging.debug(f"goterms with val > 0: {gotermar}")
@@ -642,6 +735,7 @@ def build_ontology(config, usecache):
         f = open(altiddictfile, 'wb')
         pickle.dump(altids, f)
         f.close()        
+        
         # get keys from dict
         gotermlist = list(godict)
         logging.debug(f"parsed obo with {len(gotermlist)} entries. ")
@@ -650,8 +744,9 @@ def build_ontology(config, usecache):
         gotermlist.sort()
         logging.debug(f"sorted: e.g. {gotermlist[0:5]} ")
         logging.debug("creating goterm index dict.")
-        termidx = {}
+        #
         i = 0
+        termidx = {}
         for gt in gotermlist:
             termidx[gt] = i
             i = i + 1
@@ -675,13 +770,15 @@ def build_ontology(config, usecache):
         logging.debug(f"filling in parent matrix for all goterms...")
         for gt in godict.keys():
             for parent in godict[gt]['is_a']:
-                    gomatrix[termidx[parent]][termidx[gt]] = True
+                    #gomatrix[termidx[parent]][termidx[gt]] = True
+                    gomatrix[termidx[gt]][termidx[parent]] = True
         if include_partof:
             logging.debug("Including part_of relationships as is_a")
             for gt in godict.keys():
                 for parent in godict[gt]['part_of']:
-                        gomatrix[termidx[parent]][termidx[gt]] = True    
-             
+                        #gomatrix[termidx[parent]][termidx[gt]] = True    
+                        gomatrix[termidx[gt]][termidx[parent]] = True
+        logging.debug(f"initial matrix:\n{matrix_info(gomatrix)}")
         logging.debug("Calculating sparsity...")
         logging.debug(f"sparsity = { 1.0 - np.count_nonzero(gomatrix) / gomatrix.size }")
         logging.debug("converting to sparse matrix.")
@@ -690,7 +787,7 @@ def build_ontology(config, usecache):
         gomatrix = converge_sparse(gomatrix)
         logging.info(f"got converged matrix:\n{matrix_info(gomatrix)} ")
         logging.debug(f"converged matrix sum={gomatrix.sum()}")
-        logging.debug("Calculating sparsity...")
+        #logging.debug("Calculating sparsity...")
         #sparsity = 1.0 - np.count_nonzero(gomatrix) / gomatrix.size
         #logging.debug(f"sparsity = { 1.0 - np.count_nonzero(gomatrix) / gomatrix.size }")        
         gomatrix = gomatrix.todense()
@@ -726,6 +823,7 @@ def converge_sparse(matrix):
         matrix = mult + matrix
         #logging.debug("Getting new sum...")
         newval = matrix.sum()
+        #logging.debug(f"New matrix {icount}:\n{matrix.todense()}")
         icount += 1
     logging.debug(f"Convergence complete. {icount} iterations. matrix:\n{matrix_info(matrix)}")
     return matrix
@@ -817,6 +915,7 @@ def calc_prior(config, usecache, species=None):
         gomatrix = gomatrix.astype(np.int)
         logging.debug(f"gomatrix e.g. {gomatrix[0:5]}")
         gtidx = get_gotermidx(config, usecache=True)   
+        
         #logging.debug(f"gtidx: {gtidx}")
         shape = (len(gomatrix))
         sumarray = np.zeros(shape, dtype=np.int)
@@ -1509,6 +1608,7 @@ if __name__ == '__main__':
                                type=str, 
                                help='a .csv prediction file')        
 
+
     parser_evaluate.add_argument('-a', '--aspect', 
                                metavar='goaspect', 
                                type=str,
@@ -1592,5 +1692,5 @@ if __name__ == '__main__':
         do_testset(cp, args.numseq, args.species, args.outfile )
 
     if args.subcommand == 'evaluate':
-        run_evaluate(cp, args.predictcsv, args.goaspect, args.threshold)
+        run_evaluate(cp, args.predictcsv, args.outcsv, args.goaspect, args.threshold)
     
