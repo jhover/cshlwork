@@ -80,7 +80,10 @@ class Ontology(dict):
     """
     gomatrix:  goterm x goterm np.ndarray fully propagated relationships. 
     gotermidx: { <str> goterm : <int> index in gomatrix, ... } 
-    gotermlist: 
+    gotermlist:
+    
+    NOTE: dict key order is now assumed stable as of Python 3.7. If this is run on 
+    earlier version, unstable key order will cause chaos. s 
     
     """
     
@@ -92,6 +95,7 @@ class Ontology(dict):
         # a dictionary of (alternate) goterms -> (real) goterms
         self.altidx = altidx
         # list of go terms
+        # **depends on key sort order stablility**
         self.gotermlist = list(gotermidx)
         
         
@@ -112,7 +116,6 @@ class Ontology(dict):
             s += f"'{k}' : {self.data[self.gotermidx[k]]} "
         s += "}"
         return s 
-
 
     def __len__(self):
         return len(self.data)
@@ -744,19 +747,16 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
     """
     logging.debug("getting uniprot_byterm_df..")
     ubtdf = get_uniprot_byterm_df(config, usecache)
-    logging.debug("getting gomatrix...")
-    gomatrix = get_ontology_matrix(config, usecache)
-    logging.debug("goterm index for lookup...")
-    gotermidx = get_gotermidx(config, usecache)
-    logging.debug("altid index for lookup...")
-    altidx = get_altiddict(config, usecache)
-        
-    #example = gomatrix[gotermidx['GO:0005737']]
-    #logging.debug(f"example: term GO:0005737: {example}")
-    #logging.debug(f"example: sum={example.sum()} min={example.sum()} max={example.max()}")
-    #example = example
+    #logging.debug("getting gomatrix...")
+    #gomatrix = get_ontology_matrix(config, usecache)
+    #logging.debug("goterm index for lookup...")
+    #gotermidx = get_gotermidx(config, usecache)
+    #logging.debug("altid index for lookup...")
+    #altidx = get_altiddict(config, usecache)
+    #logging.debug(f" ubtdf:\n{ubtdf}\ngomatrix: {matrix_info(gomatrix)}\ngotermidx: {len(gotermidx)} items.")
     
-    logging.debug(f" ubtdf:\n{ubtdf}\ngomatrix: {matrix_info(gomatrix)}\ngotermidx: {len(gotermidx)} items.")
+    ontobj = get_ontology_object(config, usecache)
+    gtlength = len(ontobj.gotermidx)
     
     max_goterms = config.getint('global','max_goterms')
     
@@ -765,12 +765,12 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
     cidlist = list(pdf.cid.unique())
     logging.debug(f"cid list: {cidlist}")
     
-    gtarray = np.array(list(GOTERMIDX))
+    gtarray = np.array(list(ontobj.gotermidx))
     
     topdf = pd.DataFrame(columns=['cid','goterm','pest','cgid'])
     
     for cid in cidlist:
-        gv = np.zeros(len(gotermidx))
+        gv = np.zeros(gtlength)
         cdf = pdf[pdf.cid == cid]
         cgid = cdf.reset_index().iloc[0].cgid       
         logging.debug(f"cgid for cid {cid} is {cgid}")
@@ -810,6 +810,9 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
         #logging.debug(f"goterms with val > 0: {gotermar}")
 
         govalar = gv[gvnz]
+        
+        
+        
         
         #logging.debug(f"values for element with val> 0: {govalar}")
         cidar = np.full( len(govalar), fill_value=cid)        
