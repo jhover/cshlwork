@@ -19,9 +19,10 @@
 # goev      evidence code for GO annotation.                          IEA 
 # eval      BLAST/HMMER/PHMMER expect statistic                        1.000000e-126
 # bias      Adjustement to score for char prevalence                   3.5
-# score     BLAST/HMMER/PHMMER bit-score                               400.3
+# pscore    PHMMER bit-score                                           400.3
 # db        database against which orthology query is done             sp (swissprot)
-# pest      Probability estimate for prediction.                       0.68  [.01-1.0]  
+# score     General numeric score of a prediction. [ any scalar ]
+# pest      Probability estimate for prediction.   [.01-1.0]           0.68    
 # seq
 # seqlen
 
@@ -143,6 +144,9 @@ class UniprotByGene(dict):
     with a given goterm.  
     
     """
+    
+    instance = None
+    
     def __init__(self, dict,  ontology):
         super(UniprotByGene, self).__init__(dict)
         self.ontobj = ontology
@@ -162,9 +166,9 @@ def get_uniprot_bygene_object(config, usecache=True):
     goobj = get_ontology_object(config, usecache=True)
     ubgdict = get_uniprot_bygene(config, usecache=True)
     uobj = UniprotByGene(ubgdict, goobj )
+    UniprotByGene.instance = uobj
     return uobj
   
-
         
 def get_ontology_object(config, usecache=True):
     if Ontology.instance is None:
@@ -328,9 +332,10 @@ def do_build_prior(config, usecache=True ):
 
 def do_expression(config, infile, outfile, usecache=True):
     """
-    Extract geneid from target files. Perform inference using gene expression
-    
-    Only works with target files for species with gene expression data.
+    perform phmmer query on each target 
+    for best scoring ortholog hits, follow gene expression correlation
+          annotate target with co-expressed genes annotations
+          score is score of hit. 
     
     """
 
@@ -343,9 +348,7 @@ def do_expression(config, infile, outfile, usecache=True):
     logging.debug(f"prediction=\n{df}")#
 
 
-#    logging.info("making phmmer prediction...")
-#    df = calc_phmmer_prediction(config, df, usecache)
-#    logging.debug(f"prediction=\n{df}")#
+
 
     logging.info(f"writing to outfile {outfile}")
     df.to_csv(outfile)
@@ -401,6 +404,62 @@ def run_evaluate(config, predictfile, outfile, goaspect=None):
     logging.info(f"hyperparams:\nmax_goterms={max_goterms}\neval_threshold={eval_threshold}\ntopx_threshold={topx_threshold}\nscore_method={score_method}  ")
     print(edf)
 
+def is_correct_apply(row):
+    """
+    Function to check prediction for use with .apply and Pandas DF. 
+    """
+    return UniprotByGene.instance.contains(row.cgid, row.goterm)
+
+def do_evaluate_auroc(config, predictdf, goaspect):
+    """
+    i    cid           goterm       score    cgid
+    0    G960600000001 GO:0086041   53.0   Q9Y3Q4_HUMAN
+    1    G960600000001 GO:0086089   49.0   Q9Y3Q4_HUMAN
+    2    G960600000001 GO:0086090   49.0   Q9Y3Q4_HUMAN
+    
+    Return:   ??
+    0    cid           cgid            PR  RC   SENS  1-SENS   AUROC
+    1 G960600000001    Q9Y3Q4_HUMAN     
+    2 G960600000022    TF7L2_HUMAN       
+    3 G960600000003
+    
+    fpr:  x coords array
+    trp:  y coords array
+    
+    from sklearn import metrics
+    metrics.auc(fpr, tpr)
+    
+    """
+    from sklearn import metrics
+    logging.debug(f"got predictdf {predictdf} evaluating...")
+    ubgo = get_uniprot_bygene_object(config, usecache=True)
+    ontobj = get_ontology_object(config, usecache=True)
+    logging.debug(f"got known uniprot and ontology object.")  
+    
+    outdf = pd.DataFrame(columns = ['cid','goterm','score','cgid','correct','pest','auc'])
+    
+    cidlist = list(predictdf.cid.unique())
+    logging.debug(f"cid list: {cidlist}")
+    for cid in cidlist:
+        cdf = predictdf[predictdf.cid == cid].copy()
+        # get gene id. 
+        cgid = cdf.cgid.unique()[0]
+        #logging.debug(f"geneid for this target is is {cgid}")
+        cdf['correct'] = cdf.apply(is_correct_apply, axis=1)
+        cdf.reset_index(drop=True, inplace=True) 
+        scoremax = cdf.score.max()
+        scoremin = cdf.score.min()
+        
+        cdf['pest'] = cdf.apply(lambda row: ((row.score - scoremin)/(scoremax - scoremin)) , axis=1)
+                         
+        auc = metrics.roc_auc_score(cdf['correct'], cdf['pest'])
+        logging.debug(f"auc is {auc}")
+        cdf['auc'] = auc
+        logging.debug(f"cdf is:\n{cdf}")
+        outdf = outdf + cdf
+    
+    return outdf
+
 
 def do_evaluate_map(config, predictdf, goaspect):
     """
@@ -442,16 +501,15 @@ def do_evaluate_map(config, predictdf, goaspect):
         cgid = cdf.cgid.unique()[0]
         #logging.debug(f"geneid for this target is is {cgid}")
         
-        
         numcorrect = 0
+
         numseen = 0
         apsum = 0
         
         for (i, row) in cdf.iterrows():
             # ser is the row.
-
             #logging.debug(f"goterm is {row.goterm}")
-            iscorrect = ubgo.contains(cgid, row.goterm)
+            iscorrect = ubgo.contains(cgid, row.goterm) 
             numseen += 1 
             if iscorrect:
                 numcorrect += 1
@@ -693,7 +751,7 @@ def parse_phmmer(config, filename, excludelist, cidcgidmap):
     logging.info(f"Reading {filename}")
     df = pd.read_table(filename, 
                      names=['target','t-acc','cid','q-acc',
-                            'eval', 'score', 'bias', 'e-value-dom','score-dom', 'bias-dom', 
+                            'eval', 'pscore', 'bias', 'e-value-dom','score-dom', 'bias-dom', 
                             'exp', 'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 'description'],
                      skip_blank_lines=True,
                      comment='#',
@@ -761,7 +819,7 @@ def calc_expression_prediction(config, dataframe, usecache):
 def calc_phmmer_prediction(config, dataframe, usecache):
     """
     Takes phmmer df PDF: 
-                cid           eval  score  bias    pacc          pid   cgid
+                cid           eval  pscore  bias    pacc          pid   cgid
 1     T100900000001  4.100000e-155  518.4   7.7  P35213    1433B_RAT   1A1L1_MOUSE
 2     T100900000001  5.400000e-155  518.0   7.2  A4K2U9  1433B_PONAB
     
@@ -804,7 +862,7 @@ def calc_phmmer_prediction(config, dataframe, usecache):
     gtarray = np.array(list(ontobj.gotermidx))
     
     # Dataframe to collect all calculated values. 
-    topdf = pd.DataFrame(columns=['cid','goterm','pest','cgid'])
+    topdf = pd.DataFrame(columns=['cid','goterm','score','cgid'])
     
     # handle each cafa target in input list. 
     for cid in cidlist:
@@ -818,7 +876,7 @@ def calc_phmmer_prediction(config, dataframe, usecache):
         # handle each ortholog protein, calculate score for inferred goterm set...
         for (i, row) in cdf.iterrows():
             udf = ubtdf[ubtdf.pacc == row.pacc]
-            pscore = row.score
+            pscore = row.pscore
             #logging.debug(f"cdf row is {row}")
             #logging.debug(f"udf is {udf}")
             #           pacc species      goterm goev          pid
@@ -851,7 +909,7 @@ def calc_phmmer_prediction(config, dataframe, usecache):
                 #logging.debug(f"cdf.score is {cdf.score}")
                 
                 #  cdf:
-                #     cid           eval  score  bias    pacc          pid        cgid
+                #     cid           eval  pscore  bias    pacc          pid        cgid
                 #74   G1009000000009  3.500000e-256  854.2  13.3  P33534   OPRK_MOUSE  OPRK_MOUSE
                 #75   G1009000000009  5.900000e-254  846.9  13.3  P34975     OPRK_RAT  OPRK_MOUSE
                 #76   G1009000000009  3.200000e-244  814.9  12.9  P41145   OPRK_HUMAN  OPRK_MOUSE
@@ -875,11 +933,11 @@ def calc_phmmer_prediction(config, dataframe, usecache):
         cgidar = np.full(len(govalar), fill_value=cgid)
         df = pd.DataFrame({ 'cid': cidar, 
                            'goterm': gotermar, 
-                           'pest' : govalar, 
+                           'score' : govalar, 
                            'cgid' : cgidar })
         
-        # This pulls out values, sorted by whatever 'pest' is...
-        df = df.nlargest(max_goterms, 'pest')
+        # This pulls out values, sorted by whatever 'score' is...
+        df = df.nlargest(max_goterms, 'score')
         #df.sort_values(by='pest', ascending=False)
         #logging.debug(f"made dataframe for cid {cid}:\n{df}")
         topdf = topdf.append(df, ignore_index=True)
