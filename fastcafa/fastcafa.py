@@ -326,6 +326,35 @@ def do_build_prior(config, usecache=True ):
     logging.info(f"priordf:\n{priordf}")    
 
 
+def do_expression(config, infile, outfile, usecache=True):
+    """
+    Extract geneid from target files. Perform inference using gene expression
+    
+    Only works with target files for species with gene expression data.
+    
+    """
+
+    logging.info("running expression")
+    df = get_target_df(config, infile)
+    logging.info(f"got target df:\n{df}")
+
+    logging.info("making expression prediction...")
+    df = calc_expression_prediction(config, df, usecache)
+    logging.debug(f"prediction=\n{df}")#
+
+
+#    logging.info("making phmmer prediction...")
+#    df = calc_phmmer_prediction(config, df, usecache)
+#    logging.debug(f"prediction=\n{df}")#
+
+    logging.info(f"writing to outfile {outfile}")
+    df.to_csv(outfile)
+    logging.info("done.")
+    print(df)
+
+
+
+
 
 def do_phmmer(config, infile, outfile, usecache=True):
     """
@@ -348,7 +377,7 @@ def do_phmmer(config, infile, outfile, usecache=True):
     print(df)
   
 
-def run_evaluate(config, predictfile, outfile, goaspect=None, threshold=None):
+def run_evaluate(config, predictfile, outfile, goaspect=None):
     """
     Consume a prediction.csv file, and score based on accuracy. 
     X.prediction.csv
@@ -356,7 +385,7 @@ def run_evaluate(config, predictfile, outfile, goaspect=None, threshold=None):
     """
 
     df = pd.read_csv(os.path.expanduser(predictfile), index_col=0)
-    edf = do_evaluate_map(config, df, goaspect, threshold)
+    edf = do_evaluate_map(config, df, goaspect)
     logging.debug(f"got evaluation df:\n{edf}")
     edf.to_csv(outfile)
     mapsum = edf.map.sum()
@@ -373,7 +402,7 @@ def run_evaluate(config, predictfile, outfile, goaspect=None, threshold=None):
     print(edf)
 
 
-def do_evaluate_map(config, predictdf, goaspect,  threshold):
+def do_evaluate_map(config, predictdf, goaspect):
     """
     i    cid           goterm       pest    cgid
     0    G960600000001 GO:0086041   53.0   Q9Y3Q4_HUMAN
@@ -383,12 +412,12 @@ def do_evaluate_map(config, predictdf, goaspect,  threshold):
     predictions:    p1    p2    p3     p4     p5    p6
     correct?        Y     N     Y      Y      N     Y 
     
+    I               1     2     3      4      5     6 
     P              1/1    0    2/3    3/4     0     4/6                   
     AP              1     0    .666   .75     0     .666
-    APS             1     1    1.666  2.416 2.416  3.08
-                       
+    APS             1     1    1.666  2.416 2.416  3.08                   
     MAP             1 +  0 + .666 + .75 + 0 + .666  = .5138
-   
+    
     Return:
     0    cid           cgid             MAP
     1 G960600000001    Q9Y3Q4_HUMAN     0.467
@@ -434,8 +463,6 @@ def do_evaluate_map(config, predictdf, goaspect,  threshold):
     
     df = pd.DataFrame(listoflists, columns=['cid','cgid','map', 'numgt'])
     return df
-
-
 
 
 
@@ -548,6 +575,7 @@ def do_evaluate_pr(config, predictdf, goaspect,  threshold ):
     return outlist
 
 
+
 def get_evaluate_df(config, predictdf, goaspect=None,  threshold=None ):
     """
     lol:
@@ -559,7 +587,7 @@ def get_evaluate_df(config, predictdf, goaspect=None,  threshold=None ):
     
     """
     
-    df = do_evaluate_map(config, predictdf, goaspect,  threshold )
+    df = do_evaluate_map(config, predictdf, goaspect)
     #df = pd.DataFrame(lol, columns=['cid','predicted','correct','annotated'])
     return df
 
@@ -714,6 +742,20 @@ def parse_phmmer(config, filename, excludelist, cidcgidmap):
     
     """
     return dict
+
+
+def calc_expression_prediction(config, dataframe, usecache):
+    """
+    
+    """
+    logging.debug("getting uniprot_byterm_df..")
+    ubtdf = get_uniprot_byterm_df(config, usecache)
+    ontobj = get_ontology_object(config, usecache)
+    gtlength = len(ontobj.gotermidx)
+    max_goterms = config.getint('global','max_goterms')
+
+
+    return dataframe
 
 
 def calc_phmmer_prediction(config, dataframe, usecache):
@@ -1824,13 +1866,7 @@ if __name__ == '__main__':
                                type=str,
                                default=None, 
                                help='GO aspect to limit evaluation to.') 
-
-    parser_evaluate.add_argument('-t', '--threshold', 
-                               metavar='threshold', 
-                               type=str,
-                               default=None, 
-                               help='threshold to limit evaluation on.')
-           
+          
     parser_evaluate.add_argument('-o', '--outcsv', 
                                metavar='outcsv', 
                                type=str, 
@@ -1883,6 +1919,9 @@ if __name__ == '__main__':
     if args.subcommand == 'phmmer':
         do_phmmer(cp, args.infile, args.outfile, usecache=True )
     
+    if args.subcommand == 'expression':
+        do_expression(cp, args.infile, args.outfile, usecache=True )
+    
     if args.subcommand == 'prior':
         do_prior(cp, args.infile, args.outfile, usecache=True)
        
@@ -1905,5 +1944,5 @@ if __name__ == '__main__':
         do_testset(cp, args.numseq, args.species, args.outfile )
 
     if args.subcommand == 'evaluate':
-        run_evaluate(cp, args.predictcsv, args.outcsv, args.goaspect, args.threshold)
+        run_evaluate(cp, args.predictcsv, args.outcsv, args.goaspect)
     
