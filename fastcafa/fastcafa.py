@@ -58,7 +58,7 @@ from scipy import sparse
 GOASPECTMAP= { 'biological_process' : 'bp',
                'cellular_component' : 'cc',
                'molecular_function' : 'mf',
-              'external'           : 'ex'
+               'external'           : 'ex'
             }
 
 UPASPECTMAP = { 'C': 'cc',
@@ -70,10 +70,10 @@ UPASPECTMAP = { 'C': 'cc',
 SPECMAPS = None
 
 # filled in by build_ontology()
-GOTERMIDX = None
-ALTIDDICT = None
-GOMATRIX = None
-GOTERMLIST = None
+#GOTERMIDX = None
+#ALTIDDICT = None
+#GOMATRIX = None
+#GOTERMLIST = None
 
 
 class Ontology(dict):
@@ -86,6 +86,8 @@ class Ontology(dict):
     earlier version, unstable key order will cause chaos. s 
     
     """
+    
+    instance = None
     
     def __init__(self, gomatrix, gotermidx, altidx):
         # a list of np.arrays
@@ -165,20 +167,17 @@ def get_uniprot_bygene_object(config, usecache=True):
 
         
 def get_ontology_object(config, usecache=True):
-    gomatrix = get_gomatrix(config, usecache)
-    gotermidx = get_gotermidx(config,usecache)
-    altidx = get_altiddict(config, usecache)
-    obj = Ontology(gomatrix, gotermidx, altidx)
-    return obj
-
+    if Ontology.instance is None:
+        build_ontology(config, usecache)
+    return Ontology.instance
 
 def do_build_ontology(config, usecache=False):
     """
     Rebuild all cached information.
     """
     logging.info("building ontology...")
-    gomatrix = build_ontology(config, usecache)
-    logging.info(f"got ontology matrix:\n{matrix_info(gomatrix)} ")
+    build_ontology(config, usecache)
+    logging.info(f"made Ontology object: {Ontology.instance} ")
   
 
 
@@ -192,6 +191,7 @@ def do_build_uniprot(config, usecache=False):
 def get_uniprot_bygene(config, usecache=True):
     """
     loads from cache, or triggers build...
+    
     
     """
     logging.debug(f"usecache={usecache}")
@@ -345,6 +345,7 @@ def do_phmmer(config, infile, outfile, usecache=True):
     logging.info(f"writing to outfile {outfile}")
     df.to_csv(outfile)
     logging.info("done.")
+    print(df)
   
 
 def run_evaluate(config, predictfile, outfile, goaspect=None, threshold=None):
@@ -361,6 +362,15 @@ def run_evaluate(config, predictfile, outfile, goaspect=None, threshold=None):
     mapsum = edf.map.sum()
     totalgt = edf.numgt.sum()
     logging.info(f"overall average MAP of prediction: {mapsum / totalgt}")
+    
+    max_goterms = config.get('global','max_goterms')
+    eval_threshold = config.get('phmmer','eval_threshold')
+    topx_threshold = config.get('phmmer','topx_threshold')
+    score_method = config.get('phmmer','score_method')
+    
+    
+    logging.info(f"hyperparams:\nmax_goterms={max_goterms}\neval_threshold={eval_threshold}\ntopx_threshold={topx_threshold}\nscore_method={score_method}  ")
+    print(edf)
 
 
 def do_evaluate_map(config, predictdf, goaspect,  threshold):
@@ -714,23 +724,17 @@ def calc_phmmer_prediction(config, dataframe, usecache):
 2     T100900000001  5.400000e-155  518.0   7.2  A4K2U9  1433B_PONAB
     
     Gets uniprot_byterm_df UBTDF:
-         pacc     species      goterm   goev
-0        Q6GZX4   FRG3G     GO:0046782   IEA
-1        Q6GZX3   FRG3G     GO:0033644   IEA
+         pacc     species      goterm   goev    pid
+0        Q6GZX4   FRG3G     GO:0046782   IEA  001R_FRG3G
+1        Q6GZX3   FRG3G     GO:0033644   IEA  002L_FRG3G
     
-    Gets gomatrix:
-type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool     
-
-    Gets gotermidx map:
-      47417    
-
     Algorithm:
     
     CIDGV = govector(0)
     for each cid in PDF:
         GV  = govector(0)
         for each row of PDF (where cid == target):
-            for each (goterm) row of UBTDF (where pacc == pacc):
+            for each (goterm) row of UBTDF (where pdf.pid == up.pid):
                   UGV = gomatrix[gotermidx[goterm]]
                   GV = GV + UGV
             #  if we want to weight by score, rather than topX...
@@ -747,130 +751,104 @@ type: <class 'numpy.ndarray'> shape: (47417, 47417) dtype: bool
     """
     logging.debug("getting uniprot_byterm_df..")
     ubtdf = get_uniprot_byterm_df(config, usecache)
-    #logging.debug("getting gomatrix...")
-    #gomatrix = get_ontology_matrix(config, usecache)
-    #logging.debug("goterm index for lookup...")
-    #gotermidx = get_gotermidx(config, usecache)
-    #logging.debug("altid index for lookup...")
-    #altidx = get_altiddict(config, usecache)
-    #logging.debug(f" ubtdf:\n{ubtdf}\ngomatrix: {matrix_info(gomatrix)}\ngotermidx: {len(gotermidx)} items.")
-    
     ontobj = get_ontology_object(config, usecache)
     gtlength = len(ontobj.gotermidx)
-    
     max_goterms = config.getint('global','max_goterms')
-    
-    #phmmer dataframe inbound. 
+    score_method = config.get('phmmer','score_method')
+
     pdf = dataframe
     cidlist = list(pdf.cid.unique())
-    logging.debug(f"cid list: {cidlist}")
-    
+    logging.debug(f"cid list: {cidlist}")    
     gtarray = np.array(list(ontobj.gotermidx))
     
+    # Dataframe to collect all calculated values. 
     topdf = pd.DataFrame(columns=['cid','goterm','pest','cgid'])
     
+    # handle each cafa target in input list. 
     for cid in cidlist:
-        gv = np.zeros(gtlength)
+        # govector: goterm array. 
+        gv = np.zeros(gtlength)       
         cdf = pdf[pdf.cid == cid]
         cgid = cdf.reset_index().iloc[0].cgid       
         logging.debug(f"cgid for cid {cid} is {cgid}")
-        
+    
         #logging.debug(f"one cid df:\n{cdf}")
-        for (i, ser) in cdf.iterrows():
-            #logging.debug(f"pacc is {ser.pacc}")
-            udf = ubtdf[ubtdf.pacc == ser.pacc]
-            #logging.debug(f"one uniprot with correct pacc df:\n{udf}")
-            for (j, upser) in udf.iterrows():
-                #logging.debug(f"goterm is {upser.goterm} gv={gv} addgv={gomatrix[gotermidx[upser.goterm]].astype(np.int8)}")
-                #logging.debug(f"goterm is {upser.goterm}")
-                try:
-                    gv = gv + gomatrix[gotermidx[upser.goterm]].astype(np.int64)
-                except KeyError:
-                    logging.debug("got keyerror for goterm index lookup. trying alt...")
-                    realgt = altidx[upser.goterm]
-                    logging.debug(f"real goterm is {realgt}")
-                    realidx = gotermidx[realgt]
-                    gv2 = gomatrix[realidx].astype(np.int64)
-                    gv = gv + gv2
-            #logging.debug(f"sum is {gv.sum()} ")
-        # we now have a govector with all goterms indicated by all targets.
-        # each entry is sum of number of times that goterm was indicated (as annotated or
-        # parent of an annotation term).
-        # gv = array([123,   0,   3,   7, 345, 0])
-        # handle this cid
-        
-        # gv has been coerced from array to matrix, back to array?? 
-        #logging.debug(f"gv: {matrix_debug(gv)}")
-        #gv = np.asarray(gv)
-        logging.debug(f"gv: {matrix_info(gv)}")
-        gvnz = gv > 0
-        logging.debug(f"gvnz: {matrix_info(gvnz)}")
-        logging.debug(f"gtarray:length: {len(gtarray)} type:{type(gtarray)}\n{gtarray}")
-        gotermar = gtarray[gvnz]
-        #logging.debug(f"goterms with val > 0: {gotermar}")
+        # handle each ortholog protein, calculate score for inferred goterm set...
+        for (i, row) in cdf.iterrows():
+            udf = ubtdf[ubtdf.pacc == row.pacc]
+            pscore = row.score
+            #logging.debug(f"cdf row is {row}")
+            #logging.debug(f"udf is {udf}")
+            #           pacc species      goterm goev          pid
+            # 2500682  O55201   MOUSE  GO:0032044  ISS  SPT5H_MOUSE
+            # 2500683  O55201   MOUSE  GO:0005654  ISO  SPT5H_MOUSE
+            # 2500684  O55201   MOUSE  GO:0005634  ISO  SPT5H_MOUSE
+            # 2500685  O55201   MOUSE  GO:0003682  IDA  SPT5H_MOUSE
+            # 2500686  O55201   MOUSE  GO:0019899  ISO  SPT5H_MOUSE
+            for (j, prow) in udf.iterrows():
+                #logging.debug(f"prow is {prow}")
+                # pacc            Q0VCV7
+                # species          BOVIN
+                # goterm      GO:0030182
+                # goev               ISS
+                # pid        VEXIN_BOVIN
+                # Name: 2844330, dtype: object
 
+                gv = gv + ontobj[prow.goterm].astype(np.int64)
+                
+            #logging.debug(f"sum is {gv.sum()} ")
+            # we now have a govector with all goterms indicated by this ortholog.
+            # each entry is sum of number of times that goterm was indicated (as annotated or
+            # parent of an annotation term).
+            # gv = array([123,   0,   3,   7, 345, 0])
+            if score_method == 'phmmer_score':
+                ones = np.ones(gtlength)
+                gv = np.minimum(gv, ones)
+                gv = gv * pscore
+                #logging.debug(f"cdf is {cdf}")
+                #logging.debug(f"cdf.score is {cdf.score}")
+                
+                #  cdf:
+                #     cid           eval  score  bias    pacc          pid        cgid
+                #74   G1009000000009  3.500000e-256  854.2  13.3  P33534   OPRK_MOUSE  OPRK_MOUSE
+                #75   G1009000000009  5.900000e-254  846.9  13.3  P34975     OPRK_RAT  OPRK_MOUSE
+                #76   G1009000000009  3.200000e-244  814.9  12.9  P41145   OPRK_HUMAN  OPRK_MOUSE
+                #77   G1009000000009  1.200000e-236  790.0  13.0  Q2KIP6   OPRK_BOVIN  OPRK_MOUSE
+                #78   G1009000000009  1.900000e-230  769.5  11.1  P41144   OPRK_CAVPO  OPRK_MOUSE
+                #79   G1009000000009  5.800000e-141  475.1  11.9  Q95M54   OPRM_MACFA  OPRK_MOUSE
+            if score_method == 'phmmer_score_weighted':
+                ones = np.ones(gtlength)
+                #gv = np.minimum(gv, ones)
+                gv = gv * pscore
+            
+
+        #logging.debug(f"gv: {matrix_info(gv)}")
+        gvnz = gv > 0
+        #logging.debug(f"gvnz: {matrix_info(gvnz)}")
+        #logging.debug(f"gtarray:length: {len(gtarray)} type:{type(gtarray)}")
+        gotermar = gtarray[gvnz]
         govalar = gv[gvnz]
-        
-        
-        
-        
-        #logging.debug(f"values for element with val> 0: {govalar}")
+    
         cidar = np.full( len(govalar), fill_value=cid)        
         cgidar = np.full(len(govalar), fill_value=cgid)
         df = pd.DataFrame({ 'cid': cidar, 
                            'goterm': gotermar, 
                            'pest' : govalar, 
                            'cgid' : cgidar })
+        
+        # This pulls out values, sorted by whatever 'pest' is...
         df = df.nlargest(max_goterms, 'pest')
         #df.sort_values(by='pest', ascending=False)
-        logging.debug(f"made dataframe for cid {cid}:\n{df}")
+        #logging.debug(f"made dataframe for cid {cid}:\n{df}")
         topdf = topdf.append(df, ignore_index=True)
         
     logging.debug(f"made dataframe for all:\n{topdf}")
-
     return topdf
 
-
-    
-
-def get_ontology_matrix(config, usecache):
-    gmtx = build_ontology(config, usecache)
-    mi = matrix_debug(gmtx)
-    logging.debug(f"got ontology matrix: {mi} ")
-    return gmtx
-
-#
-# all filled in by build_ontology()
-# GOTERMIDX = None
-# ALTIDDICT = None
-# GOMATRIX = None
-# GOTERMLIST = None
-#
 
 def get_goprior(config, usecache, species=None):
     gp = calc_prior(config, usecache,species)
     return gp
-
-def get_gomatrix(config, usecache):
-    if GOMATRIX is not None:
-        return GOMATRIX
-    else:
-        build_ontology(config, usecache)
-        return GOMATRIX
-
-def get_gotermidx(config, usecache):
-    if GOTERMIDX is not None:
-        return GOTERMIDX
-    else:
-        build_ontology(config, usecache)
-        return GOTERMIDX
-
-def get_gotermlist(config, usecache):
-    if GOTERMLIST is not None:
-        return GOTERMLIST
-    else:
-        build_ontology(config, usecache)    
-        return GOTERMLIST
 
 def get_altiddict(config, usecache):
     if ALTIDDICT is not None:
@@ -898,44 +876,38 @@ def build_ontology(config, usecache):
     result:  Numpy boolean matrix of all relations in ontology, ordered by sorted goterm name.  
        
     """
-    global GOMATRIX
-    global GOTERMIDX
-    global ALTIDDICT
-    global GOTERMLIST
+    #global GOMATRIX
+    #global GOTERMIDX
+    #global ALTIDDICT
+    #global GOTERMLIST
+    # def __init__(self, gomatrix, gotermidx, altidx):
     
     logging.debug(f"usecache={usecache}")
     cachedir = os.path.expanduser(config.get('ontology','cachedir'))
-    cachefile = f"{cachedir}/ontology.npy"
+    ontologyfile = f"{cachedir}/ontology.npy"
     termidxfile = f"{cachedir}/gotermindex.pickle"
     altiddictfile = f"{cachedir}/altiddict.pickle"
     include_partof = config.getboolean('ontology','include_partof')
     
     gomatrix = None
-    if os.path.exists(cachefile) and usecache:
+    
+    if os.path.exists(ontologyfile) and usecache:
         logging.debug("Cache hit. Using existing matrix...")
-        gomatrix = np.load(cachefile)
-        logging.debug(f"loaded matrix: {matrix_info(gomatrix)} from {cachefile}")
+        gomatrix = np.load(ontologyfile)
+        logging.debug(f"loaded matrix: {matrix_info(gomatrix)} from {ontologyfile}")
         
         f = open(termidxfile, 'rb')
-        termidx = pickle.load(f)
+        gotermidx = pickle.load(f)
         f.close()
-        GOTERMIDX = termidx
-        GOTERMLIST = list(GOTERMIDX)
-        
+
         f = open(altiddictfile, 'rb')
         altiddict = pickle.load(f)
         f.close()
-        ALTIDDICT = altiddict
-        
-        logging.debug(f"goterm index, e.g. : \n{list(termidx)[0]} :  {termidx[list(termidx)[0]]} ")
+                
+        logging.debug(f"goterm index, e.g. : \n{list(gotermidx)[0]} :  {gotermidx[list(gotermidx)[0]]} ")
     
     else:
-        (godict, altids) = parse_obo(config)
-        logging.debug(f"storing {len(altids)} altids to global.")
-        ALTIDDICT = altids
-        f = open(altiddictfile, 'wb')
-        pickle.dump(altids, f)
-        f.close()        
+        (godict, altiddict) = parse_obo(config)
         
         # get keys from dict
         gotermlist = list(godict)
@@ -947,36 +919,23 @@ def build_ontology(config, usecache):
         logging.debug("creating goterm index dict.")
         #
         i = 0
-        termidx = {}
+        gotermidx = {}
         for gt in gotermlist:
-            termidx[gt] = i
+            gotermidx[gt] = i
             i = i + 1
-        # ???XXX  does this cause problems elsewhere when .keys() is called
-        # on the gotermidx??
-        #for alt in altids:
-        #    termidx[alt] = termidx[altids[alt]]
-        #    logging.debug(f"Created index from {alt} to {altids[alt]}")
-        
-        
-        GOTERMIDX = termidx
-        GOTERMLIST = list(GOTERMIDX)
-        
-        f = open(termidxfile, 'wb')   
-        pickle.dump(termidx, f )
-        f.close()
-
+              
         logging.debug(f"creating zero matrix of dimension {len(gotermlist)}")
         shape = (len(gotermlist), len(gotermlist))
         gomatrix = np.zeros( shape, dtype=bool )
         logging.debug(f"filling in parent matrix for all goterms...")
         for gt in godict.keys():
             for parent in godict[gt]['is_a']:
-                    gomatrix[termidx[gt]][termidx[parent]] = True
+                    gomatrix[gotermidx[gt]][gotermidx[parent]] = True
         if include_partof:
             logging.debug("Including part_of relationships as is_a")
             for gt in godict.keys():
                 for parent in godict[gt]['part_of']:
-                        gomatrix[termidx[gt]][termidx[parent]] = True
+                        gomatrix[gotermidx[gt]][gotermidx[parent]] = True
         
         #logging.debug(f"initial matrix:\n{print_square(gomatrix, GOTERMLIST)}")
         logging.debug("Calculating sparsity...")
@@ -991,13 +950,29 @@ def build_ontology(config, usecache):
         #sparsity = 1.0 - np.count_nonzero(gomatrix) / gomatrix.size
         #logging.debug(f"sparsity = { 1.0 - np.count_nonzero(gomatrix) / gomatrix.size }")        
         gomatrix = gomatrix.todense()
-        # gomatrix = gomatrix.asA()
         gomatrix = np.asarray(gomatrix)
-        logging.debug(f"saving matrix: type: {matrix_info(gomatrix)} to {cachefile}")
-        np.save(cachefile, gomatrix)
+            
+        logging.debug(f"Caching all values/indexes...")
+        logging.debug(f"Saving matrix: {matrix_info(gomatrix)} to {ontologyfile}")
+        np.save(ontologyfile, gomatrix)
 
-    GOMATRIX = gomatrix
-    return gomatrix
+        logging.debug(f"Saving gotermidx {len(gotermidx)} items to {termidxfile}")
+        f = open(termidxfile, 'wb')   
+        pickle.dump(gotermidx, f )
+        f.close()
+        
+        logging.debug(f"Saving altiddict {len(altiddict)} items to {altiddictfile}.")
+        f = open(altiddictfile, 'wb')
+        pickle.dump(altiddict, f)
+        f.close()
+        
+        logging.debug("Done constructing input for Ontology().")
+
+    ontobj = Ontology(gomatrix, gotermidx, altiddict)
+    # set global instance
+    Ontology.instance = ontobj  
+    logging.debug("Done creating Ontology object.")
+
 
 
 def print_square(matrix, labels):
@@ -1054,14 +1029,17 @@ def matrix_debug(matrix):
 
 
 def get_prior_df(config, usecache=True, species = None):
-    gotermlist=get_gotermlist(config, usecache)
+
+    ontobj = get_ontology_object(config, usecache=True)
     priormatrix = calc_prior(config, usecache, species)    
     priormatrix = priormatrix.transpose()
     logging.debug(f"priormatrix shape: {priormatrix.shape}")
-
-    logging.debug(f"terms in goterm list: {len(gotermlist)}")
-    df = pd.DataFrame(priormatrix, index=gotermlist, columns=['pest'])
+    df = pd.DataFrame(priormatrix, index=ontobj.gotermlist, columns=['pest'])
+    df.reset_index(inplace=True)
+    map = {'index' : 'goterm'}
+    df.rename(axis='columns', mapper=map, inplace=True)
     df = df.sort_values(by='pest', ascending=False)
+    df.reset_index(drop=True, inplace=True)
     return df
    
     
@@ -1086,10 +1064,7 @@ def calc_prior(config, usecache, species=None):
     
     vector of prob (.0001 - .99999)  [ 0.001, .0020, ... ] indexed by sorted gotermlist. 
 
-    """
-    global GOMATRIX
-    global GOTERMIDX
- 
+    """ 
     logging.debug(f"building sprot. species={species}")
     sprot = get_uniprot_byterm(config, usecache=True)
     
@@ -1119,7 +1094,8 @@ def calc_prior(config, usecache, species=None):
         logging.debug(f"Loaded prior freqarray from file: {cachefile}")
     
     else:
-        altiddict = get_altiddict(config, usecache)
+        ontobj = get_ontology_object(config, usecache=True)
+        gtlength = len(ontobj.gotermlist)
         
         df = pd.DataFrame(sprot, columns=['proteinacc','species', 'goterm', 'goevidence','pid'])
         if species is not None: 
@@ -1129,15 +1105,8 @@ def calc_prior(config, usecache, species=None):
         
         sprot = df.to_numpy().tolist()
         logging.debug(f"got uniprot by term, e.g.:\n{pp.pformat(sprot[0:5])} ")
-        
-        gomatrix = get_gomatrix(config, usecache=True)
-        gomatrix = gomatrix.astype(np.int)
-        logging.debug(f"gomatrix e.g. {gomatrix[0:5]}")
-        gtidx = get_gotermidx(config, usecache=True)   
-        
-        #logging.debug(f"gtidx: {gtidx}")
-        shape = (len(gomatrix))
-        sumarray = np.zeros(shape, dtype=np.int)
+              
+        sumarray = np.zeros(gtlength, dtype=np.int)
         logging.debug(f"made array {sumarray}")
         i = 0
         e = 0 
@@ -1145,16 +1114,9 @@ def calc_prior(config, usecache, species=None):
         logging.debug("summing over all terms and parents...")
         for r in sprot:
             gt = r[2]
-            try:
-                sumarray = sumarray + gomatrix[gtidx[gt]]
-                i += 1
-            except KeyError:
-                #logging.debug(f"got missing key: {gt} look up"  )
-                primeid = altiddict[gt]
-                #logging.debug(f"primeid is: {primeid}, using...")
-                sumarray = sumarray + gomatrix[gtidx[ primeid ]]
-                elist.append(gt)
-                e += 1
+            sumarray = sumarray + ontobj[gt]
+            elist.append(gt)
+            e += 1
         eset = set(elist)
         logging.debug(f"missing keys: {list(eset)}")
         logging.debug(f"added {i} gomatrix lines, with {len(eset)} distinct missing keys. ")
@@ -1211,7 +1173,7 @@ def get_uniprot_byterm(config, usecache):
     
     
     Generate non-redundant uniprot with a row for every goterm:
-       pacc         species    goterm       goev    
+       pacc         species    goterm       goev    pid
     0  '3AHDP'      'RUMGV'   'GO:0016491'  'IEA'
     1  '3AHDP'      'RUMGV'   'GO:0006694'  'TAS'
     
@@ -1378,8 +1340,8 @@ def build_uniprot_test(config, usecache):
 
 def build_prior(config, usecache, species=None):
     logging.debug(f"running calc_prior with species {species}")
-    calc_prior(config, usecache, species=species)
-    
+    out = calc_prior(config, usecache, species=species)
+    print(out)
 
 def build_uniprot(config, usecache):
     """
@@ -1786,7 +1748,9 @@ if __name__ == '__main__':
     
     subparsers = parser.add_subparsers( dest='subcommand',
                                         help='sub-command help.')
-    
+
+################################ run phmmer ########################################
+   
     parser_phmmer = subparsers.add_parser('phmmer',
                                           help='run phmmer and output prediction')
     
@@ -1800,11 +1764,36 @@ if __name__ == '__main__':
                                type=str, 
                                help='a DF .csv prediction file')
 
+################################ run prior ########################################
+
+    parser_prior = subparsers.add_parser('prior',
+                                          help='calculate prior and output prediction')
+    
+    parser_prior.add_argument('-n','--infile', 
+                               metavar='infile', 
+                               type=str, 
+                               help='a .fasta sequence files')
+
+    parser_prior.add_argument('-o','--outfile', 
+                               metavar='outfile', 
+                               type=str, 
+                               help='a DF .csv prediction file')
+
+    parser_prior.add_argument('-s','--species', 
+                               metavar='species', 
+                               type=str,
+                               default=None, 
+                               help='species-specific prior, otherwise global')
+
+######################### build and cache ontology ####################################
+
     parser_buildontology = subparsers.add_parser('build_ontology',
                                           help='build and cache GO ontology')    
 
     parser_builduniprot = subparsers.add_parser('build_uniprot',
                                           help='build and cache uniprot info')
+
+######################### build and cache prior info ####################################
     
     parser_buildprior = subparsers.add_parser('build_prior',
                                           help='build and cache uniprot prior')
@@ -1815,20 +1804,20 @@ if __name__ == '__main__':
                         default=None,
                         help='Limit to species where relevant.')
 
+######################### build and cache species maps ####################################
 
     parser_buildspecies = subparsers.add_parser('build_species',
                                           help='build and cache NCBI species maps')             
-    
+
+######################### evaluate prediction for known ####################################    
         
     parser_evaluate = subparsers.add_parser('evaluate',
                                           help='evaluate prediction against known. output stats.')
     
-   
     parser_evaluate.add_argument('-p', '--predictcsv', 
                                metavar='predictcsv', 
                                type=str, 
                                help='a .csv prediction file')        
-
 
     parser_evaluate.add_argument('-a', '--aspect', 
                                metavar='goaspect', 
@@ -1841,12 +1830,12 @@ if __name__ == '__main__':
                                type=str,
                                default=None, 
                                help='threshold to limit evaluation on.')
-
            
     parser_evaluate.add_argument('-o', '--outcsv', 
                                metavar='outcsv', 
                                type=str, 
                                help='a .csv output file with stats')    
+
 
     parser_builduniprot_test = subparsers.add_parser('build_uniprot_test',
                                           help='build and cache uniprot test source info')
@@ -1894,6 +1883,9 @@ if __name__ == '__main__':
     if args.subcommand == 'phmmer':
         do_phmmer(cp, args.infile, args.outfile, usecache=True )
     
+    if args.subcommand == 'prior':
+        do_prior(cp, args.infile, args.outfile, usecache=True)
+       
     if args.subcommand == 'build_ontology':
         build_ontology(cp, usecache=False)
 
