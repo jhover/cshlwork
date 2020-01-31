@@ -428,7 +428,7 @@ def run_evaluate_pr(config, predictfile, outfile, goaspect=None):
     df = pd.read_csv(os.path.expanduser(predictfile), index_col=0)
     logging.debug(f"got predictdf types:\n{df.dtypes}\n{df}")
     edf = do_evaluate_pr(config, df, goaspect)
-    logging.debug(f"got evaluation df:\n{edf}")
+    #logging.debug(f"got evaluation df:\n{edf}")
     edf.to_csv(outfile)
     
     max_goterms = config.get('global','max_goterms')
@@ -470,12 +470,12 @@ def do_evaluate_pr(config, predictdf, goaspect):
 
     
     """
-    logging.debug(f"got predictdf:\n{predictdf}")
+    #logging.debug(f"got predictdf:\n{predictdf}")
     ubgo = get_uniprot_bygene_object(config, usecache=True)
     ontobj = get_ontology_object(config, usecache=True)
     logging.debug(f"got known uniprot and ontology object.")  
     
-    outdf = pd.DataFrame(columns = ['cid','goterm','score','cgid','correct','pest','pr'])
+    outdf = pd.DataFrame(columns = ['cid','goterm','score','cgid','pest','correct'])
 
     cidlist = list(predictdf.cid.unique())
     logging.debug(f"cid list: {cidlist}")
@@ -495,6 +495,7 @@ def do_evaluate_pr(config, predictdf, goaspect):
         #cdf.reset_index(drop=True, inplace=True) 
         logging.debug(f"cdf after assessment:\n{cdf.dtypes}\n{cdf}")
         #logging.debug(f"cdf is:\n{cdf}")
+        #logging.debug(f"appending: outdf.columns={outdf.columns} cdf.columns={cdf.columns}")
         outdf = outdf.append(cdf, ignore_index=True)
     
     outdf['correct'] = outdf['correct'].astype(np.bool)
@@ -510,7 +511,7 @@ def do_evaluate_pr(config, predictdf, goaspect):
     pr = calc_precision_recall(poslist, numtotal)
     outdf['pr'] = pr
 
-    logging.debug(f"outdf after pr is:\n{outdf}")
+    #logging.debug(f"outdf after pr is:\n{outdf}")
     return outdf
 
 def calc_precision_recall(posidxlist, totalnum):
@@ -525,7 +526,7 @@ def calc_precision_recall(posidxlist, totalnum):
         #val = ( i / posi + 1 )
         #logging.debug(f" {i} / {posi} = {val}")
         sum = sum + ( i / ( posi + 1 ) )
-        logging.debug(f"sum is {sum}")
+        #logging.debug(f"sum is {sum}")
         i += 1
 
     pr = (1 / n) * sum 
