@@ -6,11 +6,10 @@
 # cafaprot  cafa4 target protein id                                    1433B
 # cafaspec  cafa4 target protien species                               MOUSE
 # cgid      cafa4 target gene id                                       LRRK2_MOUSE 
-# pid       UniProtKB: entry/ID                                        1433B_RAT
+# pid/gid   UniProtKB: entry/ID                                        LRRK2_MOUSE 
 # pacc      UniProtKB: accession  ?quickgo:gene product_id             P63103
 # protein   all caps name                                              1433B
-# gene      Free-text gene name.                                       Lrrk2  Ywahb
-# ?? geneid    Gene name+species.                                         LRRK2_MOUSE     
+# gene      Free-text gene name.                                       Lrrk2  Ywahb   
 # taxonid   NCBI taxon id                                              9606                 
 # species   all caps code                                              MOUSE   PONAB
 # goterms
@@ -56,6 +55,9 @@ import numpy as np
 np.set_printoptions(threshold=400)
 from scipy import sparse
 from sklearn import metrics
+
+import h5py
+
 
 
 GOASPECTMAP= { 'biological_process' : 'bp',
@@ -147,15 +149,16 @@ class UniprotByGene(dict):
         super(UniprotByGene, self).__init__(dict)
         self.ontobj = ontology
         
-    def contains(self, geneid, goterm):
+    def contains(self, gid, goterm):
         """
         Return boolean   True if goterm is annotated for that geneid  
         """
-        gv = self[geneid]
-        #logging.debug(f"govector fo {geneid} is {gv}")
+        gv = self[gid]
+        #logging.debug(f"govector fo {gid} is {gv}")
         gtidx = self.ontobj.indexof(goterm)
         #logging.debug(f"goterm index for {goterm} is {gtidx}")
         return gv[gtidx]
+
 
 
 def get_uniprot_bygene_object(config, usecache=True):
@@ -371,18 +374,42 @@ def do_phmmer(config, infile, outfile, usecache=True):
     print(df)
 
 
+def parse_tfa_file( infile):
+    """
+    Reads .tfa file, determines species, target ids, geneids. 
+    
+    returns dataframe:
+    cid  cgid
+    
+    """
+    listoflists = []
+       
+    try:
+        f = open(infile, 'r')
+    except FileNotFoundError:
+        logging.error(f"file not readable {filename} ")
+    for line in f:
+        # >T100900000004 1433G_MOUSE
+        if line.startswith(">"):
+            fields = line[1:].split()
+            cid = fields[0].strip()
+            cgid = fields[1].strip()
+            listoflists.append( [cid, cgid] )
+    logging.debug(f"got {len(listoflists)} cids with geneids.") 
+    df = pd.DataFrame(listoflists, columns=['cid','cgid']) 
+    return df    
+
+
+
+
 def do_prior(config, infile, outfile, usecache=True):
     """
     Apply prior likelihood to all infile sequences. 
-    Output prediction to outfile.
+    Output prediction to outfile for later eval. 
     
     """
-    logging.info("running phmmer")
-    pdf = get_phmmer_df(config, infile)
-    logging.info(f"got phmmer df:\n{pdf}")
-
-    logging.info("making phmmer prediction...")
-    df = calc_phmmer_prediction(config, pdf, usecache)
+    logging.info("making prior prediction...")
+    df = make_prior_prediction(config, infile)
     logging.debug(f"prediction=\n{df}")
 
     logging.info(f"writing to outfile {outfile}")
@@ -392,15 +419,15 @@ def do_prior(config, infile, outfile, usecache=True):
   
 
 
-def run_evaluate_auc(config, predictfile, outfile, goaspect=None):
+def run_evaluate_pr(config, predictfile, outfile, goaspect=None):
     """
     Consume a prediction.csv file, and score based on accuracy. 
     X.prediction.csv
    
     """
-
     df = pd.read_csv(os.path.expanduser(predictfile), index_col=0)
-    edf = do_evaluate_auc(config, df, goaspect)
+    logging.debug(f"got predictdf types:\n{df.dtypes}\n{df}")
+    edf = do_evaluate_pr(config, df, goaspect)
     logging.debug(f"got evaluation df:\n{edf}")
     edf.to_csv(outfile)
     
@@ -422,6 +449,89 @@ def is_correct_apply(row):
     return UniprotByGene.instance.contains(row.cgid, row.goterm)
 
 
+def do_evaluate_pr(config, predictdf, goaspect):
+    """
+    Calculate precision recall number. 
+    
+    i    cid           goterm       score    cgid
+    0    G960600000001 GO:0086041   53.0   Q9Y3Q4_HUMAN
+    1    G960600000001 GO:0086089   49.0   Q9Y3Q4_HUMAN
+    2    G960600000001 GO:0086090   49.0   Q9Y3Q4_HUMAN
+    
+    Return:
+    max_goterms=1499
+    eval_threshold=1.0e-120
+    topx_threshold=200
+    score_method=phmmer_score_weighted  
+              cgid             cid  correct      goterm      pauc      pest     score     pr
+        CHIA_MOUSE  G1009000000001     True  GO:0008150  0.759799  0.990000  0.046959  0.230651
+        CHIA_MOUSE  G1009000000001    False  GO:0005575  0.759799  0.442188  0.020743  0.230651
+        CHIA_MOUSE  G1009000000001    False  GO:0110165  0.759799  0.423416  0.019845  0.230651
+
+    
+    """
+    logging.debug(f"got predictdf:\n{predictdf}")
+    ubgo = get_uniprot_bygene_object(config, usecache=True)
+    ontobj = get_ontology_object(config, usecache=True)
+    logging.debug(f"got known uniprot and ontology object.")  
+    
+    outdf = pd.DataFrame(columns = ['cid','goterm','score','cgid','correct','pest','pr'])
+
+    cidlist = list(predictdf.cid.unique())
+    logging.debug(f"cid list: {cidlist}")
+    # Normalize all estimates from score to .01 - .99
+    cmax = predictdf.score.max()
+    cmin = predictdf.score.min()
+    predictdf['pest'] = np.interp(predictdf['score'], (cmin, cmax ), (.01,.99))
+    #logging.debug(f"cdf after score normalization -> pest is:\n{cdf.dtypes}\n{cdf}")
+    
+    for cid in cidlist:
+        cdf = predictdf[predictdf.cid == cid].copy()
+        # get gene id. 
+        cgid = cdf.cgid.unique()[0]
+        logging.debug(f"cgid is {cgid}")
+        #logging.debug(f"geneid for this target is is {cgid}")
+        cdf['correct'] = cdf.apply(is_correct_apply, axis=1)
+        #cdf.reset_index(drop=True, inplace=True) 
+        logging.debug(f"cdf after assessment:\n{cdf.dtypes}\n{cdf}")
+        #logging.debug(f"cdf is:\n{cdf}")
+        outdf = outdf.append(cdf, ignore_index=True)
+    
+    outdf['correct'] = outdf['correct'].astype(np.bool)
+    logging.debug(f"outdf before pr is:\n{outdf}")
+    outdf.sort_values(by='pest')
+    pos = outdf[outdf.correct == True]
+    logging.debug(f"positives is {pos}")
+    poslist = list(pos.index.values)
+    numtotal = len(predictdf)
+    logging.debug(f"numtotal is {numtotal}")    
+    logging.debug(f"len(poslist) is {len(poslist)}")
+
+    pr = calc_precision_recall(poslist, numtotal)
+    outdf['pr'] = pr
+
+    logging.debug(f"outdf after pr is:\n{outdf}")
+    return outdf
+
+def calc_precision_recall(posidxlist, totalnum):
+    """
+        Calculates precision recall number...
+        
+    """
+    n = len(posidxlist)
+    sum = 0
+    i = 1
+    for posi in posidxlist:
+        #val = ( i / posi + 1 )
+        #logging.debug(f" {i} / {posi} = {val}")
+        sum = sum + ( i / ( posi + 1 ) )
+        logging.debug(f"sum is {sum}")
+        i += 1
+
+    pr = (1 / n) * sum 
+    return pr
+
+
 def do_evaluate_auroc(config, predictdf, goaspect):
     """
     i    cid           goterm       score    cgid
@@ -429,22 +539,23 @@ def do_evaluate_auroc(config, predictdf, goaspect):
     1    G960600000001 GO:0086089   49.0   Q9Y3Q4_HUMAN
     2    G960600000001 GO:0086090   49.0   Q9Y3Q4_HUMAN
     
-    Return:   ??
-    0    cid           cgid            
-    1 G960600000001    Q9Y3Q4_HUMAN     
-    2 G960600000022    TF7L2_HUMAN       
-    3 G960600000003
-    
-    fpr:  x coords array
-    trp:  y coords array
+    Return:
+    max_goterms=1499
+    eval_threshold=1.0e-120
+    topx_threshold=200
+    score_method=phmmer_score_weighted  
+              cgid             cid  correct      goterm      pauc      pest     score     auroc
+        CHIA_MOUSE  G1009000000001     True  GO:0008150  0.759799  0.990000  0.046959  0.830652
+        CHIA_MOUSE  G1009000000001    False  GO:0005575  0.759799  0.442188  0.020743  0.830652
+        CHIA_MOUSE  G1009000000001    False  GO:0110165  0.759799  0.423416  0.019845  0.830652
+
     
     from sklearn import metrics
     metrics.auc(fpr, tpr)
     
     """
-
     
-    logging.debug(f"got predictdf {predictdf} evaluating...")
+    logging.debug(f"got predictdf:\n{predictdf}")
     ubgo = get_uniprot_bygene_object(config, usecache=True)
     ontobj = get_ontology_object(config, usecache=True)
     logging.debug(f"got known uniprot and ontology object.")  
@@ -457,20 +568,22 @@ def do_evaluate_auroc(config, predictdf, goaspect):
         cdf = predictdf[predictdf.cid == cid].copy()
         # get gene id. 
         cgid = cdf.cgid.unique()[0]
+        logging.debug(f"cgid is {cgid}")
         #logging.debug(f"geneid for this target is is {cgid}")
         cdf['correct'] = cdf.apply(is_correct_apply, axis=1)
         cdf.reset_index(drop=True, inplace=True) 
-        scoremax = cdf.score.max()
-        scoremin = cdf.score.min()
-        
-        cdf['pest'] = cdf.apply(lambda row: ((row.score - scoremin)/(scoremax - scoremin)) , axis=1)
-        #cdf['pest'] = minmax_scale(cdf['score'], feature_range=(.01, .99), axis=1, copy=True )
-        cmin = cdf['score'].min()
-        cmax = cdf['score'].max()
+        logging.debug(f"cdf after assessment:\n{cdf.dtypes}\n{cdf}")
+        # Normalize all estimates from score to .01 - .99
+        cmax = cdf.score.max()
+        cmin = cdf.score.min()
         cdf['pest'] = np.interp(cdf['score'], (cmin, cmax ), (.01,.99))
-                         
-        pauc = metrics.roc_auc_score(cdf['correct'], cdf['pest'])
-        logging.debug(f"pauc is {pauc}")
+        logging.debug(f"cdf after score normalization -> pest is:\n{cdf.dtypes}\n{cdf}")
+        try:                 
+            pauc = metrics.roc_auc_score(cdf['correct'], cdf['pest'])
+            logging.debug(f"pauc is {pauc}")
+        except ValueError:
+            pauc = .50
+        
         cdf['pauc'] = pauc
         logging.debug(f"cdf is:\n{cdf}")
         outdf = outdf.append(cdf, ignore_index=True)
@@ -478,7 +591,7 @@ def do_evaluate_auroc(config, predictdf, goaspect):
     
     logging.debug(f"outdf before auc is:\n{outdf}")
     auroc = metrics.roc_auc_score(outdf['correct'], outdf['pest'])
-    outdf['auc'] = auroc
+    outdf['auroc'] = auroc
     #f1scr = metrics.f1_score(outdf['correct'], outdf['pest']         )
     #outdf['f1score'] = f1scr
     logging.debug(f"outdf after auroc is:\n{outdf}")
@@ -496,8 +609,7 @@ def get_evaluate_df(config, predictdf, goaspect=None,  threshold=None ):
     
     """
     
-    df = do_evaluate_map(config, predictdf, goaspect)
-    #df = pd.DataFrame(lol, columns=['cid','predicted','correct','annotated'])
+    df = do_evaluate_auroc(config, predictdf, goaspect)
     return df
 
 
@@ -617,17 +729,19 @@ def parse_phmmer(config, filename, excludelist, cidcgidmap):
              'description'] , axis=1)
            
     topx = config.getint('phmmer','topx_threshold')
+    
     if topx is not None:
         df = df.groupby('cid').head(topx).reset_index(drop=True) 
-    
     
     dict = df.to_dict(orient='index')
     
     idxtodel = []
     for idx in dict.keys():
          (db,pacc,pid) = dict[idx]['target'].split('|')
-         if pid in excludelist:
-             logging.debug(f"Found exluded pid {pid} in exclude list. Removing...")
+         cid = dict[idx]['cid']
+         # only exclude hits for the exact target protein...
+         if pid == cidcgidmap[cid]:
+             logging.debug(f"Found the pid {pid} excluded to be excluded for this cid {cid}")
              idxtodel.append(idx)
          else:
              (protein, species) = pid.split('_')
@@ -653,6 +767,30 @@ def parse_phmmer(config, filename, excludelist, cidcgidmap):
     return dict
 
 
+def parse_hd5_expression(filename):
+    """
+    Loads data in file to dataframe.
+    """
+    with h5py.File(filename, 'r') as f:
+        logging.debug("reading matrix...")
+        matrix = f['agg'][:]
+        logging.debug("reading rows...")
+        rows = f['row'][:]
+        logging.debug("reading columns...")
+        columns = f['col'][:]
+        logging.debug("making dataframe...")
+        df = pd.DataFrame(matrix,  index=rows, columns = columns )
+    return df    
+
+
+def get_expression_dataset(config, species='YEAST'):
+    """
+    
+    
+    """
+    
+    
+
 def calc_expression_prediction(config, dataframe, usecache):
     """
     
@@ -671,33 +809,24 @@ def calc_phmmer_prediction(config, dataframe, usecache):
     """
     Takes phmmer df PDF: 
                 cid           eval  pscore  bias    pacc          pid   cgid
-1     T100900000001  4.100000e-155  518.4   7.7  P35213    1433B_RAT   1A1L1_MOUSE
-2     T100900000001  5.400000e-155  518.0   7.2  A4K2U9  1433B_PONAB
+    1     T100900000001  4.100000e-155  518.4   7.7  P35213    1433B_RAT   1A1L1_MOUSE
+    2     T100900000001  5.400000e-155  518.0   7.2  A4K2U9  1433B_PONAB
     
     Gets uniprot_byterm_df UBTDF:
          pacc     species      goterm   goev    pid
-0        Q6GZX4   FRG3G     GO:0046782   IEA  001R_FRG3G
-1        Q6GZX3   FRG3G     GO:0033644   IEA  002L_FRG3G
+    0        Q6GZX4   FRG3G     GO:0046782   IEA  001R_FRG3G
+    1        Q6GZX3   FRG3G     GO:0033644   IEA  002L_FRG3G
     
     Algorithm:
+        Determines predictive score by building goterm vector (term + parents) of all orthologs
+        Score assigned is the score phmmer gave to hit. 
     
-    CIDGV = govector(0)
-    for each cid in PDF:
-        GV  = govector(0)
-        for each row of PDF (where cid == target):
-            for each (goterm) row of UBTDF (where pdf.pid == up.pid):
-                  UGV = gomatrix[gotermidx[goterm]]
-                  GV = GV + UGV
-            #  if we want to weight by score, rather than topX...
-            # GV * PDF.score (for that pacc)
-            CIDGV = CIDGV + GV
-    [ for a target we now have a goterm vector with aggregate scores ]
-    CIDGV to DF:   cid  goterm  score
-    sort by cid, score   
-    [ normalize score to .01 - 1.0 ]
-    
-    create dataframe with 
-      cid         goterm       pest
+    Outputs prediction:
+   
+                   cid      goterm         score         cgid
+    0     G1009000000001  GO:0008150  7.164505e+63   CHIA_MOUSE
+    1     G1009000000001  GO:0003674  2.687680e+63   CHIA_MOUSE
+    2     G1009000000001  GO:0008152  2.687680e+63   CHIA_MOUSE
    
     """
     logging.debug("getting uniprot_byterm_df..")
@@ -715,36 +844,26 @@ def calc_phmmer_prediction(config, dataframe, usecache):
     # Dataframe to collect all calculated values. 
     topdf = pd.DataFrame(columns=['cid','goterm','score','cgid'])
     
-    # handle each cafa target in input list. 
+    # Handle each cafa target in input list. 
     for cid in cidlist:
-        # govector: goterm array. 
-        gv = np.zeros(gtlength)       
+        #gv = np.zeros(gtlength)       
+        
         cdf = pdf[pdf.cid == cid]
         cgid = cdf.reset_index().iloc[0].cgid       
         logging.debug(f"cgid for cid {cid} is {cgid}")
     
         #logging.debug(f"one cid df:\n{cdf}")
+        
         # handle each ortholog protein, calculate score for inferred goterm set...
         for (i, row) in cdf.iterrows():
+            gv = np.zeros(gtlength)       
             udf = ubtdf[ubtdf.pacc == row.pacc]
             pscore = row.pscore
-            #logging.debug(f"cdf row is {row}")
-            #logging.debug(f"udf is {udf}")
-            #           pacc species      goterm goev          pid
-            # 2500682  O55201   MOUSE  GO:0032044  ISS  SPT5H_MOUSE
-            # 2500683  O55201   MOUSE  GO:0005654  ISO  SPT5H_MOUSE
-            # 2500684  O55201   MOUSE  GO:0005634  ISO  SPT5H_MOUSE
-            # 2500685  O55201   MOUSE  GO:0003682  IDA  SPT5H_MOUSE
-            # 2500686  O55201   MOUSE  GO:0019899  ISO  SPT5H_MOUSE
+            #           pacc   species   goterm     goev      pid
+            # 2500682  O55201   MOUSE    GO:0032044  ISS  SPT5H_MOUSE
+            # 2500683  O55201   MOUSE    GO:0005654  ISO  SPT5H_MOUSE
+            # handle each goterm for this ortholog
             for (j, prow) in udf.iterrows():
-                #logging.debug(f"prow is {prow}")
-                # pacc            Q0VCV7
-                # species          BOVIN
-                # goterm      GO:0030182
-                # goev               ISS
-                # pid        VEXIN_BOVIN
-                # Name: 2844330, dtype: object
-
                 gv = gv + ontobj[prow.goterm].astype(np.int64)
                 
             #logging.debug(f"sum is {gv.sum()} ")
@@ -752,25 +871,20 @@ def calc_phmmer_prediction(config, dataframe, usecache):
             # each entry is sum of number of times that goterm was indicated (as annotated or
             # parent of an annotation term).
             # gv = array([123,   0,   3,   7, 345, 0])
-            if score_method == 'phmmer_score':
-                ones = np.ones(gtlength)
-                gv = np.minimum(gv, ones)
-                gv = gv * pscore
-                #logging.debug(f"cdf is {cdf}")
-                #logging.debug(f"cdf.score is {cdf.score}")
-                
-                #  cdf:
-                #     cid           eval  pscore  bias    pacc          pid        cgid
-                #74   G1009000000009  3.500000e-256  854.2  13.3  P33534   OPRK_MOUSE  OPRK_MOUSE
-                #75   G1009000000009  5.900000e-254  846.9  13.3  P34975     OPRK_RAT  OPRK_MOUSE
-                #76   G1009000000009  3.200000e-244  814.9  12.9  P41145   OPRK_HUMAN  OPRK_MOUSE
-                #77   G1009000000009  1.200000e-236  790.0  13.0  Q2KIP6   OPRK_BOVIN  OPRK_MOUSE
-                #78   G1009000000009  1.900000e-230  769.5  11.1  P41144   OPRK_CAVPO  OPRK_MOUSE
-                #79   G1009000000009  5.800000e-141  475.1  11.9  Q95M54   OPRM_MACFA  OPRK_MOUSE
-            if score_method == 'phmmer_score_weighted':
-                ones = np.ones(gtlength)
-                #gv = np.minimum(gv, ones)
-                gv = gv * pscore
+        if score_method == 'phmmer_score':
+            ones = np.ones(gtlength)
+            gv = np.minimum(gv, ones)
+            gv = gv * pscore
+            #logging.debug(f"cdf is {cdf}")               
+            #  cdf:
+            #     cid           eval             pscore  bias    pacc          pid        cgid
+            #74   G1009000000009  3.500000e-256  854.2  13.3  P33534   OPRK_MOUSE  OPRK_MOUSE
+            #75   G1009000000009  5.900000e-254  846.9  13.3  P34975     OPRK_RAT  OPRK_MOUSE
+
+        if score_method == 'phmmer_score_weighted':
+            logging.debug(f"gv.dtype={gv.dtype} max={gv.max()} pscore={pscore}")
+            gv = gv * pscore
+            logging.debug(f"after gv.dtype={gv.dtype}") 
             
 
         #logging.debug(f"gv: {matrix_info(gv)}")
@@ -795,6 +909,42 @@ def calc_phmmer_prediction(config, dataframe, usecache):
         
     logging.debug(f"made dataframe for all:\n{topdf}")
     return topdf
+
+
+def make_prior_prediction(config, infile, species=None):
+    """
+     Same as calc_phmmer_prediction, but assigns prior likelihoods as score
+    
+    """
+    cdf = parse_tfa_file(infile)
+    logging.debug(f"Got cid/cgid frame:\n{cdf}") 
+    pdf = get_prior_df(config, True, species)
+    logging.debug(f"Got prior frame:\n{pdf}")     
+    max_goterms = config.getint('global','max_goterms')
+    logging.debug(f"max_goterms={max_goterms}")
+    
+    # Dataframe to collect all calculated values. 
+    topdf = pd.DataFrame(columns=['cid','goterm','score','cgid'])
+    # This pulls out values, sorted by whatever 'score' is...
+    pdf = pdf.nlargest(max_goterms, 'pest')
+
+    for (i, row) in cdf.iterrows():  
+        #logging.debug(f"Row is:\n{row}")
+        cid = row.cid
+        cgid = row.cgid
+        logging.debug(f"cid is {cid} cgid is {cgid}")
+        df = pd.DataFrame(pdf,copy=True ) 
+        #df['goterm'] = pdf['goterm']
+        #df['score'] = pdf['pest']
+        df['cid'] = cid
+        df['cgid'] = cgid
+        df.rename(columns = {'pest':'score'}, inplace = True)   
+        logging.debug(f"made dataframe for cid {cid}:\n{df}")
+        topdf = topdf.append(df, ignore_index=True)
+    logging.debug(f"got out df types:\n{topdf.dtypes}\n{topdf}")
+    return topdf
+
+# outdf['correct'] = outdf['correct'].astype(np.bool)
 
 
 def get_goprior(config, usecache, species=None):
@@ -1016,22 +1166,18 @@ def calc_prior(config, usecache, species=None):
     vector of prob (.0001 - .99999)  [ 0.001, .0020, ... ] indexed by sorted gotermlist. 
 
     """ 
-    logging.debug(f"building sprot. species={species}")
-    sprot = get_uniprot_byterm(config, usecache=True)
+    #logging.debug(f"building sprot. species={species}")
+    #sprot = get_uniprot_byterm(config, usecache=True)
     
-    df = pd.DataFrame(sprot,columns=['pacc','species','goterm','goev', 'pid'])
-    logging.debug(f"Built dataframe:\n{df}")    
-    exp_goev=[ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ]
-    df = df[df['goev'].isin(exp_goev)] 
-    df.reset_index(drop=True, inplace=True)
-    sprot = df.values.tolist()
-    
-
-    logging.debug(f"sprot, e.g.:\n{pp.pformat(sprot[0:5])} ... ")
+    #df = pd.DataFrame(sprot,columns=['pacc','species','goterm','goev', 'pid'])
+    #logging.debug(f"Built dataframe:\n{df}")    
+    #exp_goev=[ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ]
+    #df = df[df['goev'].isin(exp_goev)] 
+    #df.reset_index(drop=True, inplace=True)
+    #sprot = df.values.tolist()
+    #logging.debug(f"sprot, e.g.:\n{pp.pformat(sprot[0:5])} ... ")
    
     freqarray = None
-    
-    logging.debug(f"usecache={usecache}")
     
     if species is None:
         filespecies = 'GLOBAL'
@@ -1047,16 +1193,20 @@ def calc_prior(config, usecache, species=None):
     else:
         ontobj = get_ontology_object(config, usecache=True)
         gtlength = len(ontobj.gotermlist)
+        logging.debug(f"building sprot. species={species}")
+        sprot = get_uniprot_byterm(config, usecache=True)
+        sdf = pd.DataFrame(sprot,columns=['pacc','species','goterm','goev', 'pid'])
+        logging.debug(f"Built dataframe:\n{sdf}")    
+        exp_goev=[ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ]
+        sdf = sdf[sdf['goev'].isin(exp_goev)] 
+        sdf.reset_index(drop=True, inplace=True)
+        sprot = sdf.values.tolist()
         
-        df = pd.DataFrame(sprot, columns=['proteinacc','species', 'goterm', 'goevidence','pid'])
         if species is not None: 
             logging.debug(f"species {species} specified. converted to df with {df.shape[0]} rows: {df}")
             df = df[df.species == species ]
             logging.debug(f"removed other species. {df.shape[0]} rows left.")
-        
-        sprot = df.to_numpy().tolist()
-        logging.debug(f"got uniprot by term, e.g.:\n{pp.pformat(sprot[0:5])} ")
-              
+                             
         sumarray = np.zeros(gtlength, dtype=np.int)
         logging.debug(f"made array {sumarray}")
         i = 0
@@ -1175,7 +1325,7 @@ def do_testset(config, numseq, species, outfile):
     Creates FASTA files exactly like CAFA TargetFiles
         
     :param    type      name:   desc
-    :param    str       species          Species to generate, code form: 
+    :param    str       species          Species to generate: 
     :return   testfile  Path to test file generated in fasta format.
     :rtype
     :raise:
@@ -1186,7 +1336,7 @@ def do_testset(config, numseq, species, outfile):
     logging.debug(f"numseq={numseq} species={species} outfile={outfile}")
     tdf = get_uniprot_testset(config, usecache=True, species=species)
 
-    logging.debug(f"got testset dataframe {len(tdf)} entries. ")
+    logging.info(f"got testset dataframe {len(tdf)} entries. ")
     
     #  [  { taxid     : speccode, ...  },
     #     { speccode  : taxonid, ...},
@@ -1196,6 +1346,8 @@ def do_testset(config, numseq, species, outfile):
     logging.debug(f"taxonid is {taxonid} for {species}")    
     up = tdf.protein.unique()
     upl = up.tolist()
+
+    # throws error if 
     spl = random.sample(upl, numseq)
     snum = 1
     x = 60
@@ -1632,7 +1784,7 @@ def parse_speclist(config, filepath):
                     datalist.append( tup )
                     # reset all varaiables
                     species = kingdom = taxonid = lineanname = commonname = None
-                species = line[:5]
+                species = line[:5].strip()
                 kingdom = line[6]
                 taxonid = line[7:15].strip()
                 lineanname = line[19:].strip()
@@ -1853,5 +2005,5 @@ if __name__ == '__main__':
         do_testset(cp, args.numseq, args.species, args.outfile )
 
     if args.subcommand == 'evaluate':
-        run_evaluate(cp, args.predictcsv, args.outcsv, args.goaspect)
+        run_evaluate_pr(cp, args.predictcsv, args.outcsv, args.goaspect)
     

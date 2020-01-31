@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats, sparse
 import bottleneck
-
+import h5py
 
 
 def run_egad(go, nw, **kwargs):
