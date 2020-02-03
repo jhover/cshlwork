@@ -58,8 +58,6 @@ from sklearn import metrics
 
 import h5py
 
-
-
 GOASPECTMAP= { 'biological_process' : 'bp',
                'cellular_component' : 'cc',
                'molecular_function' : 'mf',
@@ -71,10 +69,6 @@ UPASPECTMAP = { 'C': 'cc',
                 'P': 'bp'
               }
 
-# filled in by build_specmaps()
-# SPECMAPS = None
-
-
 class Ontology(dict):
     """
     gomatrix:  goterm x goterm np.ndarray fully propagated relationships. 
@@ -82,13 +76,18 @@ class Ontology(dict):
     gotermlist:
     
     NOTE: dict key order is now assumed stable as of Python 3.7. If this is run on 
-    earlier version, unstable key order will cause chaos. s 
+    earlier version, unstable key order will cause chaos. 
+    
     
     """
     
     instance = None
     
     def __init__(self, gomatrix, gotermidx, altidx):
+        self.kname = self.__class__.__name__
+        self.lkname = self.kname.lower()
+        self.log = logging.getLogger(self.kname)
+        
         # a list of np.arrays
         self.data = gomatrix
         # a dictionary of goterms -> array_index
@@ -131,22 +130,24 @@ class Ontology(dict):
         return self.gotermlist[indexid]
 
 
-
 class UniprotByGene(dict):
     """
     dictionary from geneid -> propagated boolean go vector for that geneid. 
     
     Assumes given Ontology object above, provided on construction.
     
-    Provides easy contains to check if a given geneid is annotated 
+    Provides contains to check if a given geneid is annotated 
     with a given goterm.  
-    
+
     """
     
     instance = None
     
     def __init__(self, dict,  ontology):
         super(UniprotByGene, self).__init__(dict)
+        self.kname = self.__class__.__name__
+        self.lkname = self.kname.lower()
+        self.log = logging.getLogger(self.kname)
         self.ontobj = ontology
         
     def contains(self, gid, goterm):
@@ -158,6 +159,73 @@ class UniprotByGene(dict):
         gtidx = self.ontobj.indexof(goterm)
         #logging.debug(f"goterm index for {goterm} is {gtidx}")
         return gv[gtidx]
+
+
+class SpeciesMap():
+    """
+    Provides lookup between NCBI taxon id, short species code, and Latin name. 
+    Derived from NCBI speclist.txt.
+
+       data = [
+         { taxid     : speccode, ...  },
+         { speccode  : taxonid, ...},
+         { linnean   : taxonid, ...},
+         { taxid     : linnean, ...}
+       ]
+    
+    """
+    
+    instance = None
+    
+    def __init__(self, listofdicts ):
+        self.kname = self.__class__.__name__
+        self.lkname = self.kname.lower()
+        self.log = logging.getLogger(self.kname)
+        self.data = listofdicts
+        
+    def get_speccode(self, taxid):
+        """
+            Get NCBItaxid -> short code.     
+        """
+        r = None
+        try:
+            r = self.data[0][taxid]
+        except KeyError:
+            self.log.warn("No code for that taxon ID.")
+        return r
+
+
+    def get_taxid_from_linnean(self, linnean):
+        """
+        
+        """        
+        r = None
+        try:
+            r = self.data[2][linnean] 
+        except KeyError:
+            self.log.warn(f"No taxon ID for '{linnean}'. Check case, space")
+        return r        
+        
+        
+    def get_taxonid(self, speccode):
+        r = None
+        try:
+            r = self.data[1][speccode]
+        except KeyError:
+            self.log.warn("No code for that taxon ID.")        
+        return r
+
+    def get_linnean(self, taxonid):
+        """
+        
+        """        
+        r = None
+        try:
+            r = self.data[3][taxonid] 
+        except KeyError:
+            self.log.warn("No Linnean name for that taxon id.")
+        return r   
+
 
 
 
@@ -174,27 +242,10 @@ def get_ontology_object(config, usecache=True):
         build_ontology(config, usecache)
     return Ontology.instance
 
-def do_build_ontology(config, usecache=False):
-    """
-    Rebuild all cached information.
-    """
-    logging.info("building ontology...")
-    build_ontology(config, usecache)
-    logging.info(f"made Ontology object: {Ontology.instance} ")
-  
-
-
-def do_build_uniprot(config, usecache=False):
-
-    logging.info("getting uniprot/sprot info..")
-    ubt = get_uniprot_byterm(config, usecache)
-    logging.info(f"got ubt list:\n{ubt[0:20]}")
-
 
 def get_uniprot_bygene(config, usecache=True):
     """
     loads from cache, or triggers build...
-    
     
     """
     logging.debug(f"usecache={usecache}")
@@ -264,6 +315,7 @@ def build_uniprot_bygene_pandas(config):
     
     logging.debug(f"Constructed dict by geneid {bygenedict[bygenedict.keys()[0]]}")
     return bygenedict
+
 
 def build_uniprot_bygene(config):
     """
@@ -402,16 +454,15 @@ def parse_tfa_file( infile):
 
 
 
-def do_prior(config, infile, outfile, usecache=True):
+def do_prior(config, infile, outfile, usecache=True, species=None):
     """
-    Apply prior likelihood to all infile sequences. 
+    Apply prior likelihood (global or species) to all infile sequences. 
     Output prediction to outfile for later eval. 
     
     """
     logging.info("making prior prediction...")
-    df = make_prior_prediction(config, infile)
+    df = make_prior_prediction(config, infile, species)
     logging.debug(f"prediction=\n{df}")
-
     logging.info(f"writing to outfile {outfile}")
     df.to_csv(outfile)
     logging.info("done.")
@@ -768,7 +819,7 @@ def parse_phmmer(config, filename, excludelist, cidcgidmap):
     return dict
 
 
-def parse_hd5_expression(filename):
+def parse_expression_hd5(filename):
     """
     Loads data in file to dataframe.
     """
@@ -786,10 +837,43 @@ def parse_hd5_expression(filename):
 
 def get_expression_dataset(config, species='YEAST'):
     """
+    Assumes expression data filename format <taxid>_prioAggNet.hdf5
+    Assumes mapping filename format <taxid>_gene_info.tab
     
-    
+    Current available:  
+    ARATH BOVIN CAEEL CHICK DANRE DROME HUMAN MAIZE PIG RAT SOYBN YEAST   
+
     """
+    smo = get_specmap_obj(config)
+    basedir = os.path.expanduser(config.get('expression','datadir'))
+    datasuffix = os.path.expanduser(config.get('expression', 'datasuffix'))
+    prefix = smo.get_taxonid(species)
     
+    filename = f"{basedir}/{prefix}{datasuffix}"
+    df = parse_expression_hd5( filename )
+    return df
+    
+def get_expression_genemap(config, species='YEAST'):
+    """
+    Assumes mapping filename format <taxid>_gene_info.tab
+    
+    Current available:  
+    ARATH BOVIN CAEEL CHICK DANRE DROME HUMAN MAIZE PIG RAT SOYBN YEAST   
+
+    """
+    smo = get_specmap_obj(config)
+    basedir = os.path.expanduser(config.get('expression','datadir'))
+    mapsuffix = os.path.expanduser(config.get('expression', 'mapsuffix'))
+    prefix = smo.get_taxonid(species)
+    
+    filename = f"{basedir}/{prefix}{mapsuffix}"    
+    logging.debug(f"Reading map table file {filename}")
+    df = pd.read_table(filename)
+    return df
+    
+    
+    
+        
     
 
 def calc_expression_prediction(config, dataframe, usecache):
@@ -801,6 +885,8 @@ def calc_expression_prediction(config, dataframe, usecache):
     ontobj = get_ontology_object(config, usecache)
     gtlength = len(ontobj.gotermidx)
     max_goterms = config.getint('global','max_goterms')
+
+
 
 
     return dataframe
@@ -949,7 +1035,7 @@ def make_prior_prediction(config, infile, species=None):
 
 
 def get_goprior(config, usecache, species=None):
-    gp = calc_prior(config, usecache,species)
+    gp = calc_prior(config, usecache, species)
     return gp
 
 def get_altiddict(config, usecache):
@@ -1129,6 +1215,17 @@ def matrix_debug(matrix):
     """
     return f"type: {type(matrix)} shape: {matrix.shape} dtype: {matrix.dtype} sum: {matrix.sum()} min: {matrix.min()} max {matrix.max()}\n{matrix}"
 
+def filter_goev_exp(dataframe):
+    """
+    Remove any rows of a dataframe that do *not* represent experimentally confirmed evidence. 
+    
+    """
+    exp_goev=[ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ]
+    dataframe = dataframe[dataframe['goev'].isin(exp_goev)] 
+    dataframe.reset_index(drop=True, inplace=True)
+    return dataframe
+
+
 
 def get_prior_df(config, usecache=True, species = None):
 
@@ -1167,23 +1264,15 @@ def calc_prior(config, usecache, species=None):
     vector of prob (.0001 - .99999)  [ 0.001, .0020, ... ] indexed by sorted gotermlist. 
 
     """ 
-    #logging.debug(f"building sprot. species={species}")
-    #sprot = get_uniprot_byterm(config, usecache=True)
-    
-    #df = pd.DataFrame(sprot,columns=['pacc','species','goterm','goev', 'pid'])
-    #logging.debug(f"Built dataframe:\n{df}")    
-    #exp_goev=[ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ]
-    #df = df[df['goev'].isin(exp_goev)] 
-    #df.reset_index(drop=True, inplace=True)
-    #sprot = df.values.tolist()
-    #logging.debug(f"sprot, e.g.:\n{pp.pformat(sprot[0:5])} ... ")
-   
+
+    logging.debug(f"Called with species={species}")
     freqarray = None
     
     if species is None:
         filespecies = 'GLOBAL'
     else:
         filespecies = species
+
     cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
     cachefile = f"{cachedir}/uniprot.goprior.{filespecies}.npy"       
     
@@ -1198,29 +1287,30 @@ def calc_prior(config, usecache, species=None):
         sprot = get_uniprot_byterm(config, usecache=True)
         sdf = pd.DataFrame(sprot,columns=['pacc','species','goterm','goev', 'pid'])
         logging.debug(f"Built dataframe:\n{sdf}")    
-        exp_goev=[ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ]
-        sdf = sdf[sdf['goev'].isin(exp_goev)] 
-        sdf.reset_index(drop=True, inplace=True)
+        #
+        #  UNCLEAR IF WE SHOULD RESTRICT TO EXP ONLY.
+        #  
+        # sdf = filter_goev_exp(sdf)
         sprot = sdf.values.tolist()
         
         if species is not None: 
-            logging.debug(f"species {species} specified. converted to df with {df.shape[0]} rows: {df}")
-            df = df[df.species == species ]
-            logging.debug(f"removed other species. {df.shape[0]} rows left.")
+            logging.debug(f"species {species} specified. converted to df with {sdf.shape[0]} rows: {sdf}")
+            sdf = sdf[sdf.species == species ]
+            logging.debug(f"removed other species. {sdf.shape[0]} rows left.")
                              
         sumarray = np.zeros(gtlength, dtype=np.int)
         logging.debug(f"made array {sumarray}")
+        
         i = 0
-        e = 0 
         elist = []
         logging.debug("summing over all terms and parents...")
         for r in sprot:
             gt = r[2]
             sumarray = sumarray + ontobj[gt]
             elist.append(gt)
-            e += 1
+            i += 1
         eset = set(elist)
-        logging.debug(f"missing keys: {list(eset)}")
+        #logging.debug(f"missing keys: {list(eset)}")
         logging.debug(f"added {i} gomatrix lines, with {len(eset)} distinct missing keys. ")
         logging.debug(f"sumarray: {sumarray} max={sumarray.max()} min={sumarray.min()} dtype={sumarray.dtype}")    
         divisor = sumarray.sum()
@@ -1442,10 +1532,26 @@ def build_uniprot_test(config, usecache):
     return lodt
 
 
-def build_prior(config, usecache, species=None):
+def build_prior(config, usecache, species=None, outfile=None):
+    """
+    
+    Additionally, if outfile is specified, writes CSV to file of ranked 
+    goterms with frequency as pest, similar to prior prediction but without input. 
+    
+    """
+    
     logging.debug(f"running calc_prior with species {species}")
-    out = calc_prior(config, usecache, species=species)
-    print(out)
+    out = calc_prior(config, usecache, species)
+    if outfile is not None:
+        outfile = os.path.expanduser(outfile)
+        ontobj = get_ontology_object(config, usecache=True)
+        df = pd.DataFrame(out, columns=['pest'])
+        df['goterm'] = ontobj.gotermlist
+        df.sort_values(by='pest', ascending=False, inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        df.to_csv(outfile)
+        logging.debug(f"Wrote prior df to outfile {outfile}:\n{df}")
+    return out
 
 def build_uniprot(config, usecache):
     """
@@ -1479,9 +1585,7 @@ def build_uniprot(config, usecache):
             traceback.print_exc(file=sys.stdout)     
         finally:
             cf.close()        
-    
-    #df = pd.DataFrame(listofdicts)
-    #logging.debug(f"Built dataframe {df}")
+
     return listofdicts
 
 
@@ -1492,18 +1596,17 @@ def build_specmaps(config, usecache):
          { taxid     : speccode, ...  },
          { speccode  : taxonid, ...},
          { linnean   : taxonid, ...}
+         { taxonid   : linnean, ...}
        ]
     caches as pickle object. 
     
-    """
-    global SPECMAPS
-        
+    """       
     logging.debug(f"usecache={usecache}")
     cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
     cachefile = f"{cachedir}/specfile.pickle"
     specfile = os.path.expanduser(config.get('uniprot','specfile'))
     #     tax2spec  spec2tax  lin2tax
-    map = [ {},     {},       {} ] 
+    map = [ {}, {}, {}, {} ] 
     if os.path.exists(cachefile) and usecache:
         logging.debug("Cache hit. Using existing info...")
         try:
@@ -1522,6 +1625,7 @@ def build_specmaps(config, usecache):
             map[0][entry[2]] = entry[0]
             map[1][entry[0]] = entry[2]
             map[2][entry[3]] = entry[2]
+            map[3][entry[2]] = entry[3]
                     
         logging.debug(f"saving map: to {cachefile}")
         try:
@@ -1532,18 +1636,22 @@ def build_specmaps(config, usecache):
             logging.error(f'unable to dump via pickle to {cachefile}')
             traceback.print_exc(file=sys.stdout)     
         finally:
-            cf.close()
-    
-    #s = next(iter(map[0]))
-    #logging.debug(f"map e.g. :\n{map} ")
+            cf.close()    
     logging.info(f"saving map: to {cachefile}")
-    SPECMAPS = map
     return map
 
-def get_specmaps(config):
-    sm = build_specmaps(config, usecache=True)
-    return sm
 
+def get_specmaps(config):
+    lod = build_specmaps(config, usecache=True)
+    return lod    
+
+def get_specmap_obj(config):
+    sm = SpeciesMap.instance
+    if SpeciesMap.instance is None:
+        lod = build_specmaps(config, usecache=True)
+        sm = SpeciesMap(lod)
+        SpeciesMap.instance = sm
+    return sm
 
 
 def parse_uniprot_dat(config):
@@ -1908,6 +2016,13 @@ if __name__ == '__main__':
                         default=None,
                         help='Limit to species where relevant.')
 
+    parser_buildprior.add_argument('-o', '--outfile',
+                        action="store", 
+                        dest='outfile', 
+                        default=None,
+                        help='CSV output file of ranked goterms for prior. ')
+
+
 ######################### build and cache species maps ####################################
 
     parser_buildspecies = subparsers.add_parser('build_species',
@@ -1997,7 +2112,7 @@ if __name__ == '__main__':
         build_specmaps(cp,  usecache=False)
 
     if args.subcommand == 'build_prior':
-        build_prior(cp, args.species )
+        build_prior(cp, usecache=False, species=args.species, outfile=args.outfile )
 
     if args.subcommand == 'build_uniprot_test':
         build_uniprot_test(cp, usecache=False )
