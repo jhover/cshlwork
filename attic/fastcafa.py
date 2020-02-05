@@ -202,3 +202,69 @@ def run_evaluate_map(config, predictfile, outfile, goaspect=None):
     
     logging.info(f"hyperparams:\nmax_goterms={max_goterms}\neval_threshold={eval_threshold}\ntopx_threshold={topx_threshold}\nscore_method={score_method}  ")
     print(edf)
+
+
+
+def build_uniprot_test(config, usecache):
+    """
+   
+    [ {'proteinid': '001R_FRG3G', 
+       'protein': '001R', 
+       'species': 'FRG3G', 
+       'proteinacc': 'Q6GZX4', 
+       'taxonid': '654924', 
+       'goterms': {'GO:0047043': 'IEA', 'GO:0006694': 'IEA'}, 
+       'seqlength': 256, 
+       'sequence': 'MAFSAEDVL......LYDDSFRKIYTDLGWKFTPL'},
+       'gene' : 'LRRK2'
+       .
+       .
+    ]
+   
+    Create redundant dataframe for later slimming. Include sequence. Cache. 
+   
+    """    
+    cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
+    cachefile = f"{cachedir}/uniprottest.pickle"    
+    lodt = None
+    
+    if os.path.exists(cachefile) and usecache:
+        logging.debug("Cache hit. Using existing info...")    
+        try:
+            cf = open(cachefile, 'rb')    
+            lodt = pickle.load(cf)
+        except Exception:
+            logging.error(f'unable to load via pickle from {cachefile}')
+            traceback.print_exc(file=sys.stdout)    
+        finally:
+            cf.close()       
+    else:    
+        lod = build_uniprot(config, usecache=True)
+
+        lodt = []
+        for p in lod:
+            newgts = {}
+            for gt in p['goterms'].keys():
+                evcode = p['goterms'][gt]
+                item = [ p['proteinacc'],
+                         p['protein'],
+                         p['species'],
+                         gt, 
+                         evcode,
+                         p['seqlength'],
+                         p['sequence'] 
+                      ]
+                lodt.append(item)
+                
+        logging.debug(f"saving listofdicts: to {cachefile}")
+        try:
+            cf = open(cachefile, 'wb')    
+            pickle.dump(lodt, cf )
+            logging.debug(f"saved listofdicts: to {cachefile}")
+        except Exception as e:
+            logging.error(f'unable to dump via pickle to {cachefile}')
+            traceback.print_exc(file=sys.stdout)     
+        finally:
+            cf.close() 
+        logging.debug(f"created uniprot test source with {len(lodt)} entries.")
+    return lodt

@@ -9,7 +9,7 @@
 # pid/gid   UniProtKB: entry/ID                                        LRRK2_MOUSE 
 # pacc      UniProtKB: accession  ?quickgo:gene product_id             P63103
 # protein   all caps name                                              1433B
-# gene      Free-text gene name.                                       Lrrk2  Ywahb   
+# gene      Free-text gene name.  uppercased for consistency?          Lrrk2  Ywahb   
 # taxonid   NCBI taxon id                                              9606                 
 # species   all caps code                                              MOUSE   PONAB
 # goterms
@@ -130,13 +130,46 @@ class Ontology(dict):
         return self.gotermlist[indexid]
 
 
-class UniprotByGene(dict):
+class UniprotByPid(dict):
     """
-    dictionary from geneid -> propagated boolean go vector for that geneid. 
+    dictionary from proteinid -> propagated boolean go vector for that 
+    proteinid (i.e. TSSK4_HUMAN, LRRK2_MOUSE). 
     
     Assumes given Ontology object above, provided on construction.
     
-    Provides contains to check if a given geneid is annotated 
+    Provides contains() to check if a given proteinid is annotated 
+    with a given goterm.  
+
+    """
+    
+    instance = None
+    
+    def __init__(self, dict,  ontology):
+        super(UniprotByPid, self).__init__(dict)
+        self.kname = self.__class__.__name__
+        self.lkname = self.kname.lower()
+        self.log = logging.getLogger(self.kname)
+        self.ontobj = ontology
+        
+    def contains(self, gid, goterm):
+        """
+        Return boolean   True if goterm is annotated for that proteinid  
+        """
+        gv = self[gid]
+        #logging.debug(f"govector fo {gid} is {gv}")
+        gtidx = self.ontobj.indexof(goterm)
+        #logging.debug(f"goterm index for {goterm} is {gtidx}")
+        return gv[gtidx]
+
+
+class UniprotByGene(dict):
+    """
+    dictionary from a gene -> propagated boolean go vector for that 
+    gene, regardless of species=. 
+    
+    Assumes given Ontology object above, provided on construction.
+    
+    Provides contains() to check if a given gene is annotated 
     with a given goterm.  
 
     """
@@ -159,6 +192,9 @@ class UniprotByGene(dict):
         gtidx = self.ontobj.indexof(goterm)
         #logging.debug(f"goterm index for {goterm} is {gtidx}")
         return gv[gtidx]
+
+
+
 
 
 class SpeciesMap():
@@ -227,15 +263,13 @@ class SpeciesMap():
         return r   
 
 
-
-
-def get_uniprot_bygene_object(config, usecache=True):
+def get_uniprot_bypid_object(config, usecache=True):
     goobj = get_ontology_object(config, usecache=True)
-    ubgdict = get_uniprot_bygene(config, usecache=True)
-    uobj = UniprotByGene(ubgdict, goobj )
-    UniprotByGene.instance = uobj
+    ubxdict = get_uniprot_by(config,by='pid', usecache=True)
+    uobj = UniprotByPid(ubxdict, goobj )
+    UniprotByPid.instance = uobj
     return uobj
-  
+
         
 def get_ontology_object(config, usecache=True):
     if Ontology.instance is None:
@@ -243,20 +277,21 @@ def get_ontology_object(config, usecache=True):
     return Ontology.instance
 
 
-def get_uniprot_bygene(config, usecache=True):
+def get_uniprot_by(config, by='pid', usecache=True):
     """
     loads from cache, or triggers build...
+    supports by pid (proteinid) or gene (gene name) or accession (pacc)
     
     """
     logging.debug(f"usecache={usecache}")
     cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
-    cachefile = f"{cachedir}/uniprotbygene.pickle"    
-    ubgdict = None
+    cachefile = f"{cachedir}/uniprotby{by}.pickle"    
+    ubxdict = None
     if os.path.exists(cachefile) and usecache:
         logging.debug("Cache hit. Using existing info...")    
         try:
             cf = open(cachefile, 'rb')    
-            ubgdict = pickle.load(cf)
+            ubxdict = pickle.load(cf)
         except Exception:
             logging.error(f'unable to load via pickle from {cachefile}')
             traceback.print_exc(file=sys.stdout)    
@@ -264,21 +299,21 @@ def get_uniprot_bygene(config, usecache=True):
             cf.close()       
     else:
         
-        ubgdict = build_uniprot_bygene(config)
+        ubxdict = build_uniprot_bypid(config)
         logging.debug(f"saving dict: to {cachefile}")
         try:
             cf = open(cachefile, 'wb')    
-            pickle.dump(ubgdict, cf )
+            pickle.dump(ubxdict, cf )
             logging.debug(f"saved dict: to {cachefile}")
         except Exception as e:
             logging.error(f'unable to dump via pickle to {cachefile}')
             traceback.print_exc(file=sys.stdout)     
         finally:
             cf.close()        
-    return ubgdict
+    return ubxdict
 
 
-def build_uniprot_bygene_pandas(config):
+def build_uniprot_bypid(config):
     """
     Since this is only used by do_evaluate we will only use experimentally
     validated annotations. 
@@ -288,52 +323,13 @@ def build_uniprot_bygene_pandas(config):
     Returns dict for later use..
     """
     ontobj = get_ontology_object(config, usecache=True)
-    ubt = get_uniprot_byterm_exponly_df(config, usecache=True)
-    pids = list(ubt.pid.unique())
-    logging.debug(f"pid list, length={len(pids)} e.g. : {pids[:50]}")
-    bygenedict = {}
-    sumreport = 1
-    suminterval = 10000
-    repthresh = sumreport * suminterval
-    gtlength = len(ontobj.gotermidx)
-    logging.debug(f"gv length is {gtlength}")
-    
-    for pid in pids:
-        piddf = ubt[ubt.pid == pid]        
-        current = np.zeros(gtlength, dtype=bool)
-        # create vector of all correct goterms
-        for (i, row) in piddf.iterrows():
-            #logging.debug(f"goterm is {row.goterm}")
-            gv = ontobj[row.goterm]
-            current = current + gv
-        #logging.debug(f"Constructed goterm vector for {pid} sum={current.sum()}")
-        bygenedict[pid] = current
-        if len(bygenedict) >= repthresh:
-            logging.info(f"Processed {len(bygenedict)} entries... ")
-            sumreport +=1
-            repthresh = sumreport * suminterval
-    
-    logging.debug(f"Constructed dict by geneid {bygenedict[bygenedict.keys()[0]]}")
-    return bygenedict
-
-
-def build_uniprot_bygene(config):
-    """
-    Since this is only used by do_evaluate we will only use experimentally
-    validated annotations. 
-    
-    builds dictionary geneid -> propagated govector. 
-    
-    Returns dict for later use..
-    """
-    ontobj = get_ontology_object(config, usecache=True)
-    ubt = get_uniprot_byterm_exponly_df(config, usecache=True)
+    ubt = get_uniprot_byterm_df(config, usecache=True, exponly=True)
     pids = list(ubt.pid.unique())
     logging.debug(f"pid list, length={len(pids)} e.g. : {pids[:50]}")
     ubtd = ubt.to_dict(orient = 'index')
     logging.debug(f"converted DF to dict: e.g. \n{ [ubtd[i] for i in range(0,3)] } ")
    
-    bygenedict = {}
+    bypiddict = {}
     sumreport = 1
     suminterval = 10000
     repthresh = sumreport * suminterval
@@ -356,20 +352,86 @@ def build_uniprot_bygene(config):
             currentgv = currentgv + ontobj[row['goterm']] 
         else:
             # new pid
-            bygenedict[currentpid] = currentgv 
+            bypiddict[currentpid] = currentgv 
             currentpid = pid
+            currentgv = np.zeros(gtlength, dtype=bool)
+
+        if len(bypiddict) >= repthresh:
+            logging.info(f"Processed {len(bypiddict)} entries... ")
+            sumreport +=1
+            repthresh = sumreport * suminterval    
+        
+        i += 1
+        
+    samplekeys = list(bypiddict.keys())[:3]
+    logging.debug(f"Made dict by proteinid: {[ bypiddict[k] for k in samplekeys]} ")
+    return bypiddict
+
+
+def build_uniprot_bygene(config):
+    """
+    Since this will be used for inference, we will use all evidence codes. 
+
+        pacc species      goterm goev          pid   gene
+0     P0DJZ0   PAVHV  GO:0030430  IDA    11K_PAVHV    11K
+1     P32234   DROME  GO:0005525  IDA  128UP_DROME  128UP
+2     P83011   SCYCA  GO:0043231  IDA  13KDA_SCYCA    NaN
+7143  P24224   ECOLI  GO:0008897  IDA   ACPS_ECOLI   ACPS
+7144  P24224   ECOLI  GO:0018070  IDA   ACPS_ECOLI   ACPS    
+
+NOTES:  NaN expected for gene, omit...
+        gene will not be unique. handle all...
+    
+    builds dictionary gene -> propagated govector. 
+    
+    Returns dict for later use..
+    """
+    ontobj = get_ontology_object(config, usecache=True)
+    ubtdf = get_uniprot_byterm_df(config, usecache=True, exponly=False)
+    ubtdf = ubtdf[ubtdf.gene.notna()]
+    ubtdf.sort_values(by='gene', inplace=True)
+    ubtdf.reset_index(drop=True, inplace=True)
+        
+    ubtd = ubtdf.to_dict(orient = 'index')
+    logging.debug(f"converted DF to dict: e.g. \n{ [ubtd[i] for i in range(0,3)] } ")
+   
+    bygenedict = {}
+    sumreport = 1
+    suminterval = 10000
+    repthresh = sumreport * suminterval
+    gtlength = len(ontobj.gotermidx)
+    logging.debug(f"gv length is {gtlength}")
+    
+    i = 0
+    currentgid = None
+    currentgv = np.zeros(gtlength, dtype=bool)
+    while i < len(ubtd):
+        row = ubtd[i]
+        gid = row['gene']
+        #logging.debug(f"row {i} is pid {pid}")
+        if currentgid is None:
+            currentgid = gid
+            currentgv = currentgv + ontobj[row['goterm']]
+            
+        elif currentgid == gid:
+            # same gid, continue...
+            currentgv = currentgv + ontobj[row['goterm']] 
+        else:
+            # new gid
+            bygenedict[currentgid] = currentgv 
+            currentgid = gid
             currentgv = np.zeros(gtlength, dtype=bool)
 
         if len(bygenedict) >= repthresh:
             logging.info(f"Processed {len(bygenedict)} entries... ")
             sumreport +=1
             repthresh = sumreport * suminterval    
-        
         i += 1
         
     samplekeys = list(bygenedict.keys())[:3]
-    logging.debug(f"Made dict by geneid: {[ bygenedict[k] for k in samplekeys]} ")
+    logging.debug(f"Made dict by geneid: {[ (k, bygenedict[k]) for k in samplekeys]} ")
     return bygenedict
+
 
 
 def do_build_prior(config, usecache=True ):    
@@ -383,19 +445,15 @@ def do_build_prior(config, usecache=True ):
 
 def do_expression(config, infile, outfile, usecache=True):
     """
-    perform phmmer query on each target 
-    for best scoring ortholog hits, follow gene expression correlation
-          annotate target with co-expressed genes annotations
-          score is score of hit. 
-    
+       
     """
 
     logging.info("running expression")
-    df = get_target_df(config, infile)
-    logging.info(f"got target df:\n{df}")
+    tgids = get_tfa_geneids( infile)
+    logging.info(f"got target tgids:\n{tgids}")
 
     logging.info("making expression prediction...")
-    df = calc_expression_prediction(config, df, usecache)
+    df = calc_expression_prediction(config, tgids, usecache)
     logging.debug(f"prediction=\n{df}")#
 
     logging.info(f"writing to outfile {outfile}")
@@ -479,15 +537,17 @@ def run_evaluate_pr(config, predictfile, outfile, goaspect=None):
     df = pd.read_csv(os.path.expanduser(predictfile), index_col=0)
     logging.debug(f"got predictdf types:\n{df.dtypes}\n{df}")
     edf = do_evaluate_pr(config, df, goaspect)
-    #logging.debug(f"got evaluation df:\n{edf}")
-    edf.to_csv(outfile)
-    
+
     max_goterms = config.get('global','max_goterms')
     eval_threshold = config.get('phmmer','eval_threshold')
     topx_threshold = config.get('phmmer','topx_threshold')
     score_method = config.get('phmmer','score_method')
-    
     logging.info(f"hyperparams:\nmax_goterms={max_goterms}\neval_threshold={eval_threshold}\ntopx_threshold={topx_threshold}\nscore_method={score_method}  ")
+    #logging.debug(f"got evaluation df:\n{edf}")
+    fh = open(outfile, 'w')
+    fh.write(f"# max_goterms={max_goterms}\n# eval_threshold={eval_threshold}\n# topx_threshold={topx_threshold}\n# score_method={score_method}\n")
+    edf.to_csv(fh)
+    fh.close()    
     print(edf)
 
 
@@ -497,7 +557,7 @@ def is_correct_apply(row):
     Function to check prediction for use with .apply and Pandas DF. 
 
     """
-    return UniprotByGene.instance.contains(row.cgid, row.goterm)
+    return UniprotByPid.instance.contains(row.cgid, row.goterm)
 
 
 def do_evaluate_pr(config, predictdf, goaspect):
@@ -519,14 +579,13 @@ def do_evaluate_pr(config, predictdf, goaspect):
         CHIA_MOUSE  G1009000000001    False  GO:0005575  0.759799  0.442188  0.020743  0.230651
         CHIA_MOUSE  G1009000000001    False  GO:0110165  0.759799  0.423416  0.019845  0.230651
 
-    
     """
     #logging.debug(f"got predictdf:\n{predictdf}")
-    ubgo = get_uniprot_bygene_object(config, usecache=True)
+    ubgo = get_uniprot_bypid_object(config, usecache=True)
     ontobj = get_ontology_object(config, usecache=True)
     logging.debug(f"got known uniprot and ontology object.")  
     
-    outdf = pd.DataFrame(columns = ['cid','goterm','score','cgid','pest','correct'])
+    outdf = pd.DataFrame(columns = ['cid','goterm','score','cgid','pest','correct', 'nterms'])
 
     cidlist = list(predictdf.cid.unique())
     logging.debug(f"cid list: {cidlist}")
@@ -536,13 +595,20 @@ def do_evaluate_pr(config, predictdf, goaspect):
     predictdf['pest'] = np.interp(predictdf['score'], (cmin, cmax ), (.01,.99))
     #logging.debug(f"cdf after score normalization -> pest is:\n{cdf.dtypes}\n{cdf}")
     
+    ntermsum = 0
     for cid in cidlist:
         cdf = predictdf[predictdf.cid == cid].copy()
+
         # get gene id. 
         cgid = cdf.cgid.unique()[0]
         logging.debug(f"cgid is {cgid}")
+        ubp = get_uniprot_bypid_object(config, usecache=True)
+        nterms = ubp[cgid].sum()
+        ntermsum = ntermsum + nterms
+        #logging.debug(f"there are {nterms} goterms associated with {cgid}")
         #logging.debug(f"geneid for this target is is {cgid}")
         cdf['correct'] = cdf.apply(is_correct_apply, axis=1)
+        cdf['nterms'] = nterms
         #cdf.reset_index(drop=True, inplace=True) 
         logging.debug(f"cdf after assessment:\n{cdf.dtypes}\n{cdf}")
         #logging.debug(f"cdf is:\n{cdf}")
@@ -550,26 +616,77 @@ def do_evaluate_pr(config, predictdf, goaspect):
         outdf = outdf.append(cdf, ignore_index=True)
     
     outdf['correct'] = outdf['correct'].astype(np.bool)
+    #outdf['ntermsum'] = ntermsum
     logging.debug(f"outdf before pr is:\n{outdf}")
-    outdf.sort_values(by='pest')
+    outdf = calc_f1_max(outdf)
     pos = outdf[outdf.correct == True]
-    logging.debug(f"positives is {pos}")
+    logging.debug(f"positives is:\n{pos}")
     poslist = list(pos.index.values)
     numtotal = len(predictdf)
     logging.debug(f"numtotal is {numtotal}")    
     logging.debug(f"len(poslist) is {len(poslist)}")
-
     pr = calc_precision_recall(poslist, numtotal)
     outdf['pr'] = pr
 
-    #logging.debug(f"outdf after pr is:\n{outdf}")
     return outdf
+
+
+def calc_f1_max(dataframe):
+    """
+    In:
+             cgid             cid  correct      goterm nterms      pest     score  ntermsum
+0       CHIA_MOUSE  G1009000000001     True  GO:0008150     85  0.990000  0.046959       764
+1       CHIA_MOUSE  G1009000000001    False  GO:0005575     85  0.442188  0.020743       764
+2       CHIA_MOUSE  G1009000000001    False  GO:0110165     85  0.423416  0.019845       764
+3       CHIA_MOUSE  G1009000000001     True  GO:0009987     85  0.387863  0.018143       764 
+    ...
+    
+    F1 at each index i is:
+            pr = num-true  / i 
+            rc = num-true / (numtermsum - num-true)
+        
+           2  *   (   pr * rc / pr + rc )
+
+    
+    """
+    logging.debug(f"inbound frame is:\n{dataframe}")
+    totalterms = dataframe.groupby('cid')['nterms'].max().sum()
+    logging.debug(f"total annotated terms is {totalterms}")
+    dataframe.sort_values(by='pest', ascending=False, inplace=True)
+    dataframe.reset_index(drop=True, inplace=True)
+    logging.debug(f"frame after sorting:\n{dataframe}")    
+    
+    
+    
+    numtrue = 0
+    i = 1
+    f1max = 0
+    logging.debug(f"initial. i={i} numtrue={numtrue} f1max={f1max}")
+    for row in dataframe.itertuples():
+        if row.correct == True:
+            numtrue += 1
+        #logging.debug(f"numtrue is {numtrue}")
+        pr = (numtrue / i)
+        #logging.debug(f"pr[{i}] = {pr}")
+        rc = (numtrue / totalterms )
+        #logging.debug(f"rc[{i}] = {rc}")
+        f1 = 2 * ( (pr * rc) / (pr + rc ) )
+        logging.debug(f"f1 is {f1}")
+        if f1 > f1max:
+            f1max = f1
+        i += 1
+    logging.debug(f"final. i={i} numtrue={numtrue} f1max={f1max}")
+    dataframe['f1max'] = f1max
+    return dataframe
+
+
 
 def calc_precision_recall(posidxlist, totalnum):
     """
-        Calculates precision recall number...
+        Calculates precision recall
         
     """
+    # precision-recall -> pr
     n = len(posidxlist)
     sum = 0
     i = 1
@@ -579,8 +696,10 @@ def calc_precision_recall(posidxlist, totalnum):
         sum = sum + ( i / ( posi + 1 ) )
         #logging.debug(f"sum is {sum}")
         i += 1
-
-    pr = (1 / n) * sum 
+    if n == 0:
+        pr = 0.0
+    else:
+        pr = (1 / n) * sum 
     return pr
 
 
@@ -852,6 +971,7 @@ def get_expression_dataset(config, species='YEAST'):
     filename = f"{basedir}/{prefix}{datasuffix}"
     df = parse_expression_hd5( filename )
     return df
+
     
 def get_expression_genemap(config, species='YEAST'):
     """
@@ -878,6 +998,14 @@ def get_expression_genemap(config, species='YEAST'):
 
 def calc_expression_prediction(config, dataframe, usecache):
     """
+    Takes TFA info only: 
+        {'cid'  :   'pid', ...}  
+    E.g.   T100900000008   -> 1A1L1_MOUSE
+    Looks up gene in uniprot:    1A1L1_MOUSE -> Accs
+    
+       
+    
+    
     
     """
     logging.debug("getting uniprot_byterm_df..")
@@ -916,6 +1044,7 @@ def calc_phmmer_prediction(config, dataframe, usecache):
     2     G1009000000001  GO:0008152  2.687680e+63   CHIA_MOUSE
    
     """
+    logging.debug(f"inbound dataframe:\n{dataframe}")
     logging.debug("getting uniprot_byterm_df..")
     ubtdf = get_uniprot_byterm_df(config, usecache)
     ontobj = get_ontology_object(config, usecache)
@@ -938,8 +1067,11 @@ def calc_phmmer_prediction(config, dataframe, usecache):
         cdf = pdf[pdf.cid == cid]
         cgid = cdf.reset_index().iloc[0].cgid       
         logging.debug(f"cgid for cid {cid} is {cgid}")
-    
-        #logging.debug(f"one cid df:\n{cdf}")
+
+        logging.debug(f"one cid df:\n{cdf}")
+        #               cid           eval  pscore  bias    pacc         pid        cgid
+        # 1  G1009000000001  5.700000e-178   594.8   2.0  P04218    OX2G_RAT  OX2G_MOUSE
+        # 2  G1009000000001  1.100000e-144   485.6   2.4  P41217  OX2G_HUMAN  OX2G_MOUSE
         
         # handle each ortholog protein, calculate score for inferred goterm set...
         for (i, row) in cdf.iterrows():
@@ -958,6 +1090,7 @@ def calc_phmmer_prediction(config, dataframe, usecache):
             # each entry is sum of number of times that goterm was indicated (as annotated or
             # parent of an annotation term).
             # gv = array([123,   0,   3,   7, 345, 0])
+        logging.debug(f"pscore={pscore} udf=\n{udf}")
         if score_method == 'phmmer_score':
             ones = np.ones(gtlength)
             gv = np.minimum(gv, ones)
@@ -980,7 +1113,6 @@ def calc_phmmer_prediction(config, dataframe, usecache):
         #logging.debug(f"gtarray:length: {len(gtarray)} type:{type(gtarray)}")
         gotermar = gtarray[gvnz]
         govalar = gv[gvnz]
-    
         cidar = np.full( len(govalar), fill_value=cid)        
         cgidar = np.full(len(govalar), fill_value=cgid)
         df = pd.DataFrame({ 'cid': cidar, 
@@ -988,11 +1120,12 @@ def calc_phmmer_prediction(config, dataframe, usecache):
                            'score' : govalar, 
                            'cgid' : cgidar })
         
+        logging.debug(f"dataframe is {df}")
         # This pulls out values, sorted by whatever 'score' is...
         df = df.nlargest(max_goterms, 'score')
         #df.sort_values(by='pest', ascending=False)
-        #logging.debug(f"made dataframe for cid {cid}:\n{df}")
-        topdf = topdf.append(df, ignore_index=True)
+        logging.debug(f"made dataframe for cid {cid}:\n{df}")
+        topdf = topdf.append(df, ignore_index=True, sort=True)
         
     logging.debug(f"made dataframe for all:\n{topdf}")
     return topdf
@@ -1330,22 +1463,15 @@ def get_uniprot_df(config, usecache=True):
     return df    
 
 
-def get_uniprot_byterm_df(config, usecache=True):
+def get_uniprot_byterm_df(config, usecache=True, exponly=False):
     lol = get_uniprot_byterm(config, usecache)
-    df = pd.DataFrame(lol,columns=['pacc','species','goterm','goev', 'pid'])
-    logging.debug(f"Built dataframe:\n{df}")    
+    df = pd.DataFrame(lol,columns=['pacc', 'pid', 'protein', 'species', 
+                                      'goterm','goev','seqlen','seq','gene'])
+    if exponly:
+        logging.debug("Removing non-experimental annotations... ")
+        df = filter_goev_exp(df)    
+    logging.debug(f"Built dataframe:\n{df}")
     return df 
-
-def get_uniprot_byterm_exponly_df(config, usecache=True):
-    lol = get_uniprot_byterm(config, usecache)
-    df = pd.DataFrame(lol,columns=['pacc','species','goterm','goev', 'pid'])
-    logging.debug(f"Built dataframe:\n{df}")    
-    exp_goev=[ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ]
-    df = df[df['goev'].isin(exp_goev)] 
-    df.reset_index(drop=True, inplace=True)
-    return df
-
-
 
 
 def get_uniprot_byterm(config, usecache):
@@ -1358,32 +1484,61 @@ def get_uniprot_byterm(config, usecache):
        'goterms': {'GO:0046782': 'IEA'}, 
        'seqlength': 256, 
        'sequence': 'MAFSAEDVL......LYDDSFRKIYTDLGWKFTPL'},
+       'gene' : '128UP',
        .
        .
        .
     ]
     
-    
     Generate non-redundant uniprot with a row for every goterm:
-       pacc         species    goterm       goev    pid
-    0  '3AHDP'      'RUMGV'   'GO:0016491'  'IEA'
-    1  '3AHDP'      'RUMGV'   'GO:0006694'  'TAS'
+        pacc species      goterm goev          pid   gene
+0     P0DJZ0   PAVHV  GO:0030430  IDA    11K_PAVHV    11K
+1     P32234   DROME  GO:0005525  IDA  128UP_DROME  128UP
+2     P83011   SCYCA  GO:0043231  IDA  13KDA_SCYCA     {} 
+   
     
-    
+       for p in lod:
+            newgts = {}
+            for gt in p['goterms'].keys():
+                evcode = p['goterms'][gt]
+                item = [ p['proteinacc'],
+                         p['protein'],
+                         p['species'],
+                         gt, 
+                         evcode,
+                         p['seqlength'],
+                         p['sequence'] 
+                      ]
+                lodt.append(item)
     """    
     lod = build_uniprot(config, usecache=True)
     ubt = []
     for p in lod:
+        #
+        # many entries do *not* have a gene symbol assigned, and the defaultdict 
+        # implementation gives back and empty dict. Fix this....
+        e = p['gene']
+        if len(e) == 0:
+            p['gene'] = np.nan
+        # and proceed...
         for gt in p['goterms'].keys():
+            evcode = p['goterms'][gt]
+            
             item = [ p['proteinacc'],
+                     p['proteinid'],
+                     p['protein'],
                      p['species'],
-                     gt, 
-                     p['goterms'][gt],
-                     p['proteinid'], 
-                    ]
+                     gt,
+                     evcode, 
+                     p['seqlength'],
+                     p['sequence'], 
+                     p['gene'],
+                 ]
             ubt.append(item)
     logging.debug(f"created uniprot_byterm with {len(ubt)} entries.")          
-    return ubt          
+    return ubt  
+
+        
 
 def get_uniprot_testset(config, usecache, species, evidence=[ 'EXP', 'IDA', 'IMP', 'IGI', 'IEP' ]):
     """
@@ -1393,15 +1548,23 @@ def get_uniprot_testset(config, usecache, species, evidence=[ 'EXP', 'IDA', 'IMP
     
     Generate DataFrame with data for export as CAFA test file:
     G<taxonid>_<datetime>_<5-digit-number>    <proteinid>   <sequence>
+     
+ ['Q6GZX4', 'FRG3G', 'GO:0046782', 'IEA', 'IEA', '001R_FRG3G', 256, 'MAFSAEDVLKEYDRRRRMEALLLSLYYPNDRKLLDYKEWSPPRVQVECPKAPVEWNNPPSEKGLIVGHFSGIKYKGEKAQASEVDVNKMCCWVSKFKDAMRRYQGIQTCKIPGKVLSDLDAKIKAYNLTVEGVEGFVRYSRVTKQHVAAFLKELRHSKQYENVNLIHYILTDKRVDIQHLEKDLVKDFKALVESAHRMRQGHMINVKYILYQLLKKHGHGPDGPDILTVKTGSKGVLYDDSFRKIYTDLGWKFTPL', nan]
       
     """
-    lodt = build_uniprot_test(config, usecache)
-    #print(lodt)
+    #lodt = build_uniprot_test(config, usecache)
+    #lodt = build_uniprot(config, usecache)
+    lodt = get_uniprot_byterm(config, usecache)
+    logging.debug(f"lodt: \n{lodt[0]}")
 
-    tdf = pd.DataFrame(lodt, columns=['pacc','protein','species','goterm','goev','seqlen','seq'])
+    #tdf = pd.DataFrame(lodt, columns=['pacc','protein','species', 'goterm','goev','seqlen','seq'])
+    tdf = pd.DataFrame(lodt, columns=['pacc', 'pid', 'protein', 'species', 
+                                      'goterm','goev','seqlen','seq','gene'])
+    logging.debug(f"testing tdf is:\n{tdf}")
     if evidence is not None:
         tdf = tdf[tdf['goev'].isin(evidence)] 
     tdf = tdf[tdf['species'] == species]
+    
     tdf.reset_index(inplace=True)
     un = tdf.protein.unique()
     evcodes = tdf.goev.unique()
@@ -1467,69 +1630,6 @@ def do_testset(config, numseq, species, outfile):
 
 
 
-def build_uniprot_test(config, usecache):
-    """
-   
-    [ {'proteinid': '001R_FRG3G', 
-       'protein': '001R', 
-       'species': 'FRG3G', 
-       'proteinacc': 'Q6GZX4', 
-       'taxonid': '654924', 
-       'goterms': {'GO:0047043': 'IEA', 'GO:0006694': 'IEA'}, 
-       'seqlength': 256, 
-       'sequence': 'MAFSAEDVL......LYDDSFRKIYTDLGWKFTPL'},
-       .
-       .
-    ]
-   
-    Create redundant dataframe for later slimming. Include sequence. Cache. 
-   
-    """    
-    cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
-    cachefile = f"{cachedir}/uniprottest.pickle"    
-    lodt = None
-    
-    if os.path.exists(cachefile) and usecache:
-        logging.debug("Cache hit. Using existing info...")    
-        try:
-            cf = open(cachefile, 'rb')    
-            lodt = pickle.load(cf)
-        except Exception:
-            logging.error(f'unable to load via pickle from {cachefile}')
-            traceback.print_exc(file=sys.stdout)    
-        finally:
-            cf.close()       
-    else:    
-        lod = build_uniprot(config, usecache=True)
-       
-    
-        lodt = []
-        for p in lod:
-            newgts = {}
-            for gt in p['goterms'].keys():
-                evcode = p['goterms'][gt]
-                item = [ p['proteinacc'],
-                         p['protein'],
-                         p['species'],
-                         gt, 
-                         evcode,
-                         p['seqlength'],
-                         p['sequence'] 
-                      ]
-                lodt.append(item)
-                
-        logging.debug(f"saving listofdicts: to {cachefile}")
-        try:
-            cf = open(cachefile, 'wb')    
-            pickle.dump(lodt, cf )
-            logging.debug(f"saved listofdicts: to {cachefile}")
-        except Exception as e:
-            logging.error(f'unable to dump via pickle to {cachefile}')
-            traceback.print_exc(file=sys.stdout)     
-        finally:
-            cf.close() 
-        logging.debug(f"created uniprot test source with {len(lodt)} entries.")
-    return lodt
 
 
 def build_prior(config, usecache, species=None, outfile=None):
@@ -1753,9 +1853,14 @@ def parse_uniprot_dat(config):
                     #  GN   ABL1 {ECO:0000303|PubMed:21546455},
                     #  GN   Name=BRCA1; Synonyms=RNF53;
                     #  GN   ORFNames=T13E15.24/T13E15.23, T14P1.25/T14P1.24;
-                    #logging.debug("Handling GN.")
+                    # logging.debug(f"Handling GN. {line}")
                     val = line[5:]
-                    
+                    if val.startswith("Name="):
+                        fields = val.split()   # by whitespace
+                        (n, gname) = fields[0].split("=")
+                        gname = gname.upper()
+                        #logging.debug(f"Gene name is {gname} ")
+                        current['gene'] = gname.replace(';','') 
             
                 elif line.startswith("//"):
                     #logging.debug("End of entry.")                  
@@ -1774,7 +1879,7 @@ def parse_uniprot_dat(config):
             filehandle.close()      
         
         logging.info(f"Parsed file with {len(allentries)} entries" )
-        logging.debug(f"First entry:  {allentries[0]}")
+        logging.debug(f"Some entries:  {allentries[1000:1005]}")
         return allentries
 
 
@@ -1966,7 +2071,7 @@ if __name__ == '__main__':
     parser_phmmer = subparsers.add_parser('phmmer',
                                           help='run phmmer and output prediction')
     
-    parser_phmmer.add_argument('-n','--infile', 
+    parser_phmmer.add_argument('-i','--infile', 
                                metavar='infile', 
                                type=str, 
                                help='a .fasta sequence files')
@@ -1996,6 +2101,24 @@ if __name__ == '__main__':
                                type=str,
                                default=None, 
                                help='species-specific prior, otherwise global')
+
+
+################################ pure expression ########################################
+   
+    parser_expr = subparsers.add_parser('expression',
+                                          help='infer via expression and output prediction')
+    
+    parser_expr.add_argument('-i','--infile', 
+                               metavar='infile', 
+                               type=str, 
+                               help='a .fasta sequence files')
+
+    parser_expr.add_argument('-o','--outfile', 
+                               metavar='outfile', 
+                               type=str, 
+                               help='a DF .csv prediction file')
+
+
 
 ######################### build and cache ontology ####################################
 
