@@ -268,3 +268,124 @@ def build_uniprot_test(config, usecache):
             cf.close() 
         logging.debug(f"created uniprot test source with {len(lodt)} entries.")
     return lodt
+
+
+def build_uniprot_bypid(config):
+    """
+    Since this is only used by do_evaluate we will only use experimentally
+    validated annotations. 
+    
+    builds dictionary geneid -> propagated govector. 
+    
+    Returns dict for later use..
+    """
+    ontobj = get_ontology_object(config, usecache=True)
+    ubt = get_uniprot_byterm_df(config, usecache=True, exponly=True)
+    pids = list(ubt.pid.unique())
+    logging.debug(f"pid list, length={len(pids)} e.g. : {pids[:50]}")
+    ubtd = ubt.to_dict(orient = 'index')
+    logging.debug(f"converted DF to dict: e.g. \n{ [ubtd[i] for i in range(0,3)] } ")
+   
+    bypiddict = {}
+    sumreport = 1
+    suminterval = 10000
+    repthresh = sumreport * suminterval
+    gtlength = len(ontobj.gotermidx)
+    logging.debug(f"gv length is {gtlength}")
+    
+    i = 0
+    currentpid = None
+    currentgv = np.zeros(gtlength, dtype=bool)
+    while i < len(ubtd):
+        row = ubtd[i]
+        pid = row['pid']
+        #logging.debug(f"row {i} is pid {pid}")
+        if currentpid is None:
+            currentpid = pid
+            currentgv = currentgv + ontobj[row['goterm']]
+
+        elif currentpid == pid:
+            # same pid, continue...
+            currentgv = currentgv + ontobj[row['goterm']] 
+        else:
+            # new pid
+            bypiddict[currentpid] = currentgv 
+            currentpid = pid
+            currentgv = np.zeros(gtlength, dtype=bool)
+
+        if len(bypiddict) >= repthresh:
+            logging.info(f"Processed {len(bypiddict)} entries... ")
+            sumreport +=1
+            repthresh = sumreport * suminterval    
+        
+        i += 1
+        
+    samplekeys = list(bypiddict.keys())[:3]
+    logging.debug(f"Made dict by proteinid: {[ bypiddict[k] for k in samplekeys]} ")
+    return bypiddict
+
+
+def build_uniprot_bygene(config):
+    """
+    Since this will be used for inference, we will use all evidence codes. 
+
+        pacc species      goterm goev          pid   gene
+0     P0DJZ0   PAVHV  GO:0030430  IDA    11K_PAVHV    11K
+1     P32234   DROME  GO:0005525  IDA  128UP_DROME  128UP
+2     P83011   SCYCA  GO:0043231  IDA  13KDA_SCYCA    NaN
+7143  P24224   ECOLI  GO:0008897  IDA   ACPS_ECOLI   ACPS
+7144  P24224   ECOLI  GO:0018070  IDA   ACPS_ECOLI   ACPS    
+
+NOTES:  NaN expected for gene, omit...
+        gene will not be unique. handle all...
+    
+    builds dictionary gene -> propagated govector. 
+    
+    Returns dict for later use..
+    """
+    ontobj = get_ontology_object(config, usecache=True)
+    ubtdf = get_uniprot_byterm_df(config, usecache=True, exponly=False)
+    ubtdf = ubtdf[ubtdf.gene.notna()]
+    ubtdf.sort_values(by='gene', inplace=True)
+    ubtdf.reset_index(drop=True, inplace=True)
+        
+    ubtd = ubtdf.to_dict(orient = 'index')
+    logging.debug(f"converted DF to dict: e.g. \n{ [ubtd[i] for i in range(0,3)] } ")
+   
+    bygenedict = {}
+    sumreport = 1
+    suminterval = 10000
+    repthresh = sumreport * suminterval
+    gtlength = len(ontobj.gotermidx)
+    logging.debug(f"gv length is {gtlength}")
+    
+    i = 0
+    currentgid = None
+    currentgv = np.zeros(gtlength, dtype=bool)
+    while i < len(ubtd):
+        row = ubtd[i]
+        gid = row['gene']
+        #logging.debug(f"row {i} is pid {pid}")
+        if currentgid is None:
+            currentgid = gid
+            currentgv = currentgv + ontobj[row['goterm']]
+            
+        elif currentgid == gid:
+            # same gid, continue...
+            currentgv = currentgv + ontobj[row['goterm']] 
+        else:
+            # new gid
+            bygenedict[currentgid] = currentgv 
+            currentgid = gid
+            currentgv = np.zeros(gtlength, dtype=bool)
+
+        if len(bygenedict) >= repthresh:
+            logging.info(f"Processed {len(bygenedict)} entries... ")
+            sumreport +=1
+            repthresh = sumreport * suminterval    
+        i += 1
+        
+    samplekeys = list(bygenedict.keys())[:3]
+    logging.debug(f"Made dict by geneid: {[ (k, bygenedict[k]) for k in samplekeys]} ")
+    return bygenedict
+

@@ -15,8 +15,10 @@ for SPECIES in $SPECLIST; do
 	time $PROG -c $CONF testset -n $NUMSEQ -s $SPECIES -o $TFAOUT
 
 	echo "time $PROG -C -c $CONF phmmer -i $TFAOUT -o $PREDOUT"
-	time $PROG -C -c $CONF phmmer -i $TFAOUT -o $PREDOUT
+	time $PROG -C -c $CONF expression -i $TFAOUT -o $PREDOUT
 
 	echo "time $PROG -C -c $CONF evaluate -p $PREDOUT -o $EVALOUT"
 	time $PROG -C -c $CONF evaluate -p $PREDOUT -o $EVALOUT
 done
+
+
