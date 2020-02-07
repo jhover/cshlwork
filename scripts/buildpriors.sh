@@ -10,7 +10,6 @@ for SPECIES in $SPECLIST; do
 	echo "Building prior for $SPECIES..." 
 	echo "time $PROG -c $CONF build_prior -s $SPECIES -o $OUTDIR/uniprot.prior.$SPECIES.csv" 
 	time $PROG -c $CONF build_prior -s $SPECIES -o $OUTDIR/uniprot.prior.$SPECIES.csv    
-
 done
 
 echo "Building global prior..."
