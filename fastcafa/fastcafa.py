@@ -1142,9 +1142,9 @@ def calc_expression_prediction(config, dataframe, usecache, version='current'):
                     expser = eds[row.pacc]
                     logging.debug(f"expser type is {type(expser)}")
                     logging.debug(f"Got expression info for pacc={row.pacc}")
-                    #if expser
-                    expser = expser.iloc[:,0]
-                    
+                    if (len(expser.shape) > 1 ) and ( expser.shape[1] > 1 ):
+                        logging.warning(f"Expression DF has too many columns!! sp={scode} col={row.pacc}" )
+                        expser = expser.iloc[:,0]
                     
                     expser = expser.nlargest(n=topx_threshold)
                     epacclist = list(expser.index)

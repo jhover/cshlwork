@@ -8,6 +8,8 @@ OUTDIR=~/play/cafa4
 PROG=~/git/cshl-work/fastcafa/fastcafa.py
 CONF=~/git/cshl-work/etc/fastcafa.conf
 METHODS="phmmer expression"
+DEBUG="-d "
+
 
 echo "Running tests...."
 
@@ -23,15 +25,15 @@ for TFA in `ls $TESTDIR/*.tfa`; do
 		PREDOUT=$OUTDIR/$FILEBASE.$METHOD.csv
 		EVALOUT=$OUTDIR/$FILEBASE.$METHOD.eval.csv
 		echo "running $METHOD ..."
-		echo "time $PROG -C -c $CONF $METHOD -i $TFA -o $PREDOUT -V previous"
+		echo "time $PROG -C $DEBUG -c $CONF $METHOD -i $TFA -o $PREDOUT -V previous"
 		echo ""
-		#time $PROG -C -c $CONF $METHOD -i $TFA -o $PREDOUT -V previous
+		time $PROG -C $DEBUG -c $CONF $METHOD -i $TFA -o $PREDOUT -V previous
 				
 		echo "Running evaluate..."
 		if [ -f $PREDOUT ]; then
-			echo "time $PROG -C -c $CONF evaluate -p $PREDOUT -o $EVALOUT"
+			echo "time $PROG -C $DEBUG -c $CONF evaluate -p $PREDOUT -o $EVALOUT"
 			echo ""
-			#time $PROG -C -c $CONF evaluate -p $PREDOUT -o $EVALOUT
+			time $PROG -C $DEBUG -c $CONF evaluate -p $PREDOUT -o $EVALOUT
 		else
 			echo "no infile $PREDOUT skipping..."
 		fi
