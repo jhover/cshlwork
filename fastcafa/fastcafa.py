@@ -333,8 +333,11 @@ class ExpressionSet(object):
             logging.debug(f"Found existing dataset for {scode}")
         except KeyError:
             logging.debug(f"Loading dataset for {scode}")
-            ds = get_expression_dataset(self.config, scode)
-            self.datasets[scode] = ds
+            try:
+                ds = get_expression_dataset(self.config, scode)
+            except Exception:
+                logging.warning('problem in get_expression_dataset(). leaving DS None')
+            self.datasets[scode] = ds                    
         return ds 
         
 
@@ -1318,7 +1321,7 @@ def calc_phmmer_prediction(config, dataframe, usecache, version='current'):
                            'score' : govalar, 
                            'cgid' : cgidar })
         
-        logging.debug(f"dataframe is {df}")
+        logging.debug(f"dataframe is:\n{df}")
         # This pulls out values, sorted by whatever 'score' is...
         df = df.nlargest(max_goterms, 'score')
         #df.sort_values(by='pest', ascending=False)
