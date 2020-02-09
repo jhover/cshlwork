@@ -851,6 +851,12 @@ def execute_phmmer(config, filename, version='current'):
         database = config.get('phmmer', version)
         logging.debug(f"Using non-current version of uniprot for phmmer database: {database}")
     
+    cmd = ["/usr/bin/which","phmmer"]
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    res = p.stdout.readlines()
+    logging.debug(f'which phmmer gave {res}')
+    
+    
     # cmd = f"phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}"
     # args = f" --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database} "
     # cmd = ['phmmer', args ]
