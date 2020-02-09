@@ -852,7 +852,8 @@ def execute_phmmer(config, filename, version='current'):
         logging.debug(f"Using non-current version of uniprot for phmmer database: {database}")
     
     #cmd = f"phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}"
-    cmd = [f"phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}" ]
+    args = f" --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database} "
+    cmd = ['phmmer', args ]
     
     logging.debug(f"Running: {cmd}")
     cp = subprocess.run(cmd, 
