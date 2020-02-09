@@ -851,13 +851,14 @@ def execute_phmmer(config, filename, version='current'):
         database = config.get('phmmer', version)
         logging.debug(f"Using non-current version of uniprot for phmmer database: {database}")
     
-    cmd = f"phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}"
+    #cmd = f"phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}"
+    cmd = [f"phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}" ]
+    
     logging.debug(f"Running: {cmd}")
     cp = subprocess.run(cmd, 
                         shell=False, 
                         universal_newlines=True, 
-                        stdout=subprocess.PIPE, 
-                        stderr=subprocess.PIPE)
+                        capture_output=True)
     
     logging.debug(f"Ran cmd='{cmd}' outfile={outfile} returncode={cp.returncode} " )
     logging.debug(f"stdout='{cp.stdout}")
