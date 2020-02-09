@@ -856,7 +856,11 @@ def execute_phmmer(config, filename, version='current'):
                         universal_newlines=True, 
                         stdout=subprocess.PIPE, 
                         stderr=subprocess.PIPE)
-    logging.debug("Ran cmd='%s' outfile=%s returncode=%s " % (cmd, outfile, cp.returncode))
+    
+    logging.debug(f"Ran cmd='{cmd}' outfile={outfile} returncode={cp.returncode} " )
+    logging.debug(f"stdout='{cp.stdout}")
+    logging.debug(f"stderr='{cp.stderr}")
+    
     return (outfile, exclude_list, cidgidmap)
 
 
