@@ -854,7 +854,7 @@ def execute_phmmer(config, filename, version='current'):
     cmd = f"phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}"
     logging.debug(f"Running: {cmd}")
     cp = subprocess.run(cmd, 
-                        shell=True, 
+                        shell=False, 
                         universal_newlines=True, 
                         stdout=subprocess.PIPE, 
                         stderr=subprocess.PIPE)
