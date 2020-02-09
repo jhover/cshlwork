@@ -837,10 +837,12 @@ def execute_phmmer(config, filename, version='current'):
     cidgidmap = get_tfa_geneids(filename)
     for c in cidgidmap.keys():
         exclude_list.append(c)     
-    outdir = config.get('global','outdir')
+    outdir = os.path.expanduser(config.get('global','outdir'))
+    filename =os.path.expanduser(filename)
     outpath = os.path.dirname(filename)
     filebase = os.path.splitext(os.path.basename(filename))[0]
     outfile = "%s/%s.phmmer.tbl.txt" % (outdir, filebase)
+    logging.debug(f"outfile={outfile}")
     cpus = config.get('phmmer','cpus')
     eval_threshold = config.get('phmmer','eval_threshold')
     if version == 'current':
@@ -849,7 +851,7 @@ def execute_phmmer(config, filename, version='current'):
         database = config.get('phmmer', version)
         logging.debug(f"Using non-current version of uniprot for phmmer database: {database}")
     
-    cmd = f"time phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}"
+    cmd = f"phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}"
     logging.debug(f"Running: {cmd}")
     cp = subprocess.run(cmd, 
                         shell=True, 
