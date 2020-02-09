@@ -5,8 +5,8 @@
 #
 TESTDIR=~/data/cafa4/testtargets
 OUTDIR=~/play/cafa4
-PROG=~/git/cshl-work/fastcafa/fastcafa.py
-CONF=~/git/cshl-work/etc/fastcafa.conf
+PROG=~/data/git/cshl-work/fastcafa/fastcafa.py
+CONF=~/data/git/cshl-work/etc/fastcafa.conf
 METHODS="prior phmmer expression"
 DEBUG="-d "
 

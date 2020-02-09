@@ -6,8 +6,8 @@
 DATE=`date "+%Y%m%d-%H%M%S"`
 TESTDIR=~/data/cafa4/TargetFiles
 OUTDIR=~/play/cafa4/$DATE
-PROG=~/git/cshl-work/fastcafa/fastcafa.py
-CONF=~/git/cshl-work/etc/fastcafa.conf
+PROG=~/data/git/cshl-work/fastcafa/fastcafa.py
+CONF=~/data/git/cshl-work/etc/fastcafa.conf
 METHODS="phmmer expression"
 DEBUG="-d "
 

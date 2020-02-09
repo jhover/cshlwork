@@ -509,23 +509,39 @@ def do_phmmer(config, infile, outfile, usecache=True, version='current'):
     Perform phmmer on infile sequences. 
     Output prediction to outfile.
     
+    Also cache predictions....
+    
     """
     
     logging.info(f"running phmmer version={version}")
-    pdf = get_phmmer_df(config, infile, version)
-    logging.info(f"got phmmer df:\n{pdf}")
-
-    if pdf is not None:
-        logging.info("making phmmer prediction...")
-        df = calc_phmmer_prediction(config, pdf, usecache, version)
-        logging.debug(f"prediction=\n{df}")
+    infile = os.path.expanduser(infile)
+    pcachedir = os.path.expanduser(config.get('phmmer','cachedir')) 
+    filename = os.path.basename(infile)
+    (filebase, e) = os.path.splitext(filename)
+    predcachefile = f"{pcachedir}/{filebase}.phmmer.{version}.pred.csv"
+    logging.debug(f"predcachefile={predcachefile}")
     
+    if os.path.exists(infile):
+        if os.path.exists(predcachefile):
+            logging.info("Predication cache hit. loading..")
+            df = pd.read_csv(predcachefile, index_col=0)
+        else:      
+            pdf = get_phmmer_df(config, infile, version)
+            logging.info(f"got phmmer df:\n{pdf}")
+    
+            if pdf is not None:
+                logging.info("making phmmer prediction...")
+                df = calc_phmmer_prediction(config, pdf, usecache, version)
+                logging.debug(f"prediction=\n{df}")
+               
+            logging.info(f"Caching to {predcachefile}")
+            df.to_csv(predcachefile)
         logging.info(f"writing to outfile {outfile}")
         df.to_csv(outfile)
         logging.info("done.")
-        print(df)
+
     else:
-        logging.info(f"no phmmer hits for infile {infile}")
+        logging.error(f"No such infile: {infile}")
 
 
 def parse_tfa_file( infile):
@@ -775,15 +791,31 @@ def get_phmmer_dict(config, filepath, version='current'):
 
 def get_phmmer_df(config, filepath, version='current'):
     """
-    orders by target,  evalue ascending (best fit first). 
+    orders by target,  evalue ascending (best fit first).  
+    cache output for later usage....
     
     """
-    phd = get_phmmer_dict(config, filepath, version)
-    if len(phd) == 0:
-        df = None
-    else:
-        df = pd.DataFrame.from_dict(phd, orient='index')
-        df = df.sort_values(by=['cid','eval'], ascending=[True, True]) 
+    logging.debug(f"Handling input file {filepath}")
+    infile = os.path.expanduser(filepath)
+    pcachedir = config.get('phmmer','cachedir') 
+
+    filename = os.path.basename(os.path.expanduser(filepath))
+    (filebase, e) = os.path.splitext(filename)
+    pcachefile =f"{pcachedir}/{filebase}.phmmerdf.{version}.csv"
+    
+    df = None
+    try:
+        df = pd.read_csv(pcachefile, index_col=0)
+        logging.info("Cached phmmer run found. ")
+    except:
+        logging.info("No cached phmmer data. Running...")      
+        phd = get_phmmer_dict(config, filepath, version)
+        if len(phd) > 0:
+            df = pd.DataFrame.from_dict(phd, orient='index')
+            df = df.sort_values(by=['cid','eval'], ascending=[True, True])
+        if df is not None:
+            logging.debug(f"Caching phmmer output to {pcachefile}")
+            df.to_csv(pcachefile)
     return df
 
 
@@ -1223,6 +1255,7 @@ def calc_phmmer_prediction(config, dataframe, usecache, version='current'):
             # parent of an annotation term).
             # gv = array([123,   0,   3,   7, 345, 0])
         logging.debug(f"pscore={pscore} udf=\n{udf}")
+        
         if score_method == 'phmmer_score':
             ones = np.ones(gtlength)
             gv = np.minimum(gv, ones)
@@ -1234,9 +1267,9 @@ def calc_phmmer_prediction(config, dataframe, usecache, version='current'):
             #75   G1009000000009  5.900000e-254  846.9  13.3  P34975     OPRK_RAT  OPRK_MOUSE
 
         if score_method == 'phmmer_score_weighted':
-            logging.debug(f"gv.dtype={gv.dtype} max={gv.max()} pscore={pscore}")
+            #logging.debug(f"gv.dtype={gv.dtype} max={gv.max()} pscore={pscore}")
             gv = gv * pscore
-            logging.debug(f"after gv.dtype={gv.dtype}") 
+            #logging.debug(f"after gv.dtype={gv.dtype}") 
             
 
         #logging.debug(f"gv: {matrix_info(gv)}")
@@ -2324,33 +2357,32 @@ def run_tocafa(config, infile, outfile=None):
     """
     max_goterms = config.get('global','max_goterms')
     author = config.get('global','author')
-    
     infile = os.path.expanduser(infile)
-    
     df = pd.read_csv(infile, index_col=0)
-    
     
     s = ""
     s += f"AUTHOR\t{se.author}\n" 
     s += "MODEL\t%s\n" % 1
     s += "KEYWORDS\tortholog, gene expression\n"
     s += "ACCURACY\t1\tPR=%f;\tRC=%f\n" % (1.00, 1.00) 
-    self.log.debug("dataframe columns=%s" % dataframe.columns )
+    self.log.debug("dataframe columns=%s" % f.columns )
+    
+    
     #for row in dataframe.iterrows():
     #    target = row[1]['cafaid']
     #    goterm = row[1]['goterm']
-        #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
+    #    pest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
     #    probest = row[1]['cafaprob'] # rounding not needed. format does it correctly below. 
     #    s += "%s\t%s\t%.2f\n" % (target, goterm, probest)
-    for row in dataframe.itertuples():
-        target = row.cafaid
-        goterm = row.goterm
-        #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
-        probest = row.cafaprob # rounding not needed. format does it correctly below. 
-        s += f"{target}\t{goterm}\t{probest:.2f}\n"        
+    #for row in dataframe.itertuples():
+    #    target = row.cafaid
+    #    goterm = row.goterm
+    #    #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
+    #    probest = row.cafaprob # rounding not needed. format does it correctly below. 
+    #    s += f"{target}\t{goterm}\t{probest:.2f}\n"        
     s+="END\n"
     
-    f.write(s)
+    #f.write(s)
     f.close()
     self.log.info(f"Wrote cafafile with {len(dataframe.index)} entries. ")
     return s

@@ -5,8 +5,8 @@
 #
 SPECLIST="ARATH BACCR BOVIN CAEEL DANRE DICDI DROME ECOLI HUMAN MAIZE MOUSE MYCGE PIG PSEAI SCHPO RAT SALTY YEAST "
 VERSIONS="current previous"
-PROG=~/git/cshl-work/fastcafa/fastcafa.py
-CONF=~/git/cshl-work/etc/fastcafa.conf
+PROG=~/data/git/cshl-work/fastcafa/fastcafa.py
+CONF=~/data/git/cshl-work/etc/fastcafa.conf
 OUTDIR=~/play/cafa4
 
 for VERSION in $VERSIONS; do 
