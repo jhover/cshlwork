@@ -501,6 +501,7 @@ def do_expression(config, infile, outfile, usecache=True, version='current'):
         print(df)
     else:
         logging.info(f"No phmmer hits for infile {infile} so can't run expression.")    
+
     
 
 def do_phmmer(config, infile, outfile, usecache=True, version='current'):
@@ -571,7 +572,7 @@ def do_prior(config, infile, outfile, usecache=True, species=None):
   
 
 
-def run_evaluate_pr(config, predictfile, outfile, goaspect=None):
+def run_evaluate(config, predictfile, outfile, goaspect=None):
     """
     Consume a prediction.csv file, and score based on accuracy. 
     X.prediction.csv
@@ -579,16 +580,17 @@ def run_evaluate_pr(config, predictfile, outfile, goaspect=None):
     """
     df = pd.read_csv(os.path.expanduser(predictfile), index_col=0)
     logging.debug(f"got predictdf types:\n{df.dtypes}\n{df}")
-    edf = do_evaluate_pr(config, df, goaspect)
+    edf = do_evaluate(config, df, goaspect)
 
-    max_goterms = config.get('global','max_goterms')
+    #max_goterms = config.get('global','max_goterms')
     eval_threshold = config.get('phmmer','eval_threshold')
     topx_threshold = config.get('phmmer','topx_threshold')
     score_method = config.get('phmmer','score_method')
-    logging.info(f"hyperparams:\nmax_goterms={max_goterms}\neval_threshold={eval_threshold}\ntopx_threshold={topx_threshold}\nscore_method={score_method}  ")
+    #logging.info(f"hyperparams:\nmax_goterms={max_goterms}\neval_threshold={eval_threshold}\ntopx_threshold={topx_threshold}\nscore_method={score_method}  ")
+    logging.info(f"hyperparams:\neval_threshold={eval_threshold}\ntopx_threshold={topx_threshold}\nscore_method={score_method}  ")
     #logging.debug(f"got evaluation df:\n{edf}")
     fh = open(outfile, 'w')
-    fh.write(f"# max_goterms={max_goterms}\n# eval_threshold={eval_threshold}\n# topx_threshold={topx_threshold}\n# score_method={score_method}\n")
+    fh.write(f"# eval_threshold={eval_threshold}\n# topx_threshold={topx_threshold}\n# score_method={score_method}\n")
     edf.to_csv(fh)
     fh.close()    
     print(edf)
@@ -603,7 +605,7 @@ def is_correct_apply(row):
     return UniprotByPid.instance.contains(row.cgid, row.goterm)
 
 
-def do_evaluate_pr(config, predictdf, goaspect):
+def do_evaluate(config, predictdf, goaspect):
     """
     Calculate precision recall number. 
     
@@ -613,7 +615,7 @@ def do_evaluate_pr(config, predictdf, goaspect):
     2    G960600000001 GO:0086090   49.0   Q9Y3Q4_HUMAN
     
     Return:
-    max_goterms=1499
+    
     eval_threshold=1.0e-120
     topx_threshold=200
     score_method=phmmer_score_weighted  
@@ -633,9 +635,9 @@ def do_evaluate_pr(config, predictdf, goaspect):
     cidlist = list(predictdf.cid.unique())
     logging.debug(f"cid list: {cidlist}")
     # Normalize all estimates from score to .01 - .99
-    cmax = predictdf.score.max()
-    cmin = predictdf.score.min()
-    predictdf['pest'] = np.interp(predictdf['score'], (cmin, cmax ), (.01,.99))
+    #cmax = predictdf.score.max()
+    #cmin = predictdf.score.min()
+    #predictdf['pest'] = np.interp(predictdf['score'], (cmin, cmax ), (.01,.99))
     #logging.debug(f"cdf after score normalization -> pest is:\n{cdf.dtypes}\n{cdf}")
     
     ntermsum = 0
@@ -727,16 +729,13 @@ def calc_f1_max(dataframe):
 
 def calc_precision_recall(posidxlist, totalnum):
     """
-        Calculates precision recall
-        
+        Calculates precision recall    
     """
     # precision-recall -> pr
     n = len(posidxlist)
     sum = 0
     i = 1
     for posi in posidxlist:
-        #val = ( i / posi + 1 )
-        #logging.debug(f" {i} / {posi} = {val}")
         sum = sum + ( i / ( posi + 1 ) )
         #logging.debug(f"sum is {sum}")
         i += 1
@@ -745,73 +744,6 @@ def calc_precision_recall(posidxlist, totalnum):
     else:
         pr = (1 / n) * sum 
     return pr
-
-
-
-def do_evaluate_auroc(config, predictdf, goaspect):
-    """
-    i    cid           goterm       score    cgid
-    0    G960600000001 GO:0086041   53.0   Q9Y3Q4_HUMAN
-    1    G960600000001 GO:0086089   49.0   Q9Y3Q4_HUMAN
-    2    G960600000001 GO:0086090   49.0   Q9Y3Q4_HUMAN
-    
-    Return:
-    max_goterms=1499
-    eval_threshold=1.0e-120
-    topx_threshold=200
-    score_method=phmmer_score_weighted  
-              cgid             cid  correct      goterm      pauc      pest     score     auroc
-        CHIA_MOUSE  G1009000000001     True  GO:0008150  0.759799  0.990000  0.046959  0.830652
-        CHIA_MOUSE  G1009000000001    False  GO:0005575  0.759799  0.442188  0.020743  0.830652
-        CHIA_MOUSE  G1009000000001    False  GO:0110165  0.759799  0.423416  0.019845  0.830652
-
-    
-    from sklearn import metrics
-    metrics.auc(fpr, tpr)
-    
-    """
-    
-    logging.debug(f"got predictdf:\n{predictdf}")
-    ubgo = get_uniprot_bygene_object(config, usecache=True)
-    ontobj = get_ontology_object(config, usecache=True)
-    logging.debug(f"got known uniprot and ontology object.")  
-    
-    outdf = pd.DataFrame(columns = ['cid','goterm','score','cgid','correct','pest','pauc'])
-
-    cidlist = list(predictdf.cid.unique())
-    logging.debug(f"cid list: {cidlist}")
-    for cid in cidlist:
-        cdf = predictdf[predictdf.cid == cid].copy()
-        # get gene id. 
-        cgid = cdf.cgid.unique()[0]
-        logging.debug(f"cgid is {cgid}")
-        #logging.debug(f"geneid for this target is is {cgid}")
-        cdf['correct'] = cdf.apply(is_correct_apply, axis=1)
-        cdf.reset_index(drop=True, inplace=True) 
-        logging.debug(f"cdf after assessment:\n{cdf.dtypes}\n{cdf}")
-        # Normalize all estimates from score to .01 - .99
-        cmax = cdf.score.max()
-        cmin = cdf.score.min()
-        cdf['pest'] = np.interp(cdf['score'], (cmin, cmax ), (.01,.99))
-        logging.debug(f"cdf after score normalization -> pest is:\n{cdf.dtypes}\n{cdf}")
-        try:                 
-            pauc = metrics.roc_auc_score(cdf['correct'], cdf['pest'])
-            logging.debug(f"pauc is {pauc}")
-        except ValueError:
-            pauc = .50
-        
-        cdf['pauc'] = pauc
-        logging.debug(f"cdf is:\n{cdf}")
-        outdf = outdf.append(cdf, ignore_index=True)
-    outdf['correct'] = outdf['correct'].astype(np.bool)
-    
-    logging.debug(f"outdf before auc is:\n{outdf}")
-    auroc = metrics.roc_auc_score(outdf['correct'], outdf['pest'])
-    outdf['auroc'] = auroc
-    #f1scr = metrics.f1_score(outdf['correct'], outdf['pest']         )
-    #outdf['f1score'] = f1scr
-    logging.debug(f"outdf after auroc is:\n{outdf}")
-    return outdf
 
 
 def get_evaluate_df(config, predictdf, goaspect=None,  threshold=None ):
@@ -1104,7 +1036,7 @@ def calc_expression_prediction(config, dataframe, usecache, version='current'):
     expdataobj = get_expressionset_object(config)
         
     gtlength = len(ontobj.gotermidx)
-    max_goterms = config.getint('global','max_goterms')
+    #max_goterms = config.getint('global','max_goterms')
     topx_threshold = config.getint('expression', 'topx_threshold')
     expscore_threshold = config.getfloat('expression','expscore_threshold')
     score_method = config.get('expression' ,'score_method')
@@ -1195,8 +1127,7 @@ def calc_expression_prediction(config, dataframe, usecache, version='current'):
             
             logging.debug(f"dataframe is {df}")
             # This pulls out values, sorted by whatever 'score' is...
-            df = df.nlargest(max_goterms, 'score')
-            #df.sort_values(by='pest', ascending=False)
+            # df = df.nlargest(max_goterms, 'score')
             logging.debug(f"made dataframe for cid {cid}:\n{df}")
             topdf = topdf.append(df, ignore_index=True, sort=True)
         else:
@@ -1240,7 +1171,7 @@ def calc_phmmer_prediction(config, dataframe, usecache, version='current'):
     ubtdf = get_uniprot_byterm_df(config, usecache=usecache, exponly=False, version=version)
     ontobj = get_ontology_object(config, usecache)
     gtlength = len(ontobj.gotermidx)
-    max_goterms = config.getint('global','max_goterms')
+    # max_goterms = config.getint('global','max_goterms')
     score_method = config.get('phmmer','score_method')
 
     pdf = dataframe
@@ -1323,8 +1254,8 @@ def calc_phmmer_prediction(config, dataframe, usecache, version='current'):
         
         logging.debug(f"dataframe is:\n{df}")
         # This pulls out values, sorted by whatever 'score' is...
-        df = df.nlargest(max_goterms, 'score')
-        #df.sort_values(by='pest', ascending=False)
+        # df = df.nlargest(max_goterms, 'score')
+        # df.sort_values(by='pest', ascending=False)
         logging.debug(f"made dataframe for cid {cid}:\n{df}")
         topdf = topdf.append(df, ignore_index=True, sort=True)
         
@@ -1342,13 +1273,13 @@ def make_prior_prediction(config, infile, species=None):
     logging.debug(f"Got cid/cgid frame:\n{cdf}") 
     pdf = get_prior_df(config, True, species)
     logging.debug(f"Got prior frame:\n{pdf}")     
-    max_goterms = config.getint('global','max_goterms')
-    logging.debug(f"max_goterms={max_goterms}")
+    # max_goterms = config.getint('global','max_goterms')
+    # logging.debug(f"max_goterms={max_goterms}")
     
     # Dataframe to collect all calculated values. 
     topdf = pd.DataFrame(columns=['cid','goterm','score','cgid'])
     # This pulls out values, sorted by whatever 'score' is...
-    pdf = pdf.nlargest(max_goterms, 'pest')
+    # pdf = pdf.nlargest(max_goterms, 'pest')
 
     for (i, row) in cdf.iterrows():  
         #logging.debug(f"Row is:\n{row}")
@@ -1556,7 +1487,7 @@ def get_prior_df(config, usecache=True, species = None):
     return df
    
     
-def calc_prior(config, usecache, species=None):
+def calc_prior(config, usecache, species=None, version='current'):
     """
     take ontology matrix. goterms x goterms
     make total_termvector[ 17k ]
@@ -1596,7 +1527,7 @@ def calc_prior(config, usecache, species=None):
         ontobj = get_ontology_object(config, usecache=True)
         gtlength = len(ontobj.gotermlist)
         logging.debug(f"building sprot. species={species}")
-        sprot = get_uniprot_byterm(config, usecache=True)
+        sprot = get_uniprot_byterm(config, usecache=True, version=version)
         sdf = pd.DataFrame(sprot,columns=['pacc', 'pid', 'protein', 'species',
                                           'goterm', 'goev', 'seqlen', 'seq', 'gene'                                        
                                           ])
@@ -1819,7 +1750,7 @@ def do_testset_old(config, numseq, species, outfile):
 
 
 
-def build_prior(config, usecache, species=None, outfile=None):
+def build_prior(config, usecache, species=None, outfile=None, version='current'):
     """
     
     Additionally, if outfile is specified, writes CSV to file of ranked 
@@ -1828,7 +1759,7 @@ def build_prior(config, usecache, species=None, outfile=None):
     """
     
     logging.debug(f"running calc_prior with species {species}")
-    out = calc_prior(config, usecache, species)
+    out = calc_prior(config, usecache, species, version)
     if outfile is not None:
         outfile = os.path.expanduser(outfile)
         ontobj = get_ontology_object(config, usecache=True)
@@ -2366,6 +2297,70 @@ def get_default_config():
     return cp
 
 
+def run_tocafa(config, infile, outfile=None):
+    """
+    Convert prediction .csv into valid CAFA submission file. 
+    If no outfile name is provided, put outfile in infile directory, naming 
+    according to standard. 
+        
+    Calculate probability estimate (pest) if needed. 
+    Truncate to max_goterms. 
+    teamID_modelNo_taxonID_go.txt
+    
+    <teamname>_<modelnum>_<species>_go.txt
+    AUTHOR <teamname>
+    MODEL <modelnum>
+    KEYWORDS orthlog, expression
+    ACCURACY   1  PR=0.75; RC=0.31
+    ACCURACY   1  PR=0.65; RC=0.50
+    ACCURACY   1  PR=0.55; RC=0.41
+    <cid1>    GO:0008550    .99
+    .
+   <cid2>    GO:0008550    .99
+    .
+    END
+
+
+    """
+    max_goterms = config.get('global','max_goterms')
+    author = config.get('global','author')
+    
+    infile = os.path.expanduser(infile)
+    
+    df = pd.read_csv(infile, index_col=0)
+    
+    
+    s = ""
+    s += f"AUTHOR\t{se.author}\n" 
+    s += "MODEL\t%s\n" % 1
+    s += "KEYWORDS\tortholog, gene expression\n"
+    s += "ACCURACY\t1\tPR=%f;\tRC=%f\n" % (1.00, 1.00) 
+    self.log.debug("dataframe columns=%s" % dataframe.columns )
+    #for row in dataframe.iterrows():
+    #    target = row[1]['cafaid']
+    #    goterm = row[1]['goterm']
+        #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
+    #    probest = row[1]['cafaprob'] # rounding not needed. format does it correctly below. 
+    #    s += "%s\t%s\t%.2f\n" % (target, goterm, probest)
+    for row in dataframe.itertuples():
+        target = row.cafaid
+        goterm = row.goterm
+        #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
+        probest = row.cafaprob # rounding not needed. format does it correctly below. 
+        s += f"{target}\t{goterm}\t{probest:.2f}\n"        
+    s+="END\n"
+    
+    f.write(s)
+    f.close()
+    self.log.info(f"Wrote cafafile with {len(dataframe.index)} entries. ")
+    return s
+
+    
+    
+    
+
+
+
 ################################ utility functions ###################################
 
 def matrix_info(matrix):
@@ -2467,7 +2462,7 @@ if __name__ == '__main__':
 ################################ run prior ########################################
 
     parser_prior = subparsers.add_parser('prior',
-                                          help='calculate prior and output prediction')
+                                          help='output prior as prediction for input TFAs')
     
     parser_prior.add_argument('-i','--infile', 
                                metavar='infile', 
@@ -2484,6 +2479,12 @@ if __name__ == '__main__':
                                type=str,
                                default=None, 
                                help='species-specific prior, otherwise global')
+
+    parser_prior.add_argument('-V','--version', 
+                               metavar='version', 
+                               type=str, 
+                               default='current',
+                               help='uniprot version to use')
 
 
 ################################ phmmer -> expression ########################################
@@ -2505,7 +2506,7 @@ if __name__ == '__main__':
                                metavar='version', 
                                type=str, 
                                default='current',
-                               help='a DF .csv prediction file')
+                               help='version of uniprot to use.')
 
 
 
@@ -2516,6 +2517,7 @@ if __name__ == '__main__':
 
     parser_builduniprot = subparsers.add_parser('build_uniprot',
                                           help='build and cache uniprot info')
+
 
 ######################### build and cache prior info ####################################
     
@@ -2534,6 +2536,11 @@ if __name__ == '__main__':
                         default=None,
                         help='CSV output file of ranked goterms for prior. ')
 
+    parser_buildprior.add_argument('-V','--version', 
+                               metavar='version', 
+                               type=str, 
+                               default='current',
+                               help='version of uniprot to use.')
 
 ######################### build and cache species maps ####################################
 
@@ -2599,6 +2606,30 @@ if __name__ == '__main__':
                         dest='limited',
                         default=False, 
                         help='Allow test targets that were electronically annotated.')
+
+################################ combine predictions ########################################
+   
+    parser_combine = subparsers.add_parser('combine',
+                                          help='combine two predictions..')
+    
+    parser_combine.add_argument('-f','--infile1', 
+                               metavar='infile1', 
+                               type=str, 
+                               help='a .csv prediction')
+
+    parser_combine.add_argument('-s','--infile2', 
+                               metavar='infile2', 
+                               type=str, 
+                               help='a .csv prediction')
+    
+    parser_combine.add_argument('-o', '--out',  
+                               metavar='outfile',
+                               dest='outfile',
+                               required=False,
+                               default=None, 
+                               type=str, 
+                               help='a DF .csv prediction file')
+    
     
 
     args= parser.parse_args()
@@ -2623,7 +2654,7 @@ if __name__ == '__main__':
         do_expression(cp, args.infile, args.outfile, usecache=True, version=args.version )
     
     if args.subcommand == 'prior':
-        do_prior(cp, args.infile, args.outfile, usecache=True)
+        do_prior(cp, args.infile, args.outfile, usecache=True, version=args.version)
        
     if args.subcommand == 'build_ontology':
         build_ontology(cp, usecache=False)
@@ -2635,7 +2666,7 @@ if __name__ == '__main__':
         build_specmaps(cp,  usecache=False)
 
     if args.subcommand == 'build_prior':
-        build_prior(cp, usecache=False, species=args.species, outfile=args.outfile )
+        build_prior(cp, usecache=False, species=args.species, outfile=args.outfile, version=args.version )
 
     if args.subcommand == 'build_uniprot_test':
         build_uniprot_test(cp, usecache=False )
@@ -2644,5 +2675,13 @@ if __name__ == '__main__':
         do_testset(cp, args.numseq, args.species, args.outfile, args.limited )
 
     if args.subcommand == 'evaluate':
-        run_evaluate_pr(cp, args.predictcsv, args.outcsv, args.goaspect)
+        run_evaluate(cp, args.predictcsv, args.outcsv, args.goaspect)
+    
+    if args.subcommand == 'combine':
+        run_combine(cp, args.predict1csv, args.predict2csv)
+    
+    if args.subcommand == 'tocafa':
+        run_tocafa(cp, args.infile)
+        
+
     

@@ -117,7 +117,7 @@ class CAFA4Run(object):
         E.g. filename:    gillislab_1_10090_go.txt
                           gillislab_1_78_go.txt   
         
-        HOVER          GILLIS_LAB
+        AUTHOR          GILLIS_LAB
         MODEL          1
         KEYWORDS       orthologs, phmmer
         ACCURACY       1  PR=0.86; RC=0.30

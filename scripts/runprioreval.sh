@@ -10,7 +10,6 @@ CONF=~/git/cshl-work/etc/fastcafa.conf
 METHODS="prior phmmer expression"
 DEBUG="-d "
 
-
 echo "Running tests...."
 
 for TFA in `ls $TESTDIR/*.tfa`; do

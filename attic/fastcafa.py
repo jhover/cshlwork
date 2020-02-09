@@ -389,3 +389,68 @@ NOTES:  NaN expected for gene, omit...
     logging.debug(f"Made dict by geneid: {[ (k, bygenedict[k]) for k in samplekeys]} ")
     return bygenedict
 
+def do_evaluate_auroc(config, predictdf, goaspect):
+    """
+    i    cid           goterm       score    cgid
+    0    G960600000001 GO:0086041   53.0   Q9Y3Q4_HUMAN
+    1    G960600000001 GO:0086089   49.0   Q9Y3Q4_HUMAN
+    2    G960600000001 GO:0086090   49.0   Q9Y3Q4_HUMAN
+    
+    Return:
+    max_goterms=1499
+    eval_threshold=1.0e-120
+    topx_threshold=200
+    score_method=phmmer_score_weighted  
+              cgid             cid  correct      goterm      pauc      pest     score     auroc
+        CHIA_MOUSE  G1009000000001     True  GO:0008150  0.759799  0.990000  0.046959  0.830652
+        CHIA_MOUSE  G1009000000001    False  GO:0005575  0.759799  0.442188  0.020743  0.830652
+        CHIA_MOUSE  G1009000000001    False  GO:0110165  0.759799  0.423416  0.019845  0.830652
+
+    
+    from sklearn import metrics
+    metrics.auc(fpr, tpr)
+    
+    """
+    
+    logging.debug(f"got predictdf:\n{predictdf}")
+    ubgo = get_uniprot_bygene_object(config, usecache=True)
+    ontobj = get_ontology_object(config, usecache=True)
+    logging.debug(f"got known uniprot and ontology object.")  
+    
+    outdf = pd.DataFrame(columns = ['cid','goterm','score','cgid','correct','pest','pauc'])
+
+    cidlist = list(predictdf.cid.unique())
+    logging.debug(f"cid list: {cidlist}")
+    for cid in cidlist:
+        cdf = predictdf[predictdf.cid == cid].copy()
+        # get gene id. 
+        cgid = cdf.cgid.unique()[0]
+        logging.debug(f"cgid is {cgid}")
+        #logging.debug(f"geneid for this target is is {cgid}")
+        cdf['correct'] = cdf.apply(is_correct_apply, axis=1)
+        cdf.reset_index(drop=True, inplace=True) 
+        logging.debug(f"cdf after assessment:\n{cdf.dtypes}\n{cdf}")
+        # Normalize all estimates from score to .01 - .99
+        cmax = cdf.score.max()
+        cmin = cdf.score.min()
+        cdf['pest'] = np.interp(cdf['score'], (cmin, cmax ), (.01,.99))
+        logging.debug(f"cdf after score normalization -> pest is:\n{cdf.dtypes}\n{cdf}")
+        try:                 
+            pauc = metrics.roc_auc_score(cdf['correct'], cdf['pest'])
+            logging.debug(f"pauc is {pauc}")
+        except ValueError:
+            pauc = .50
+        
+        cdf['pauc'] = pauc
+        logging.debug(f"cdf is:\n{cdf}")
+        outdf = outdf.append(cdf, ignore_index=True)
+    outdf['correct'] = outdf['correct'].astype(np.bool)
+    
+    logging.debug(f"outdf before auc is:\n{outdf}")
+    auroc = metrics.roc_auc_score(outdf['correct'], outdf['pest'])
+    outdf['auroc'] = auroc
+    #f1scr = metrics.f1_score(outdf['correct'], outdf['pest']         )
+    #outdf['f1score'] = f1scr
+    logging.debug(f"outdf after auroc is:\n{outdf}")
+    return outdf
+
