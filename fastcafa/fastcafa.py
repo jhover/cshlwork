@@ -572,7 +572,7 @@ def parse_tfa_file( infile):
 
 
 
-def do_prior(config, infile, outfile, usecache=True, species=None):
+def do_prior(config, infile, outfile, usecache=True, species=None, version='current'):
     """
     Apply prior likelihood (global or species) to all infile sequences. 
     Output prediction to outfile for later eval. 
@@ -587,12 +587,31 @@ def do_prior(config, infile, outfile, usecache=True, species=None):
     print(df)
   
 
-def run_combine(config, predict1, predict2 ):
+def run_combine(config, predict1, predict2, outpred ):
     """
-    Takes two predictions
-    
-    
+    Takes two predictions, creates combined prediction, weighting the goterm scores
+    Where weight is not 1.0 (average betweeen p1 and p2), the input weight is the second 
+    with respect to the first, i.e. the first 'perturbed' by the second. 
+
+    Must be done *per cid*
+
+,cgid,cid,goterm,score
+0,AACC3_PSEAI,T2870000002,GO:0003674,182.0
+1,AACC3_PSEAI,T2870000002,GO:0003824,182.0
+2,AACC3_PSEAI,T2870000002,GO:0008080,182.0
+   
+   
     """
+    pdf1 = pd.read_csv(predict1, index_col=0)
+    pdf2 = pd.read_csv(predict2, index_col=0)
+    
+    for idf in [pdf1, pdf2]:
+        logging.debug(f"df={idf}")
+    
+
+
+
+
 
 
 
@@ -1577,12 +1596,17 @@ def calc_prior(config, usecache, species=None, version='current'):
 
     logging.debug(f"Called with species={species}")
     freqarray = None
+    fspec = None  # species code for filename.
+    
+    smo = get_specmap_object(config)
     
     if species is None:
-        species = 'GLOBAL'
+        fspec = 'GLOBAL'
+    else:
+        fspec = smo.get_taxonid(species)
 
     cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
-    cachefile = f"{cachedir}/uniprot.goprior.{species}.npy"       
+    cachefile = f"{cachedir}/uniprot.goprior.{fspec}.npy"       
     
     if usecache and os.path.exists(cachefile):
         freqarray = np.load(cachefile)
@@ -2742,7 +2766,7 @@ if __name__ == '__main__':
         run_evaluate(cp, args.predictcsv, args.outcsv, args.goaspect)
     
     if args.subcommand == 'combine':
-        run_combine(cp, args.predict1csv, args.predict2csv)
+        run_combine(cp, args.predict1csv, args.predict2csv, args.outfile)
     
     if args.subcommand == 'tocafa':
         run_tocafa(cp, args.infile)

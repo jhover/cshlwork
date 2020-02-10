@@ -8,7 +8,7 @@ TESTDIR=~/data/cafa4/TargetFiles
 OUTDIR=~/play/cafa4/$DATE
 PROG=~/data/git/cshl-work/fastcafa/fastcafa.py
 CONF=~/data/git/cshl-work/etc/fastcafa.conf
-METHODS="phmmer expression"
+METHODS="prior"
 DEBUG="-d "
 
 echo "Making $OUTDIR ..."
