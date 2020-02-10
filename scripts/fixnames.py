@@ -26,8 +26,9 @@ for scode in replacelist:
 
 flist = sys.argv[1:]
 for filepath in flist:
-    #print(filepath)
+    #print(f"filepath={filepath}")
     dirpath = os.path.dirname(filepath)
+    #print(f"dirpath={dirpath}")
     fixname = os.path.basename(filepath)
     for s in replacelist:
         fixname = fixname.replace(s, replacedict[s], 1)
