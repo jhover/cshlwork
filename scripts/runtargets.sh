@@ -3,13 +3,14 @@
 #  Run eval (phmmer and expression) on input files. 
 #  Output .csv predictions. 
 #
-DATE=`date "+%Y%m%d-%H%M%S"`
+DATE=`date "+%Y%m%d"`
 TESTDIR=~/data/cafa4/TargetFiles
 OUTDIR=~/play/cafa4/$DATE
 PROG=~/data/git/cshl-work/fastcafa/fastcafa.py
 CONF=~/data/git/cshl-work/etc/fastcafa.conf
 METHODS="prior"
-DEBUG="-d "
+#DEBUG="-d "
+DEBUG=""
 
 echo "Making $OUTDIR ..."
 mkdir -p $OUTDIR
