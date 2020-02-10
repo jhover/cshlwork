@@ -614,8 +614,20 @@ def run_combine(config, predict1, predict2, outpred ):
         logging.debug(f"df=\n{idf}")
         
     # sanity check
-    #p1cids = set(pdf1.cid.unique())
-    #p2cids = set(pdf1.cid.unique())
+    p1cids = set(pdf1.cid.unique())
+    p2cids = set(pdf1.cid.unique())
+        
+    # Dataframe to collect all calculated values. 
+    topdf = pd.DataFrame(columns=['cid','goterm','score','cgid'])
+
+    allcids = list(p1cids + p2cids)
+    allcids.sort()
+    logging.debug(f"got {len(allcids)} cids, sorted, e.g. {allcids[0:3]} ")
+    
+    #logging.debug("Starting to handle each CID...")
+    #for cid in cidlist:     
+    #    cdf = pdf[pdf.cid == cid]
+    
     
     
 
@@ -1628,6 +1640,7 @@ def calc_prior(config, usecache, species=None, version='current'):
                                           'goterm', 'goev', 'seqlen', 'seq', 'gene'                                        
                                           ])
         logging.debug(f"Built dataframe:\n{sdf}")    
+        
         # evaluation is done only on experimentally validated annotations. 
         # so calculate prior solely using experimentally validated annotations. 
         sdf = filter_goev_exp(sdf)
@@ -1859,9 +1872,12 @@ def build_prior(config, usecache, species=None, outfile=None, version='current')
     if outfile is not None:
         outfile = os.path.expanduser(outfile)
         ontobj = get_ontology_object(config, usecache=True)
-        df = pd.DataFrame(out, columns=['pest'])
+        df = pd.DataFrame(out, columns=['score'])
         df['goterm'] = ontobj.gotermlist
-        df.sort_values(by='pest', ascending=False, inplace=True)
+        df.sort_values(by='score', ascending=False, inplace=True)
+        logging.debug(f"prior has {prior.shape[0]} rows. ")
+        df = df[df.score != 0.0]
+        logging.debug(f"prior has {prior.shape[0]} non-zero rows. ")
         df.reset_index(drop=True, inplace=True)
         df.to_csv(outfile)
         logging.debug(f"Wrote prior df to outfile {outfile}:\n{df}")
