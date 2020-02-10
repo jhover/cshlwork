@@ -587,6 +587,15 @@ def do_prior(config, infile, outfile, usecache=True, species=None):
     print(df)
   
 
+def run_combine(config, predict1, predict2 ):
+    """
+    Takes two predictions
+    
+    
+    """
+
+
+
 
 def run_evaluate(config, predictfile, outfile, goaspect=None):
     """
