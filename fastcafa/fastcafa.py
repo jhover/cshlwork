@@ -522,6 +522,7 @@ def do_phmmer(config, infile, outfile, usecache=True, version='current'):
     logging.debug(f"predcachefile={predcachefile}")
     
     if os.path.exists(infile):
+        df = None
         if os.path.exists(predcachefile):
             logging.info("Predication cache hit. loading..")
             df = pd.read_csv(predcachefile, index_col=0)
@@ -593,21 +594,31 @@ def run_combine(config, predict1, predict2, outpred ):
     Where weight is not 1.0 (average betweeen p1 and p2), the input weight is the second 
     with respect to the first, i.e. the first 'perturbed' by the second. 
 
-    Must be done *per cid*
+    Must be done *per cid*. Missing cids from one or the other are passed through unchanged.  
 
 ,cgid,cid,goterm,score
 0,AACC3_PSEAI,T2870000002,GO:0003674,182.0
 1,AACC3_PSEAI,T2870000002,GO:0003824,182.0
 2,AACC3_PSEAI,T2870000002,GO:0008080,182.0
+
+
    
    
     """
+    obj = get_ontology_object(config)
+    
     pdf1 = pd.read_csv(predict1, index_col=0)
     pdf2 = pd.read_csv(predict2, index_col=0)
     
     for idf in [pdf1, pdf2]:
-        logging.debug(f"df={idf}")
+        logging.debug(f"df=\n{idf}")
+        
+    # sanity check
+    #p1cids = set(pdf1.cid.unique())
+    #p2cids = set(pdf1.cid.unique())
     
+    
+
 
 
 
@@ -874,16 +885,15 @@ def execute_phmmer(config, filename, version='current'):
     cpus = config.get('phmmer','cpus')
     eval_threshold = config.get('phmmer','eval_threshold')
     if version == 'current':
-        database = config.get('phmmer','database')
+        database = os.path.expanduser(config.get('phmmer','database'))
     else:
-        database = config.get('phmmer', version)
+        database = os.path.expanduser(config.get('phmmer', version))
         logging.debug(f"Using non-current version of uniprot for phmmer database: {database}")
     
     cmd = ["/usr/bin/which","phmmer"]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     res = p.stdout.readlines()
     logging.debug(f'which phmmer gave {res}')
-    
     
     # cmd = f"phmmer --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database}"
     # args = f" --tblout {outfile} --noali --cpu {cpus} -E {eval_threshold} {filename} {database} "
@@ -1059,11 +1069,11 @@ def get_expression_dataset(config, species='YEAST'):
     prefix = smo.get_taxonid(species)
     
     filename = f"{basedir}/{prefix}{datasuffix}"
+    logging.debug(f"Looking for expression data at: {filename}")
     if os.path.exists(filename):
         df = parse_expression_hd5( filename )
     else:
         df = None
-
     return df
 
     
@@ -1216,10 +1226,7 @@ def calc_expression_prediction(config, dataframe, usecache, version='current'):
         else:
             logging.info(f"No expression inference for {cid}. No predictions...")
 
-    # Normalize all estimates from score to .01 - .99
-    cmax = topdf.score.max()
-    cmin = topdf.score.min()
-    topdf['pest'] = np.interp(topdf['score'], (cmin, cmax ), (.01,.99))
+    
     logging.debug(f"made dataframe for all:\n{topdf}")
     return topdf
 
@@ -2415,6 +2422,12 @@ def run_tocafa(config, infile, outfile=None):
     author = config.get('global','author')
     infile = os.path.expanduser(infile)
     df = pd.read_csv(infile, index_col=0)
+    
+    # Normalize all estimates from score to .01 - .99
+    cmax = df.score.max()
+    cmin = df.score.min()
+    df['pest'] = np.interp(topdf['score'], (cmin, cmax ), (.01,.99))
+       
     
     s = ""
     s += f"AUTHOR\t{se.author}\n" 
