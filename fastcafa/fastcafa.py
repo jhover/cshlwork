@@ -1875,9 +1875,9 @@ def build_prior(config, usecache, species=None, outfile=None, version='current')
         df = pd.DataFrame(out, columns=['score'])
         df['goterm'] = ontobj.gotermlist
         df.sort_values(by='score', ascending=False, inplace=True)
-        logging.debug(f"prior has {prior.shape[0]} rows. ")
+        logging.debug(f"prior has {df.shape[0]} rows. ")
         df = df[df.score != 0.0]
-        logging.debug(f"prior has {prior.shape[0]} non-zero rows. ")
+        logging.debug(f"prior has {df.shape[0]} non-zero rows. ")
         df.reset_index(drop=True, inplace=True)
         df.to_csv(outfile)
         logging.debug(f"Wrote prior df to outfile {outfile}:\n{df}")
