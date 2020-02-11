@@ -596,13 +596,12 @@ def run_combine(config, predict1, predict2, outpred ):
 
     Must be done *per cid*. Missing cids from one or the other are passed through unchanged.  
 
-,cgid,cid,goterm,score
-0,AACC3_PSEAI,T2870000002,GO:0003674,182.0
-1,AACC3_PSEAI,T2870000002,GO:0003824,182.0
-2,AACC3_PSEAI,T2870000002,GO:0008080,182.0
+        ,cgid,    cid,        goterm,    score
+    0,AACC3_PSEAI,T2870000002,GO:0003674,182.0
+    1,AACC3_PSEAI,T2870000002,GO:0003824,182.0
+    2,AACC3_PSEAI,T2870000002,GO:0008080,182.0
 
-
-   
+  
    
     """
     obj = get_ontology_object(config)
@@ -615,25 +614,91 @@ def run_combine(config, predict1, predict2, outpred ):
         
     # sanity check
     p1cids = set(pdf1.cid.unique())
+    logging.debug(f"input 1 has {len(p1cids)}")
     p2cids = set(pdf1.cid.unique())
+    logging.debug(f"input 2 has {len(p2cids)}")
         
     # Dataframe to collect all calculated values. 
-    topdf = pd.DataFrame(columns=['cid','goterm','score','cgid'])
+    topdf = pd.DataFrame(columns=['cgid', 'cid', 'goterm','score'])
 
-    allcids = list(p1cids + p2cids)
+    allcids = list(p1cids | p2cids)
     allcids.sort()
-    logging.debug(f"got {len(allcids)} cids, sorted, e.g. {allcids[0:3]} ")
+    logging.debug(f"got {len(allcids)} total cids, sorted, e.g. {allcids[0:3]} ")
     
+
     #logging.debug("Starting to handle each CID...")
-    #for cid in cidlist:     
-    #    cdf = pdf[pdf.cid == cid]
-    
-    
-    
+    for cid in allcids:     
+        #select
+        cdf1 = pdf1[pdf1.cid == cid]
+        cdf2 = pdf2[pdf2.cid == cid]
+        # copy
+        #cdf1 = cdf1.copy()
+        #cdf2 = cdf2.copy()
+        # reset index        
+        cdf1.reset_index(drop=True)
+        cdf2.reset_index(drop=True)  
+        
+        # sort       
+        cdf1.sort_values(by='score',inplace=True, ascending=False)
+        cdf2.sort_values(by='score',inplace=True, ascending=False)
 
+        # drop=True?
+        cdf1 = cdf1.reset_index(drop=True)
+        cdf2 = cdf2.reset_index(drop=True) 
+        
+        logging.debug(f"Before ranks: cdf1=\n{cdf1}\ncdf2=\n{cdf2} ")
+      
+        # set ranks    
+        cdf1['rank'] = cdf1.index
+        cdf2['rank'] = cdf2.index        
+        
+        #cdf1maxrank = cdf1.rank.max()
+        #cdf1minscore = cdf1.score.min()
+        #cdf2maxrank = cdf2.rank.max()
+        #cdf2minscore = cdf2.score.min()
+        
+        #cdf1['rank1'] = rank1  
+        #cdf2['rank2'] = rank2  
+        logging.debug(f"before merge:\ncdf1=\n{cdf1}\ncdf2=\n{cdf2}")       
+        cdf = pd.merge(cdf1, cdf2 , how='outer', on=['cid','cgid','goterm'] )
+        
+        # set NaN to maxrank, minscore
+        #cdf.
+        logging.debug(f"after merge:\n{cdf}")
+        xmaxrank = cdf.rank_x.max()
+        xminscore = cdf.score_x.min()
+        ymaxrank = cdf.rank_y.max()
+        yminscore = cdf.score_y.min()
+        
+        values = { 'rank_x': xmaxrank, 'score_x': xminscore, 'rank_y': ymaxrank , 'score_y' : yminscore }
+        cdf.fillna(value=values, inplace=True)
+        logging.debug(f"after fillna:\n{cdf}")        
+        
+        # correct ranks
+        cdf.rank_x = cdf.rank_x + 1
+        cdf.rank_y = cdf.rank_y + 1    
+        logging.debug(f"cdf is:\n{cdf}")
+        cdf['rank'] = ( cdf.rank_x + cdf.rank_y / 2 )
 
+        logging.debug(f"after calc cdf is:\n{cdf}")        
+        dropcol = ['score_x', 'rank_x','score_y','rank_y' ] 
+        cdf.drop(columns=dropcol, inplace=True)
+        logging.debug(f"after drop is:\n{cdf}")
+        cdf.sort_values(by='rank', inplace=True, ascending=False)        
+        logging.debug(f"after sort cdf is:\n{cdf}")    
+        cdf.reset_index(drop=True, inplace=True)
+        cdf['score'] = cdf.index + 1
+        #logging.debug(f"after reset cdf is:\n{cdf}")
+        cdf.sort_values(by='score', inplace=True, ascending=False)
+        #logging.debug(f"after resort cdf is:\n{cdf}")
+        cdf.reset_index(drop=True, inplace=True)
+        #logging.debug(f"after reset cdf is:\n{cdf}")
+        cdf.drop(columns='rank', inplace=True)
+        logging.debug(f"after reset cdf is:\n{cdf}")
+        topdf = topdf.append(cdf, ignore_index=True)
 
-
+    logging.debug(f"topdf after all=\n{topdf}")
+    topdf.to_csv(outpred)
 
 
 
@@ -697,7 +762,7 @@ def do_evaluate(config, predictdf, goaspect):
     ontobj = get_ontology_object(config, usecache=True)
     logging.debug(f"got known uniprot and ontology object.")  
     
-    outdf = pd.DataFrame(columns = ['cid','goterm','score','cgid','pest','correct', 'nterms'])
+    outdf = pd.DataFrame(columns = ['cid','goterm','score','cgid', 'correct', 'nterms'])
 
     cidlist = list(predictdf.cid.unique())
     logging.debug(f"cid list: {cidlist}")
@@ -726,12 +791,13 @@ def do_evaluate(config, predictdf, goaspect):
         logging.debug(f"cdf after assessment:\n{cdf.dtypes}\n{cdf}")
         #logging.debug(f"cdf is:\n{cdf}")
         #logging.debug(f"appending: outdf.columns={outdf.columns} cdf.columns={cdf.columns}")
+        calc_f1_max(cdf)
         outdf = outdf.append(cdf, ignore_index=True)
     
     outdf['correct'] = outdf['correct'].astype(np.bool)
     #outdf['ntermsum'] = ntermsum
     logging.debug(f"outdf before pr is:\n{outdf}")
-    outdf = calc_f1_max(outdf)
+    outdf = calc_f1_max_overall(outdf)
     pos = outdf[outdf.correct == True]
     logging.debug(f"positives is:\n{pos}")
     poslist = list(pos.index.values)
@@ -746,6 +812,15 @@ def do_evaluate(config, predictdf, goaspect):
 
 def calc_f1_max(dataframe):
     """
+    
+    """
+
+
+
+
+
+def calc_f1_max_overall(dataframe):
+    """
     In:
              cgid             cid  correct      goterm nterms      pest     score  ntermsum
 0       CHIA_MOUSE  G1009000000001     True  GO:0008150     85  0.990000  0.046959       764
@@ -757,7 +832,6 @@ def calc_f1_max(dataframe):
     F1 at each index i is:
             pr = num-true  / i 
             rc = num-true / (numtermsum - num-true)
-        
            2  *   (   pr * rc / pr + rc )
 
     
@@ -789,7 +863,7 @@ def calc_f1_max(dataframe):
             f1max = f1
         i += 1
     logging.debug(f"final. i={i} numtrue={numtrue} f1max={f1max}")
-    dataframe['f1max'] = f1max
+    dataframe['f1maxtotal'] = f1max
     return dataframe
 
 
@@ -2795,7 +2869,7 @@ if __name__ == '__main__':
         run_evaluate(cp, args.predictcsv, args.outcsv, args.goaspect)
     
     if args.subcommand == 'combine':
-        run_combine(cp, args.predict1csv, args.predict2csv, args.outfile)
+        run_combine(cp, args.infile1, args.infile2, args.outfile)
     
     if args.subcommand == 'tocafa':
         run_tocafa(cp, args.infile)
