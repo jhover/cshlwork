@@ -56,6 +56,8 @@ import tempfile
 import traceback
 
 import pandas as pd
+# import modin.pandas as pd
+
 import numpy as np
 np.set_printoptions(threshold=400)
 from scipy import sparse
@@ -586,6 +588,7 @@ def do_prior(config, infile, outfile, usecache=True, species=None, version='curr
     df.to_csv(outfile)
     logging.info("done.")
     print(df)
+
   
 
 def run_combine(config, predict1, predict2, outpred ):
@@ -731,7 +734,7 @@ def is_correct_apply(row):
 
 def do_evaluate(config, predictdf, goaspect):
     """
-    Calculate precision recall number. 
+    Calculate evalutation numbers based on known terms. 
     
     i    cid           goterm       score    cgid
     0    G960600000001 GO:0086041   53.0   Q9Y3Q4_HUMAN
@@ -758,11 +761,7 @@ def do_evaluate(config, predictdf, goaspect):
 
     cidlist = list(predictdf.cid.unique())
     logging.debug(f"cid list: {cidlist}")
-    # Normalize all estimates from score to .01 - .99
-    #cmax = predictdf.score.max()
-    #cmin = predictdf.score.min()
-    #predictdf['pest'] = np.interp(predictdf['score'], (cmin, cmax ), (.01,.99))
-    #logging.debug(f"cdf after score normalization -> pest is:\n{cdf.dtypes}\n{cdf}")
+
     
     ntermsum = 0
     for cid in cidlist:
@@ -783,7 +782,7 @@ def do_evaluate(config, predictdf, goaspect):
         logging.debug(f"cdf after assessment:\n{cdf.dtypes}\n{cdf}")
         #logging.debug(f"cdf is:\n{cdf}")
         #logging.debug(f"appending: outdf.columns={outdf.columns} cdf.columns={cdf.columns}")
-        calc_f1_max(cdf)
+        cdf = calc_f1_max(cdf)
         outdf = outdf.append(cdf, ignore_index=True)
     
     outdf['correct'] = outdf['correct'].astype(np.bool)
@@ -804,10 +803,56 @@ def do_evaluate(config, predictdf, goaspect):
 
 def calc_f1_max(dataframe):
     """
+    F1 max calculation by protein. 
+    Dataframe assumes one cid represented. 
+    Calculates f1max for set. 
+    Sets all rows 'f1max' to that value. 
+    
+    In:
+             cgid             cid  correct      goterm nterms      pest     score  ntermsum
+0       CHIA_MOUSE  G1009000000001     True  GO:0008150     85  0.990000  0.046959       764
+1       CHIA_MOUSE  G1009000000001    False  GO:0005575     85  0.442188  0.020743       764
+2       CHIA_MOUSE  G1009000000001    False  GO:0110165     85  0.423416  0.019845       764
+3       CHIA_MOUSE  G1009000000001     True  GO:0009987     85  0.387863  0.018143       764 
+    ...
+    
+    F1 at each index i is:
+            pr = num-true  / i 
+            rc = num-true / (nterms - num-true)
+            2  *   (   pr * rc / pr + rc )
     
     """
-
-
+    logging.debug(f"inbound frame is:\n{dataframe}")
+    nterms = dataframe['nterms'].max()
+    logging.debug(f"annotated terms is {nterms}")
+    dataframe.sort_values(by='score', ascending=False, inplace=True)
+    dataframe.reset_index(drop=True, inplace=True)
+    logging.debug(f"frame after sorting:\n{dataframe}")    
+    
+    numtrue = 0
+    i = 1
+    f1max = 0
+    logging.debug(f"initial. i={i} numtrue={numtrue} f1max={f1max}")
+    for row in dataframe.itertuples():
+        if row.correct == True:
+            numtrue += 1
+        #logging.debug(f"numtrue is {numtrue}")
+        try:
+            pr = (numtrue / i)
+            #logging.debug(f"pr[{i}] = {pr}")
+            rc = (numtrue / nterms )
+            #logging.debug(f"rc[{i}] = {rc}")
+            f1 = 2 * ( (pr * rc) / (pr + rc ) )
+            #logging.debug(f"f1 is {f1}")
+        except ZeroDivisionError:
+            f1 = 0
+            logging.warning("Division by zero error during f1 calculation.")
+        if f1 > f1max:
+            f1max = f1
+        i += 1
+    logging.debug(f"final. i={i} numtrue={numtrue} f1max={f1max}")
+    dataframe['f1max'] = f1max
+    return dataframe
 
 
 
@@ -831,7 +876,7 @@ def calc_f1_max_overall(dataframe):
     logging.debug(f"inbound frame is:\n{dataframe}")
     totalterms = dataframe.groupby('cid')['nterms'].max().sum()
     logging.debug(f"total annotated terms is {totalterms}")
-    dataframe.sort_values(by='pest', ascending=False, inplace=True)
+    dataframe.sort_values(by='score', ascending=False, inplace=True)
     dataframe.reset_index(drop=True, inplace=True)
     logging.debug(f"frame after sorting:\n{dataframe}")    
     
@@ -1678,12 +1723,17 @@ def get_prior_df(config, usecache=True, species = None):
     priormatrix = calc_prior(config, usecache, species)    
     priormatrix = priormatrix.transpose()
     logging.debug(f"priormatrix shape: {priormatrix.shape}")
-    df = pd.DataFrame(priormatrix, index=ontobj.gotermlist, columns=['pest'])
+    df = pd.DataFrame(priormatrix, index=ontobj.gotermlist, columns=['score'])
     df.reset_index(inplace=True)
     map = {'index' : 'goterm'}
     df.rename(axis='columns', mapper=map, inplace=True)
-    df = df.sort_values(by='pest', ascending=False)
+    df = df.sort_values(by='score', ascending=False)
     df.reset_index(drop=True, inplace=True)
+    prevlength = df.shape[0]
+    df = df[df.score != 0]
+    newlength = df.shape[0]
+    if newlength != prevlength:
+        logging.debug(f"Reduced prior DF length by removing { prevlength - newlength } zero values.")
     return df
    
     
@@ -2520,7 +2570,7 @@ def get_default_config():
     return cp
 
 
-def run_tocafa(config, infile, outfile=None):
+def run_tocafa(config, infile, outfile=None, modelnum=1):
     """
     Convert prediction .csv into valid CAFA submission file. 
     If no outfile name is provided, put outfile in infile directory, naming 
@@ -2543,44 +2593,46 @@ def run_tocafa(config, infile, outfile=None):
     .
     END
 
-
     """
-    max_goterms = config.get('global','max_goterms')
+    max_goterms = int(config.get('global','max_goterms'))
     author = config.get('global','author')
     infile = os.path.expanduser(infile)
     df = pd.read_csv(infile, index_col=0)
-    
-    # Normalize all estimates from score to .01 - .99
-    cmax = df.score.max()
-    cmin = df.score.min()
-    df['pest'] = np.interp(topdf['score'], (cmin, cmax ), (.01,.99))
-       
-    
+    logging.debug(f"inbound df=\n{df}")
+
     s = ""
-    s += f"AUTHOR\t{se.author}\n" 
-    s += "MODEL\t%s\n" % 1
+    s += f"AUTHOR\t{author}\n" 
+    s += f"MODEL\t{modelnum}\n"
     s += "KEYWORDS\tortholog, gene expression\n"
-    s += "ACCURACY\t1\tPR=%f;\tRC=%f\n" % (1.00, 1.00) 
-    self.log.debug("dataframe columns=%s" % f.columns )
-    
-    
-    #for row in dataframe.iterrows():
-    #    target = row[1]['cafaid']
-    #    goterm = row[1]['goterm']
-    #    pest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
-    #    probest = row[1]['cafaprob'] # rounding not needed. format does it correctly below. 
-    #    s += "%s\t%s\t%.2f\n" % (target, goterm, probest)
-    #for row in dataframe.itertuples():
-    #    target = row.cafaid
-    #    goterm = row.goterm
-    #    #probest = float(row[1]['probest'])  # 1.00 for call/no-call ->  precision/recall *point*. 
-    #    probest = row.cafaprob # rounding not needed. format does it correctly below. 
-    #    s += f"{target}\t{goterm}\t{probest:.2f}\n"        
+    s += "ACCURACY\t1\tPR=1.00; RC=1.00\n"
+    logging.debug(f"dataframe columns={df.columns}" )
+
+    # Dataframe to collect all calculated values. 
+    topdf = pd.DataFrame(columns=['cid','goterm','pest'])
+    cidlist = list(df.cid.unique())
+    logging.debug(f"cid list: {cidlist}")    
+    for cid in cidlist:
+        cdf = df[df.cid == cid]
+        cdf = cdf.nlargest(max_goterms, 'score')
+        # Normalize all estimates from score to .01 - .99
+        cmax = cdf.score.max()
+        cmin = cdf.score.min()
+        cdf['pest'] = np.interp(cdf['score'], (cmin, cmax ), (.01,.99))    
+        logging.debug(f"cdf=\n{cdf}")
+        topdf = topdf.append(cdf, ignore_index=True, sort=False)
+    logging.debug(f"topdf=\n{topdf}")
+    for (i, row) in topdf.iterrows():
+        s += "{}\t{}\t{:.2f}\n".format( row.cid, row.goterm, row.pest)
     s+="END\n"
+    try:
+        f = open(outfile, 'w')  
+        f.write(s)
+    except IOError:
+        logging.warning(f"error writing to {outfile}")
+    finally:
+        f.close()
     
-    #f.write(s)
-    f.close()
-    self.log.info(f"Wrote cafafile with {len(dataframe.index)} entries. ")
+    logging.info(f"Wrote cafafile with {len(topdf.index)} entries. ")
     return s
 
     
@@ -2858,6 +2910,27 @@ if __name__ == '__main__':
                                type=str, 
                                help='a DF .csv prediction file')
     
+######################### write CAFA formatted file for submission ####################################    
+        
+    parser_tocafa = subparsers.add_parser('tocafa',
+                                          help='write CAFA formatted file for submission.')
+    
+    parser_tocafa.add_argument('-i', '--infile', 
+                               metavar='infile', 
+                               type=str, 
+                               help='a .csv prediction file')        
+          
+    parser_tocafa.add_argument('-o', '--outfile', 
+                               metavar='outfile', 
+                               type=str, 
+                               help='a .txt output file for submission.')   
+
+    parser_tocafa.add_argument('-m', '--model', 
+                               metavar='modelnum', 
+                               type=str,
+                               default='1', 
+                               help='Numeric label for this method/model.')
+
     
 
     args= parser.parse_args()
@@ -2909,7 +2982,7 @@ if __name__ == '__main__':
         run_combine(cp, args.infile1, args.infile2, args.outfile)
     
     if args.subcommand == 'tocafa':
-        run_tocafa(cp, args.infile)
+        run_tocafa(cp, args.infile, args.outfile, args.modelnum)
         
 
     
