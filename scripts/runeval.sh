@@ -4,7 +4,7 @@
 #  Output .csv predictions. 
 #
 TESTDIR=~/data/cafa4/testtargets
-OUTDIR=~/play/cafa4
+OUTDIR=~/play/cafa4/evaluate
 PROG=~/git/cshl-work/fastcafa/fastcafa.py
 CONF=~/git/cshl-work/etc/fastcafa.conf
 METHODS="prior phmmer expression"

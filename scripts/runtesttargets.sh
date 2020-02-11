@@ -1,19 +1,17 @@
 #!/bin/bash
 #
-#  Run eval (phmmer and expression) on input files. 
+#  Make predictions(prior,  phmmer and expression) on input files using previous 
 #  Output .csv predictions. 
 #
-DATE=`date "+%Y%m%d"`
-TESTDIR=~/data/cafa4/TargetFiles
-OUTDIR=~/play/cafa4/$DATE
+TESTDIR=~/data/cafa4/testtargets
+OUTDIR=~/play/cafa4/evaluate
 PROG=~/data/git/cshl-work/fastcafa/fastcafa.py
 CONF=~/data/git/cshl-work/etc/fastcafa.conf
-METHODS="prior"
-#DEBUG="-d "
+METHODS="prior phmmer expression"
+#DEBUG=" -d "
 DEBUG=""
-
-echo "Making $OUTDIR ..."
-mkdir -p $OUTDIR
+VERSION="previous"
+VFLAG=" -V $VERSION "
 
 echo "Running on all targets..."
 for TFA in `ls $TESTDIR/*.tfa`; do
@@ -25,12 +23,12 @@ for TFA in `ls $TESTDIR/*.tfa`; do
 	#echo "$FILENAME $FILEBASE $EXTENSION"
 	for METHOD in $METHODS; do
 		# echo "method is $METHOD"
-		PREDOUT=$OUTDIR/$FILEBASE.$METHOD.csv
+		PREDOUT=$OUTDIR/$FILEBASE.$VERSION.$METHOD.csv
 		
 		echo "running $METHOD ..."
-		echo "time $PROG -C $DEBUG -c $CONF $METHOD -i $TFA -o $PREDOUT "
+		echo "time $PROG -C $DEBUG -c $CONF $METHOD $VFLAG -i $TFA -o $PREDOUT  "
 		echo ""
-		time $PROG -C $DEBUG -c $CONF $METHOD -i $TFA -o $PREDOUT 
+		time $PROG -C $DEBUG -c $CONF $METHOD $VFLAG -i $TFA -o $PREDOUT 
 
 	done
 	echo  "###############################################"

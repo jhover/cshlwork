@@ -651,19 +651,11 @@ def run_combine(config, predict1, predict2, outpred ):
         # set ranks    
         cdf1['rank'] = cdf1.index
         cdf2['rank'] = cdf2.index        
-        
-        #cdf1maxrank = cdf1.rank.max()
-        #cdf1minscore = cdf1.score.min()
-        #cdf2maxrank = cdf2.rank.max()
-        #cdf2minscore = cdf2.score.min()
-        
-        #cdf1['rank1'] = rank1  
-        #cdf2['rank2'] = rank2  
+
         logging.debug(f"before merge:\ncdf1=\n{cdf1}\ncdf2=\n{cdf2}")       
         cdf = pd.merge(cdf1, cdf2 , how='outer', on=['cid','cgid','goterm'] )
         
         # set NaN to maxrank, minscore
-        #cdf.
         logging.debug(f"after merge:\n{cdf}")
         xmaxrank = cdf.rank_x.max()
         xminscore = cdf.score_x.min()
@@ -1439,15 +1431,46 @@ def calc_phmmer_prediction(config, dataframe, usecache, version='current'):
     logging.debug(f"made dataframe for all:\n{topdf}")
     return topdf
 
+
+def check_filename_for_taxids(config, filename):
+    """
+    If a filename contains a valid CAFA taxid (e.g. 44689) between dots,
+    returns species code, e.g. 'DICDI'
+    else None 
+    
+    """
+    logging.debug("Checking filename for species taxid...")
+    t2s = get_cafaspecies(config)
+    infile = os.path.expanduser(filename)
+    filename = os.path.basename(infile)
+    (filebase, ext) = os.path.splitext(filename)
+    fields = filebase.split('.')
+    ctids = list(t2s.keys())
+    logging.debug(f"Looking for tids: {ctids} in {fields} ...")
+    taxid = None
+    found = False
+    for ctid in ctids:
+        for f in fields:
+            if ctid == f:
+                logging.debug(f"Found taxid {ctid}")
+                return t2s[ctid]
+    return None
     
 
 def make_prior_prediction(config, infile, species=None):
     """
-     Same as calc_phmmer_prediction, but assigns prior likelihoods as score
+    Same as calc_phmmer_prediction, but assigns prior likelihoods as score
+    
+    Automatically detects species names/codes in filename, uses. 
     
     """
     cdf = parse_tfa_file(infile)
     logging.debug(f"Got cid/cgid frame:\n{cdf}") 
+    
+    fnspecies = check_filename_for_taxids(config, infile)
+    if species is None and fnspecies is not None:
+        species = fnspecies
+        logging.debug(f"Auto-identified species {species} from filename taxonid.")
     pdf = get_prior_df(config, True, species)
     logging.debug(f"Got prior frame:\n{pdf}")     
     # max_goterms = config.getint('global','max_goterms')
@@ -2197,6 +2220,20 @@ def build_specmaps(config, usecache):
             cf.close()    
     logging.info(f"saving map: to {cachefile}")
     return map
+
+def get_cafaspecies(config):
+    """
+    Creates dict for cafa species:
+    taxid -> scode
+    
+    """
+    smo = get_specmap_object(config)
+    speclist = [x.strip() for x in config.get('testset','cafa_species').split(',') ]
+    t2s = {}
+    for scode in speclist:
+        t = smo.get_taxonid(scode)
+        t2s[t] = scode
+    return t2s
 
 
 def get_specmaps(config):

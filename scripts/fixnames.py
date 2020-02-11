@@ -11,8 +11,8 @@ sys.path.append(gitpath)
 
 from fastcafa.fastcafa import *
 
-replacelist = [ 'ARATH' ,'BACCR','BOVIN','CAEEL','DANRE','DICDI','DROME','ECOLI',
-               'HUMAN','MAIZE','MOUSE','MYCGE','PIG','PSEAI','RAT','SALTY','SCHPO','YEAST' ]
+replacelist = [ 'ARATH' ,'BACCR','BOVIN','CAEEL','CHICK','DANRE','DICDI','DROME','ECOLI',
+               'HUMAN','MAIZE','MOUSE','MYCGE','PIG','PSEAI','RAT','SALTY','SCHPO','SOYBN','YEAST' ]
 
 config = get_default_config()
 smo = get_specmap_object(config)
