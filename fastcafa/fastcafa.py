@@ -572,6 +572,29 @@ def parse_tfa_file( infile):
     df = pd.DataFrame(listoflists, columns=['cid','cgid']) 
     return df    
 
+def parse_tfa_file_lol( infile):
+    """
+    Reads .tfa file, determines species, target ids, geneids. 
+    
+    returns dataframe:
+    cid  cgid
+    
+    """
+    listoflists = []
+       
+    try:
+        f = open(infile, 'r')
+    except FileNotFoundError:
+        logging.error(f"file not readable {filename} ")
+    for line in f:
+        # >T100900000004 1433G_MOUSE
+        if line.startswith(">"):
+            fields = line[1:].split()
+            cid = fields[0].strip()
+            cgid = fields[1].strip()
+            listoflists.append( [cid, cgid] )
+    logging.debug(f"got {len(listoflists)} cids with geneids.") 
+    return listoflists
 
 
 
@@ -1505,7 +1528,6 @@ def check_filename_for_taxids(config, filename):
 def make_prior_prediction(config, infile, species=None):
     """
     Same as calc_phmmer_prediction, but assigns prior likelihoods as score
-    
     Automatically detects species names/codes in filename, uses. 
     
     """
@@ -1542,7 +1564,31 @@ def make_prior_prediction(config, infile, species=None):
     logging.debug(f"got out df types:\n{topdf.dtypes}\n{topdf}")
     return topdf
 
-# outdf['correct'] = outdf['correct'].astype(np.bool)
+def make_prior_prediction_lol(config, infile, species=None):
+    """
+    Same as calc_phmmer_prediction, but assigns prior likelihoods as score
+    Automatically detects species names/codes in filename, uses. 
+    
+    """
+    tfalol = parse_tfa_file(infile)
+    #logging.debug(f"Got cid/cgid frame:\n{cdf}") 
+    
+    fnspecies = check_filename_for_taxids(config, infile)
+    if species is None and fnspecies is not None:
+        species = fnspecies
+        logging.debug(f"Auto-identified species {species} from filename taxonid.")
+    pdf = get_prior_df(config, True, species)
+    logging.debug(f"Got prior frame:\n{pdf}")     
+    
+    plol = pdf.values.tolist()
+    outlist = []
+    
+    for (cid, cgid) in tfalol:
+        for (goterm, score) in plol:
+            outlist.append([cid, cgid, goterm, score])
+
+    outdf = pd.DataFrame(outlist, columns=['cid','cgid','goterm','score'] )
+    return outdf
 
 
 def get_goprior(config, usecache, species=None):
