@@ -32,6 +32,6 @@ numcids = len(df.cid.unique() )
 meanf1max = df.groupby('cid')['f1max'].max().mean()  
 
 
-print(f"num cafaids: {numcids}")
-print(f"meanf1max: {meanf1max}")
-print(f"accuracy: {accuracy}")
+#print(f"num cafaids: {numcids}")
+print(f"{infile} meanf1max: {meanf1max}")
+#print(f"accuracy: {accuracy}")
