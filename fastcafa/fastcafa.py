@@ -721,8 +721,6 @@ def run_combine(config, predict1, predict2, outpred ):
 
 
 
-
-
 def run_evaluate(config, predictfile, outfile, goaspect=None):
     """
     Consume a prediction.csv file, and score based on accuracy. 
@@ -3029,7 +3027,7 @@ if __name__ == '__main__':
         run_combine(cp, args.infile1, args.infile2, args.outfile)
     
     if args.subcommand == 'tocafa':
-        run_tocafa(cp, args.infile, args.outfile, args.modelnum)
+        run_tocafa(cp, args.infile, args.outfile, args.model)
         
 
     
