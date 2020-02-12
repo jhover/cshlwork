@@ -584,16 +584,17 @@ def parse_tfa_file_lol( infile):
        
     try:
         f = open(infile, 'r')
+        for line in f:
+            # >T100900000004 1433G_MOUSE
+            if line.startswith(">"):
+                fields = line[1:].split()
+                cid = fields[0].strip()
+                cgid = fields[1].strip()
+                listoflists.append( [cid, cgid] )
+            logging.debug(f"got {len(listoflists)} cids with geneids.") 
     except FileNotFoundError:
-        logging.error(f"file not readable {filename} ")
-    for line in f:
-        # >T100900000004 1433G_MOUSE
-        if line.startswith(">"):
-            fields = line[1:].split()
-            cid = fields[0].strip()
-            cgid = fields[1].strip()
-            listoflists.append( [cid, cgid] )
-    logging.debug(f"got {len(listoflists)} cids with geneids.") 
+        logging.error(f"file not readable {infile} ")
+    
     return listoflists
 
 
@@ -1525,7 +1526,7 @@ def check_filename_for_taxids(config, filename):
     return None
     
 
-def make_prior_prediction(config, infile, species=None):
+def make_prior_prediction_old(config, infile, species=None):
     """
     Same as calc_phmmer_prediction, but assigns prior likelihoods as score
     Automatically detects species names/codes in filename, uses. 
@@ -1564,14 +1565,14 @@ def make_prior_prediction(config, infile, species=None):
     logging.debug(f"got out df types:\n{topdf.dtypes}\n{topdf}")
     return topdf
 
-def make_prior_prediction_lol(config, infile, species=None):
+def make_prior_prediction(config, infile, species=None):
     """
     Same as calc_phmmer_prediction, but assigns prior likelihoods as score
     Automatically detects species names/codes in filename, uses. 
     
     """
     tfalol = parse_tfa_file_lol(infile)
-    #logging.debug(f"Got cid/cgid frame:\n{cdf}") 
+    logging.debug(f"Got list of lists length: {len(tfalol)}") 
     
     fnspecies = check_filename_for_taxids(config, infile)
     if species is None and fnspecies is not None:
