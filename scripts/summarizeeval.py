@@ -17,6 +17,8 @@ if not len(sys.argv) > 1:
     sys.exit()
     
 infile = sys.argv[1]
+
+basename = os.path.basename(infile)
 # print(f"{infile}")
 try:
     df = pd.read_csv(infile, index_col=0, comment="#")
@@ -33,5 +35,5 @@ meanf1max = df.groupby('cid')['f1max'].max().mean()
 
 
 #print(f"num cafaids: {numcids}")
-print(f"{infile} meanf1max: {meanf1max}")
+print(f"{basename} meanf1max: {meanf1max}")
 #print(f"accuracy: {accuracy}")
