@@ -2875,8 +2875,8 @@ if __name__ == '__main__':
     parser_evaluate = subparsers.add_parser('evaluate',
                                           help='evaluate prediction against known. output stats.')
     
-    parser_evaluate.add_argument('-p', '--predictcsv', 
-                               metavar='predictcsv', 
+    parser_evaluate.add_argument('-i', '--infile', 
+                               metavar='infile', 
                                type=str, 
                                help='a .csv prediction file')        
 
@@ -2886,8 +2886,8 @@ if __name__ == '__main__':
                                default=None, 
                                help='GO aspect to limit evaluation to.') 
           
-    parser_evaluate.add_argument('-o', '--outcsv', 
-                               metavar='outcsv', 
+    parser_evaluate.add_argument('-o', '--outfile', 
+                               metavar='outfile', 
                                type=str, 
                                help='a .csv output file with stats')    
 
@@ -3019,7 +3019,7 @@ if __name__ == '__main__':
         do_testset(cp, args.numseq, args.species, args.outfile, args.limited )
 
     if args.subcommand == 'evaluate':
-        run_evaluate(cp, args.predictcsv, args.outcsv, args.goaspect)
+        run_evaluate(cp, args.infile, args.outfile, args.goaspect)
     
     if args.subcommand == 'combine':
         run_combine(cp, args.infile1, args.infile2, args.outfile)
