@@ -11,7 +11,7 @@ gitpath=os.path.expanduser("~/git/cshl-work")
 sys.path.append(gitpath)
 
 usage=" Usage: fastasplit.py  <infile>"
-sperf = 4000
+sperf = 1800
 fnum = 0
 snum = 0
 
