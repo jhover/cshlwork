@@ -2682,8 +2682,6 @@ def run_tocafa(config, infile, outfile=None, modelnum=1):
 
     
     
-    
-
 
 
 ################################ utility functions ###################################
