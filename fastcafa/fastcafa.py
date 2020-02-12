@@ -2649,7 +2649,7 @@ def run_tocafa(config, infile, outfile=None, modelnum=1):
     s += f"AUTHOR\t{author}\n" 
     s += f"MODEL\t{modelnum}\n"
     s += "KEYWORDS\tortholog, gene expression\n"
-    s += "ACCURACY\t1\tPR=1.00; RC=1.00\n"
+    #s += "ACCURACY\t1\tPR=1.00; RC=1.00\n"
     logging.debug(f"dataframe columns={df.columns}" )
 
     # Dataframe to collect all calculated values. 
