@@ -1570,7 +1570,7 @@ def make_prior_prediction_lol(config, infile, species=None):
     Automatically detects species names/codes in filename, uses. 
     
     """
-    tfalol = parse_tfa_file(infile)
+    tfalol = parse_tfa_file_lol(infile)
     #logging.debug(f"Got cid/cgid frame:\n{cdf}") 
     
     fnspecies = check_filename_for_taxids(config, infile)
@@ -1586,7 +1586,7 @@ def make_prior_prediction_lol(config, infile, species=None):
     for (cid, cgid) in tfalol:
         for (goterm, score) in plol:
             outlist.append([cid, cgid, goterm, score])
-
+    logging.debug(f"make list of lists length={len(outlist)}")
     outdf = pd.DataFrame(outlist, columns=['cid','cgid','goterm','score'] )
     return outdf
 
