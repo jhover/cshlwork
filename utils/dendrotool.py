@@ -35,11 +35,11 @@ class Phylogeny(object):
         self.filepath = filepath
         self.tree = dp.Tree.get_from_path(args.infile, 
                                  schema='newick',
-                                 #suppress_internal_node_taxa=True, 
-                                 #suppress_leaf_node_taxa=True,
+                                 suppress_internal_node_taxa=True, 
+                                 suppress_leaf_node_taxa=True,
                                  )
         
-        self.tree = Phylo.read(filepath, 'newick')
+        #self.tree = Phylo.read(filepath, 'newick')
         self.log.debug("tree is %s" % self.tree )
         #print(tree)
   
