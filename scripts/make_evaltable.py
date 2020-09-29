@@ -9,7 +9,7 @@ sys.path.append(gitpath)
 
 from fastcafa.fastcafa import *
 
-phmmerdf = os.path.expanduser("~/play/hamsini/dupe_targets_phmmer.csv")
+phmmerdf = os.path.expanduser("~/play/hamsini/dupe_targets_phmmer_20200926.csv")
 dupepairs = os.path.expanduser("~/play/hamsini/mouse_dup_pairs_uniprot.txt")
 evaltable = os.path.expanduser("~/play/hamsini/mouse_dupe_scores.csv")
 
