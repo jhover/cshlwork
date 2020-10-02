@@ -4,6 +4,7 @@ samtools=/home/werner/tools/samtools-1.9/samtools
 genome_fa=/home/werner/xchrom_snp_skew/data/annot_genomes/GRCh38_Gencode25/GRCh38.p7.genome.fa #Genome fasta file location
 
 
+
 inDir=$1  #Specifies BAM file location
 chr=$2    #Specifies which chromosome to process
 outPrefix=`pwd`
