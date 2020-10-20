@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 #
-#  Split file by lines into N pieces.
-#  splitfile.py  <file> <N>
+# Map Uniprot ACs to IDs
+#
+#
 
 import argparse
 import os
@@ -14,37 +15,44 @@ import subprocess
 gitpath=os.path.expanduser("~/git/cshl-work")
 sys.path.append(gitpath)
 
-def do_water(infile, outfile):
-    logging.debug(f"processing {infile} to {outfile}...")
-    o = open(outfile, 'w')
-    with open(infile) as f:
-        for i, l in enumerate(f):
-            p1, p2 = l.split('\t')
-            p1 = p1.strip()
-            p2 = p2.strip()
-            logging.debug(f"p1={p1} p2={p2}")
-            run_water(p1, p2, o)
-    f.close()
-    o.close()
-    
-    
-def run_water(p1, p2, outf):
-    
-    #p1 = f"{p1}_HUMAN"
-    #p2 = f"{p2}_HUMAN"    
-    cmd = f'water -brief -gapopen 10.0 -gapextend 0.5 -stdout -auto -aformat score uph:{p1} uph:{p2}'
-    cmdlist = cmd.split()
-    logging.debug(f"command is {cmd}")
+DATFILE=os.path.expanduser('~/data/uniprot/humandb/uniprot_all_human.dat')
+
+
+def parse_uniprot_dat(filename):
+    filehandle = open(filename, 'r')
+    current = None
+    allentries = []
     try:
-        p = subprocess.run(cmdlist, check=True, stdout=subprocess.PIPE, universal_newlines=True)    
-        output = p.stdout
-        lines = output.split('\n')
-        towrite = f'{lines[0]}\n'
-        outf.write(towrite)
-        logging.debug(f"wrote: '{towrite}'")
-    except subprocess.CalledProcessError:
-        logging.warning(f"Problem with p1={p1} p2={p2}")
+        while True:
+            line = filehandle.readline()
+            if line == '':
+                break
+
+            if line.startswith("ID "):
+                # ID   001R_FRG3G              Reviewed;         256 AA.
+                #      <prot_name>_<prot_spec>
+                proteinid = line[5:16].strip()
+                current = defaultdict(dict)
+                current['id'] = proteinid
         
+            elif line.startswith("AC "):
+                # AC   Q6GZX4;
+                # AC   A0A023GPJ0; 
+                # AC   Q91896; O57469;
+                #logging.debug("Handling AC.")
+                rest = line[5:]
+                accession = rest.split(';')[0]
+                #accession = line[5:11].strip()
+                current['ac'] = accession
+
+         
+            elif line.startswith("//"):           
+                allentries.append(current)
+                current = None
+
+
+def do_water(infile, outfile):
+    pass
 
 
 
@@ -82,6 +90,4 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
     
-    do_water(args.infile, args.outfile)
-    
-    
+    do_mappings(args.infile, args.outfile)

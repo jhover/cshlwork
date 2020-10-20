@@ -10,7 +10,6 @@ import pandas as pd
 
 '''
 
-
 def parse_uniprot_fasta(filename):
     f = open(filename, 'r')
     lod = []
