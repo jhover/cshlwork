@@ -14,7 +14,7 @@ import subprocess
 gitpath=os.path.expanduser("~/git/cshl-work")
 sys.path.append(gitpath)
 
-def do_water(infile, outfile):
+def do_needle(infile, outfile):
     logging.debug(f"processing {infile} to {outfile}...")
     o = open(outfile, 'w')
     with open(infile) as f:
@@ -23,16 +23,16 @@ def do_water(infile, outfile):
             p1 = p1.strip()
             p2 = p2.strip()
             logging.debug(f"p1={p1} p2={p2}")
-            run_water(p1, p2, o)
+            run_needle(p1, p2, o)
     f.close()
     o.close()
     
     
-def run_water(p1, p2, outf):
+def run_needle(p1, p2, outf):
     
     #p1 = f"{p1}_HUMAN"
     #p2 = f"{p2}_HUMAN"    
-    cmd = f'water -brief -gapopen 10.0 -gapextend 0.5 -stdout -auto -aformat score uph:{p1} uph:{p2}'
+    cmd = f'needle -brief -gapopen 10.0 -gapextend 0.5 -stdout -auto -aformat srspair uph:{p1} uph:{p2}'
     cmdlist = cmd.split()
     logging.debug(f"command is {cmd}")
     try:
@@ -82,6 +82,6 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
     
-    do_water(args.infile, args.outfile)
+    do_needle(args.infile, args.outfile)
     
     

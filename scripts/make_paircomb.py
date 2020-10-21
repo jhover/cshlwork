@@ -16,10 +16,12 @@ sys.path.append(gitpath)
 def do_comb(infile, outfile=None):
     plist = []
     logging.debug(f"Opening infile {infile}")
+    i = 0
     with open(infile) as f:
         for i, l in enumerate(f):
             plist.append(l.strip())
     f.close()
+    logging.debug(f"Handled {i} items...")
   
     comb = combinations(plist, 2)
     comblist = list(comb)
