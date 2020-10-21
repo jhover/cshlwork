@@ -49,6 +49,9 @@ def parse_uniprot_dat(filename):
             elif line.startswith("//"):           
                 allentries.append(current)
                 current = None
+    except:
+        pass
+
 
 
 def do_water(infile, outfile):
