@@ -30,7 +30,7 @@ def do_split(filename, nfiles):
     logging.debug(f"{filename} has {nlines} lines.")
     lpf = int(nlines / nfiles)
     logging.debug(f"will put {lpf} lines per file...")
-    fnum = 0
+    fnum = 1
     of = None
     with open(filename) as f:
         for i, l in enumerate(f):
@@ -46,11 +46,6 @@ def do_split(filename, nfiles):
     f.close()
         
     
-
-
-
-
-
 
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
