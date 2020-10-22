@@ -42,10 +42,13 @@ def run_needle(p1, p2, outf):
         towrite = parse_output(lines)
         outf.write(towrite)
         logging.debug(f"wrote: '{towrite}'")
-    except subprocess.CalledProcessError:
+    #except subprocess.CalledProcessError:
+    except Exception:
         logging.warning(f"Problem with p1={p1} p2={p2}")
+        towrite = f"{p1}\t{p2}\tNAN\tNAN\tNAN\tNAN\tNAN\tNAN\tNAN\n"
 
-def parse_output(lines):
+
+def parse_output(lines, p1, p2):
     '''
     assumes default srspair aformat
     
@@ -69,19 +72,24 @@ def parse_output(lines):
     #=======================================
 
     '''
-    lines = lines[15:32]
-    p1 = lines[3].split()[2]
-    p2 = lines[4].split()[2]            
-    length = int(lines[9].split()[2])
-    ident = int(lines[10].split()[2].split('/')[0] )
-    simil = int(lines[11].split()[2].split('/')[0] )
-    gaps = int(lines[12].split()[2].split('/')[0] )
-    score = float(lines[13].split()[2])
-    pident = ident / length
-    psimil = simil / length
-    out = f"{p1}\t{p2}\t{length}\t{ident}\t{simil}\t{gaps}\t{score}\t{pident:.3f}\t{psimil:.3f}\n"
-    logging.debug(out)
-    return out
+    try:
+        lines = lines[15:32]
+        p1 = lines[3].split()[2]
+        p2 = lines[4].split()[2]            
+        length = int(lines[9].split()[2])
+        ident = int(lines[10].split()[2].split('/')[0] )
+        simil = int(lines[11].split()[2].split('/')[0] )
+        gaps = int(lines[12].split()[2].split('/')[0] )
+        score = float(lines[13].split()[2])
+        pident = ident / length
+        psimil = simil / length
+        out = f"{p1}\t{p2}\t{length}\t{ident}\t{simil}\t{gaps}\t{score}\t{pident:.3f}\t{psimil:.3f}\n"
+        logging.debug(out)
+        return out
+    
+    except Exception:
+        logging.debug(f"Problem parsing output for {p1} {p2}")
+        raise
 
 
 
