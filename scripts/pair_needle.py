@@ -40,12 +40,19 @@ def run_needle(p1, p2, outf):
         output = p.stdout
         lines = output.split('\n')
         towrite = parse_output(lines)
-        outf.write(towrite)
-        logging.debug(f"wrote: '{towrite}'")
-    #except subprocess.CalledProcessError:
-    except Exception:
+        if towrite is not None:
+            outf.write(towrite)
+            logging.debug(f"wrote: '{towrite}'")
+        else:
+            logging.warning(f"problem parsing output with  p1={p1} p2={p2} ")
+
+    except subprocess.CalledProcessError:
         logging.warning(f"Problem with p1={p1} p2={p2}")
-        towrite = f"{p1}\t{p2}\tNAN\tNAN\tNAN\tNAN\tNAN\tNAN\tNAN\n"
+        towrite = f"{p1}\t{p2}\tNAN\tNAN\tNAN\tNAN\tNAN\tNAN\tNAN\n"    
+      
+    except Exception:
+        logging.warning("Some other problem.")
+
 
 
 def parse_output(lines, p1, p2):
@@ -89,7 +96,7 @@ def parse_output(lines, p1, p2):
     
     except Exception:
         logging.debug(f"Problem parsing output for {p1} {p2}")
-        raise
+        return None
 
 
 
@@ -115,7 +122,7 @@ if __name__ == '__main__':
                         help='a .fasta sequence file')
 
     parser.add_argument('outfile', 
-                        metavar='outile', 
+                        metavar='outfile', 
                         type=str, 
                         help='pairwise info. <p1> <p2> <len> <dist>')
     
@@ -128,5 +135,4 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
     
     do_needle(args.infile, args.outfile)
-    
     
