@@ -49,9 +49,7 @@ def run_needle(p1, p2, outf):
     except subprocess.CalledProcessError:
         logging.warning(f"Problem with p1={p1} p2={p2}")
         towrite = f"{p1}\t{p2}\tNAN\tNAN\tNAN\tNAN\tNAN\tNAN\tNAN\n"    
-      
-    except Exception:
-        logging.warning("Some other problem.")
+     
 
 
 
