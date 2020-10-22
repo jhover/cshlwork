@@ -53,7 +53,7 @@ def run_needle(p1, p2, outf):
 
 
 
-def parse_output(lines, p1, p2):
+def parse_output(lines):
     '''
     assumes default srspair aformat
     
