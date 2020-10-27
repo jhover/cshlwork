@@ -63,7 +63,7 @@ if __name__ == '__main__':
                         help='verbose logging')
 
     parser.add_argument('-c','--column',
-                        metavar='vcol',
+                        dest='vcol',
                         default='psimil',
                         type=str,
                         help='column to use as matrix value'
