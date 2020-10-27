@@ -34,8 +34,18 @@ def do_matrix(infile, outfile):
     matrix = df.pivot(index='p1', columns='p2', values='psimil')
     logging.debug(f"matrix=\n{matrix}")
     logging.debug(f"matrix shape= {matrix.shape}")
+    
+    df.values = np.fill_diagonal(df.values, 1.0)
+    df.fillna(df.T, inplace=True)
     matrix.to_csv(outfile, sep='\t', float_format='%.3f', index=True, header=True )
+    #pd.read_csv('outfile2', sep='\t', index_col=0)
+    # Result = A.fillna(B)
+    #  result = A.fillna(A.
     logging.debug(f"Wrote {outfile}")
+
+
+
+
 
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
