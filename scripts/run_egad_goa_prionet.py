@@ -13,8 +13,11 @@ sys.path.append(gitpath)
 
 from egad.egad import *
 
-SALMON_NET=os.path.expanduser('~/data/cococonet/atlanticsalmon_prioAggNet.hdf5')
+#SALMON_NET=os.path.expanduser('~/data/cococonet/atlanticsalmon_prioAggNet.hdf5')
 #SALMON_NET=os.path.expanduser('~/data/cococonet/atlanticsalmon_metaAggNet.Rdata')
+HUMAN_NET=os.path.expanduser('~/data/cococonet/human_prioAggNet.hdf5')
+
+HUMAN_GOA=os.path.expanduser('~/data/goa/goa_human_gomatrix.csv')
 
 
 PREDOUT=os.path.expanduser('~/play/jones/gillis_seqs.predout')
@@ -27,13 +30,16 @@ SEQ_IDMAP=os.path.expanduser('~/play/jones/salmon_hiprio_seqmap.tsv')
 #  G803000000002 A0A1S3RA14_SALSA
 #  G803000000003 A0A1S3RDQ3_SALSA
 
-UID_GN_MAP=os.path.expanduser('~/play/jones/uniprot-trembl-salmon.8030.map.tsv')
+# UID_GN_MAP=os.path.expanduser('~/play/jones/uniprot-trembl-salmon.8030.map.tsv')
 #  db  acc          uid                 gn
 #  tr  A0A1S3RID5   A0A1S3RID5_SALSA    LOC106602976
 #  tr  B5XFF4       B5XFF4_SALSA        WRB
 #
 
-OUTFILE=f"{PREDOUT}.results.tsv"
+UID_GN_MAP=os.path.expanduser('~/data/cococonet/human_uid_map.tsv')
+
+
+OUTFILE=os.path.expanduser('~/play/jones/human_goa_results.tsv') 
 
 
 def read_network_hdf5(filename):
@@ -67,31 +73,31 @@ def read_predout(predout, seqidmap):
     fixedpredout.drop(['seqid'], inplace=True, axis=1)
     logging.debug(f"fixed pred out is \n{fixedpredout}")
 
+        
     return fixedpredout
 
 def fix_rowcol_names(network, mapfile):
-
     ugm = pd.read_csv(mapfile, sep='\t', header=0, index_col=0)
     logging.debug(f"uid_gn_map:\n{ugm}")
-    mapdict = pd.Series(ugm.uid.values, index=ugm.gn).to_dict()
-    #logging.debug(f"mapdict={mapdict}")
+    #mapdict = pd.Series(ugm.uid.values, index=ugm.gn).to_dict()
+    mapdict = pd.Series(ugm.gn.values, index=ugm.uid).to_dict()
+    logging.debug(f"mapdict={mapdict}")
     gncolumns = list(network.columns)
-    #logging.debug(f"columnlist={gncolumns}")
+    logging.debug(f"columnlist={gncolumns}")
     newcols = []
     for g in gncolumns:
         try:
-            newcols.append(mapdict[g])
+            n = mapdict[g]
+            logging.debug(f"got mapping {g} ->{n}")
+            if pd.isna(n):
+                newcols.append(g)
+            else:
+                newcols.append(n)
         except KeyError:
+            logging.debug(f"mapping error with {g}")
             newcols.append(g)
     
     logging.debug(f"newcols={newcols[:10]} length={len(newcols)}")
-    
-    
-    #coldf = pd.DataFrame()
-    #coldf['gn'] = network.columns
-    #mdf = pd.merge(coldf, ugm, how='inner',on=['gn'] )
-    #logging.debug(f"mergedf=\n{mdf}")
-    #network.columns = mdf['uid']
     logging.debug(f"network shape={network.shape} assigning columns..")
     network.columns=newcols
     logging.debug("assigning row index..")
@@ -106,22 +112,25 @@ if __name__ == '__main__':
     logging.basicConfig(format=FORMAT)
     logging.getLogger().setLevel(logging.DEBUG)
     
-    logging.info(f"Reading network: {SALMON_NET}")
-    nw = read_network_hdf5(SALMON_NET)
-    logging.info(f"salmon_network:\n{nw}")
+    logging.info(f"Reading network: {HUMAN_NET}")
+    nw = read_network_hdf5(HUMAN_NET)
+    logging.info(f"network:\n{nw}")
     nw = fix_rowcol_names(nw, UID_GN_MAP)
-    logging.info(f"fixed salmon_network:\n{nw}")        
+    logging.info(f"fixed network:\n{nw}")        
     
-    logging.info(f"Reading predictions: {PREDOUT}")
-    po = read_predout(PREDOUT, SEQ_IDMAP)   
+    #logging.info(f"Reading predictions: {PREDOUT}")
+    #po = read_predout(PREDOUT, SEQ_IDMAP)   
     #po.to_csv(f"{PREDOUT}.csv", sep="\t")
-    logging.info(f"\n{po}")    
+    #ogging.info(f"\n{po}")    
     
-    amdf = build_annotation_matrix(po, 'uid','goterm')
-    logging.info(f"\n{amdf}")    
+    #amdf = build_annotation_matrix(po, 'uid','goterm')
+    #logging.info(f"\n{amdf}")    
+    logging.debug(f"Reading in {HUMAN_GOA} ...")
+    adf = pd.read_csv(HUMAN_GOA, sep=',', index_col=0)
+       
     
-    logging.info(f"input to run_egad: genesXgo:\n{po}\ngenesXgenes:\n{nw}")    
-    outdf = run_egad(amdf, nw )
+    logging.info(f"input to run_egad: genesXgo:\n{adf}\ngenesXgenes:\n{nw}")    
+    outdf = run_egad(adf, nw )
     logging.info(f"\n{outdf}")
     outdf.to_csv(f"{OUTFILE}", sep='\t')    
-    logging.info(f"Wrote to {OUTFILE}")
+    #logging.info(f"Wrote to {OUTFILE}")

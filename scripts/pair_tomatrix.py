@@ -66,7 +66,7 @@ if __name__ == '__main__':
                         dest='vcol',
                         default='psimil',
                         type=str,
-                        help='column to use as matrix value'
+                        help='column to use as matrix value psimil|pident|score'
                         )
     
     parser.add_argument('infile', 
