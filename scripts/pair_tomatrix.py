@@ -34,7 +34,7 @@ def do_matrix(infile, outfile):
     matrix = df.pivot(index='p1', columns='p2', values='psimil')
     logging.debug(f"matrix=\n{matrix}")
     logging.debug(f"matrix shape= {matrix.shape}")
-    matrix.to_csv(outfile, sep='\t', float_format='%.3f' )
+    matrix.to_csv(outfile, sep='\t', float_format='%.3f', index=True, header=True )
     logging.debug(f"Wrote {outfile}")
 
 if __name__ == '__main__':
