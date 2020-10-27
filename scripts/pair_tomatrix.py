@@ -12,6 +12,7 @@ import traceback
 import subprocess
 
 import pandas as pd
+import numpy as np
 
 gitpath=os.path.expanduser("~/git/cshl-work")
 sys.path.append(gitpath)
@@ -26,21 +27,19 @@ def do_matrix(infile, outfile):
     columns = ['p1','p2','len','ident','simil','gaps','score','pident','psimil']
     df = pd.read_csv(infile,sep='\t')
     df.columns=columns
-    logging.debug(df)
-    #genelist = make_genelist(df.values)
-    #logging.debug(genelist)
-    #logging.debug(f"genelist length= {len(genelist)}")
+    #logging.debug(df)
 
     matrix = df.pivot(index='p1', columns='p2', values='psimil')
-    logging.debug(f"matrix=\n{matrix}")
+    #logging.debug(f"matrix=\n{matrix}")
     logging.debug(f"matrix shape= {matrix.shape}")
     
-    df.values = np.fill_diagonal(df.values, 1.0)
-    df.fillna(df.T, inplace=True)
+    logging.debug("Setting diagonals to 1.0")
+    np.fill_diagonal(matrix.values, 1.0)
+    logging.debug("Filling NaNs from Transpose...")
+    
+    matrix.fillna(matrix.T, inplace=True)
+    logging.debug(f"Writing to {outfile}")
     matrix.to_csv(outfile, sep='\t', float_format='%.3f', index=True, header=True )
-    #pd.read_csv('outfile2', sep='\t', index_col=0)
-    # Result = A.fillna(B)
-    #  result = A.fillna(A.
     logging.debug(f"Wrote {outfile}")
 
 
@@ -63,6 +62,12 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
 
+    parser.add_argument('-c','--column',
+                        metavar='vcol',
+                        type='str',
+                        help='column to use as matrix value'
+                        )
+    
     parser.add_argument('infile', 
                         metavar='infile', 
                         type=str, 
@@ -72,6 +77,7 @@ if __name__ == '__main__':
                         metavar='outfile', 
                         type=str, 
                         help='matrix file')
+
     
     args= parser.parse_args()
 
