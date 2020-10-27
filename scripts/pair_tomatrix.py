@@ -65,7 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('-c','--column',
                         metavar='vcol',
                         default='psimil',
-                        type='str',
+                        type=str,
                         help='column to use as matrix value'
                         )
     
