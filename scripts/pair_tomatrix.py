@@ -23,13 +23,13 @@ sys.path.append(gitpath)
 from egad.egad import *
 
 
-def do_matrix(infile, outfile):
+def do_matrix(infile, outfile, vcol ):
     columns = ['p1','p2','len','ident','simil','gaps','score','pident','psimil']
     df = pd.read_csv(infile,sep='\t')
     df.columns=columns
     #logging.debug(df)
 
-    matrix = df.pivot(index='p1', columns='p2', values='psimil')
+    matrix = df.pivot(index='p1', columns='p2', values=vcol)
     #logging.debug(f"matrix=\n{matrix}")
     logging.debug(f"matrix shape= {matrix.shape}")
     
@@ -64,6 +64,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-c','--column',
                         metavar='vcol',
+                        default='psimil',
                         type='str',
                         help='column to use as matrix value'
                         )
@@ -87,4 +88,4 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
     
-    do_matrix(args.infile, args.outfile)
+    do_matrix(args.infile, args.outfile, args.vcol)
