@@ -35,9 +35,9 @@ echo "Memory MB: $MBMEM"
 
 echo "*********JOB*************************"
 echo "Args are $@"
-if [ $# -ne 3 ]; then
+if [ $# -ne 4 ]; then
     echo "Incorrect number of arguments."
-    echo "Usage: runsamtools <setup> <infile> <outfile>"
+    echo "Usage: runsamtools <setup> <basemap> <infile> <outfile>"
     exit 1
 fi
 
