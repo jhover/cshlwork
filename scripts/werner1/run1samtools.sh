@@ -12,12 +12,12 @@
 #$ -N run1samtools
 #
 # job indexes for array
-#$ -t 1-2
+#$ -t 1-10
 #
 # processes per job
 #$ -pe threads 8 
 #
-#$ -wd  /grid/gillis/home/hover/play/werner1
+#$ -wd /grid/gillis/data/hover/work/werner1/
 #
 # Per-thread memory request. 
 # -l h_vmem=3G
