@@ -11,8 +11,8 @@
 # job name
 #$ -N run1samtools
 #
-# job indexes for array
-#$ -t 1-10
+# job indexes for array all jobs, but only run 10 at a time for disk quota 
+#$ -t 1-357 -tc 10
 #
 # processes per job
 #$ -pe threads 8 
