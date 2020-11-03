@@ -44,29 +44,14 @@ echo "Running setup from $1"
 echo "PATH=$PATH"
 
 echo "Running job..."
-TMP1=`mktemp -p ./`
-TMP2=`mktemp -p ./`
 
-INTMP=`mktemp -p ./`
-
-echo "Staging in..."
-echo cp -v $2 $INTMP
-time cp -v $2 $INTMP
-
-
-echo bedtools bamtofastq -i $INTMP -fq $TMP1 -fq2 $TMP2 
-time bedtools bamtofastq -i $INTMP -fq $TMP1 -fq2 $TMP2
+echo bedtools bamtofastq -i $2 -fq $3 -fq2 $4 
+time bedtools bamtofastq -i $2 -fq $3 -fq2 $4
 RET=$?
 if [ $RET -ne 0 ] ; then
     exit $RET
 fi
 echo "Job command Return code was $RET"
-
-echo "********STAGEOUT**********************"
-echo mv -v $TMP1 $3
-mv -v $TMP1 $3
-echo mv -v $TMP2 $4
-mv -v $TMP2 $4
 
 echo "*********DONE*************************"
 date

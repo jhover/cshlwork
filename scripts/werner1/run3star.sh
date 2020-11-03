@@ -40,17 +40,9 @@ echo "Running setup from $1"
 . $1
 echo "PATH=$PATH"
 
-echo "Staging in..."
-INTMP1=`mktemp -p ./`
-INTMP2=`mktemp -p ./`
-echo cp -v $3 $INTMP1
-time cp -v $3 $INTMP1
-echo cp -v $4 $INTMP2
-time cp -v $4 $INTMP2
-
 echo "Running job..."
-echo STAR  --genomeDir $2 --readFilesIn $INTMP1 $INTMP2 --runThreadN 20 --twopassMode Basic --twopass1readsN -1 --outSAMtype BAM Unsorted --quantMode GeneCounts  
-time STAR  --genomeDir $2 --readFilesIn $INTMP1 $INTMP2 --runThreadN 20 --twopassMode Basic --twopass1readsN -1 --outSAMtype BAM Unsorted  --quantMode GeneCounts
+echo STAR  --genomeDir $2 --readFilesIn $3 $4 --runThreadN 20 --twopassMode Basic --twopass1readsN -1 --outSAMtype BAM Unsorted --quantMode GeneCounts  
+time STAR  --genomeDir $2 --readFilesIn $3 $4 --runThreadN 20 --twopassMode Basic --twopass1readsN -1 --outSAMtype BAM Unsorted  --quantMode GeneCounts
 RET=$?
 if [ $RET -ne 0 ] ; then
     exit $RET

@@ -39,18 +39,11 @@ echo "Running job..."
 TMP1=`mktemp -p ./`
 INTMP=`mktemp -p ./`
 
-echo "Staging in..."
-echo cp -v $2 $INTMP
-time cp -v $2 $INTMP
 
-echo samtools sort -m 2G -o $TMP1 -O bam -n  -@ 25 $INTMP
-time samtools sort -m 2G -o $TMP1 -O bam -n -@ 25 $INTMP
+echo samtools sort -m 2G -o $3 -O bam -n  -@ 25 $2
+time samtools sort -m 2G -o $3 -O bam -n -@ 25 $2
 RET=$?
 echo "Job command Return code was $RET"
-
-echo "********STAGEOUT**********************"
-echo mv -v $TMP1 $3
-mv -v $TMP1 $3
 
 echo "*********DONE*************************"
 date
