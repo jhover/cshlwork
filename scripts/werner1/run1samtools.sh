@@ -19,7 +19,7 @@
 #
 
 # Per-processor memory request. 
-#$ -l h_vmem=1.5G
+#$ -l h_vmem=3G
 
 echo "*********START*************************"
 date
