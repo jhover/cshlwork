@@ -15,8 +15,9 @@
 #$ -t 1-2
 #
 # processes per job
-#$ -l slots=12 
+#$ -pe threads 12 
 #
+
 # Per-processor memory request. 
 #$ -l h_vmem=1.5G
 
