@@ -19,9 +19,11 @@
 #
 #$ -wd  /grid/gillis/home/hover/play/werner1
 #
+# Per-thread memory request. 
+# -l h_vmem=3G
+#$ -l m_mem_free=3G
+# 
 
-# Per-processor memory request. 
-#$ -l h_vmem=3G
 
 echo "*********START*************************"
 date
