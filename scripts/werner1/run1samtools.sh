@@ -55,8 +55,8 @@ outfile="$4/$filebase.readSorted.bam"
 
 
 echo "Running job..."
-echo samtools sort -m 2G -o $outfile -O bam -n  -@ 25 $infile
-time samtools sort -m 2G -o $outfile -O bam -n -@ 25 $infile
+echo samtools sort -m 2G -o $outfile -O bam -n  -@ 12 $infile
+time samtools sort -m 2G -o $outfile -O bam -n -@ 12 $infile
 RET=$?
 echo "Job command Return code was $RET"
 
