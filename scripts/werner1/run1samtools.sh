@@ -15,7 +15,9 @@
 #$ -t 1-2
 #
 # processes per job
-#$ -pe threads 12 
+#$ -pe threads 8 
+#
+#$ -wd  /grid/gillis/home/hover/play/werner1
 #
 
 # Per-processor memory request. 
@@ -55,8 +57,8 @@ outfile="$4/$filebase.readSorted.bam"
 
 
 echo "Running job..."
-echo samtools sort -m 2G -o $outfile -O bam -n  -@ 10 $infile
-time samtools sort -m 2G -o $outfile -O bam -n -@ 10 $infile
+echo samtools sort -m 2G -o $outfile -O bam -n  -@ 8 $infile
+time samtools sort -m 2G -o $outfile -O bam -n -@ 8 $infile
 RET=$?
 echo "Job command Return code was $RET"
 
