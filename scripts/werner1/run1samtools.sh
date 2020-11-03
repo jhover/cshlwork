@@ -47,7 +47,7 @@ echo "PATH=$PATH"
 
 basefile=$2
 $SGE_TASK_ID
-filebase=`head -$SGE_TASK_ID | tail -1 `
+filebase=`head -$SGE_TASK_ID $2 | tail -1 `
 echo "Filebase is $filebase"
 infile="$3/$filebase.Aligned.sortedByCoord.out.patched.md.bam"
 outfile="$4/$filebase.readSorted.bam"
