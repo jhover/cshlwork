@@ -20,7 +20,6 @@
 #$ -wd /grid/gillis/data/hover/work/werner1/
 #
 # Per-thread memory request. 
-# -l h_vmem=3G
 #$ -l m_mem_free=3G
 # 
 
