@@ -9,7 +9,7 @@
 #   request_memory = 2048
 
 # job name
-#$ -N run1samtools
+#$ -N run2bedtools
 #
 # job indexes for array all jobs, but only run 10 at a time for disk quota 
 #$ -t 1-357 -tc 10
