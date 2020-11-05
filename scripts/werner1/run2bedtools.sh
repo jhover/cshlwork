@@ -2,7 +2,6 @@
 #   Usage: runbedtools <setup> <infile> <outfile1> <outfile2>
 #
 #   args =  $(setup)
-#	        $(basefile)  
 #           $(outdir)				/$(filebase).readSorted.bam 
 #           						$(outdir)/$(filebase).end1.fq  
 #           						$(outdir)/$(filebase).end2.fq
@@ -31,7 +30,7 @@ date
 echo "*********JOB*************************"
 
 echo "Args are $@"
-if [ $# -ne 3 ]; then
+if [ $# -ne 2 ]; then
     echo "Incorrect number of arguments."
     echo "Usage: runbedtools <setup> <infile> <outfile1> <outfile2>"
     exit 1

@@ -2,7 +2,6 @@
 #   Usage: runsamtools <setup> <indir> <outdir>
 #
 # args = $(setup)
-#        $(basefile) 
 #        $(indir)      # in:   /$(filebase).Aligned.sortedByCoord.out.patched.md.bam 
 #        $(outdir)     # out:  /$(filebase).readSorted.bam 
 # request_cpus = 12
