@@ -50,8 +50,8 @@ infile="$3/$filebase.readSorted.bam"
 outfile1="$3/$filebase.end1.fq "
 outfile2="$3/$filebase.end2.fq"
 
-echo bedtools bamtofastq -i $2 -fq $3 -fq2 $4 
-time bedtools bamtofastq -i $2 -fq $3 -fq2 $4
+echo bedtools bamtofastq -i $infile -fq $outfile1 -fq2 $outfile2 
+time bedtools bamtofastq -i $infile -fq $outfile1 -fq2 $outfile2
 RET=$?
 if [ $RET -ne 0 ] ; then
     exit $RET
