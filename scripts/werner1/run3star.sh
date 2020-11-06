@@ -55,11 +55,11 @@ echo "Filebase is $filebase"
 infile1="$4/$filebase.end1.fq "
 infile2="$4/$filebase.end2.fq"
 
-genomdir=$3
+genomedir=$3
 
 echo "Running job..."
 
-mkdir $filebase
+mkdir -p $filebase
 cd $filebase
 
 echo STAR  --genomeDir $genomedir --readFilesIn $infile1 $infile2 --runThreadN $NUMTHR --twopassMode Basic --twopass1readsN -1 --outSAMtype BAM Unsorted --quantMode GeneCounts  
@@ -80,6 +80,8 @@ for f in $KEEPFILES; do
 done
 
 cd ..
+rm $filebase/*
+rmdir $filebase 
 
 echo "*********END***************************"
 exit $RET
