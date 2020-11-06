@@ -52,15 +52,18 @@ basefile=$2
 filebase=`head -$SGE_TASK_ID $2 | tail -1 `
 echo "Filebase is $filebase"
 
-infile1="$4/$filebase.end1.fq "
-infile2="$4/$filebase.end2.fq"
-
 genomedir=$3
+outdir=$4
+
+infile1="$outdir/$filebase.end1.fq "
+infile2="$outdir/$filebase.end2.fq"
+
+
 
 echo "Running job..."
 
-mkdir -p $filebase
-cd $filebase
+mkdir -p $outdir/$filebase
+cd $outdir/$filebase
 
 echo STAR  --genomeDir $genomedir --readFilesIn $infile1 $infile2 --runThreadN $NUMTHR --twopassMode Basic --twopass1readsN -1 --outSAMtype BAM Unsorted --quantMode GeneCounts  
 time STAR  --genomeDir $genomedir --readFilesIn $infile1 $infile2 --runThreadN $NUMTHR --twopassMode Basic --twopass1readsN -1 --outSAMtype BAM Unsorted  --quantMode GeneCounts
@@ -75,8 +78,8 @@ echo "Contents of working dir:"
 ls -alh
 KEEPFILES="Aligned.out.bam Log.out Log.final.out Log.progress.out ReadsPerGene.out.tab SJ.out.tab"
 for f in $KEEPFILES; do
-    echo mv -v $f ../$basefile.$f
-    mv -v $f ../$basefile.$f
+    echo mv -v $f $outdir/$filebase.$f
+    mv -v $f $outdir/$filebase.$f
 done
 
 cd ..
