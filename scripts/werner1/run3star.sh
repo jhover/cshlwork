@@ -36,10 +36,10 @@ date
 . $COMMON
 
 echo "*********JOB*************************"
-echo "Args are $@"
+echo "Args are $@ Numargs is $#"
 if [ $# -ne 4 ]; then
     echo "Incorrect number of arguments."
-    "Usage: runstar <setup> <genomedir> <infile1> <infile2> <outdir> <filebase>"
+    "Usage: runstar <setup> <basefile> <genomedir> <outdir>"
     exit 1
 fi
 
