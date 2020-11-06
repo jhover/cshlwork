@@ -80,7 +80,7 @@ for f in $KEEPFILES; do
 done
 
 cd ..
-rm $filebase/*
+rm -rf $filebase/*
 rmdir $filebase 
 
 echo "*********END***************************"
