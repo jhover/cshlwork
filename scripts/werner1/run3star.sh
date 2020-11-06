@@ -16,7 +16,7 @@
 #$ -N run3star
 #
 # job indexes for array all jobs, but only run 10 at a time for disk quota 
-#$ -t 1-4 -tc 2
+#$ -t 1-357 -tc 4
 #
 # processes per job
 #$ -pe threads 16 
