@@ -49,6 +49,8 @@ echo "PATH=$PATH"
 
 basefile=$2
 # $SGE_TASK_ID
+TASKID=gettaskid
+
 filebase=`head -$SGE_TASK_ID $2 | tail -1 `
 echo "Filebase is $filebase"
 
