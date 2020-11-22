@@ -123,7 +123,7 @@ if [ $RET -ne 0 ] ; then
     exit $RET
 fi
 
-echo "Haplotype calling (?)..."
+echo "Haplotype calling..."
 echo gatk HaplotypeCaller -R $genome_fa -L $chr -I $chr.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0  -O $chr.filtered.vcf
 gatk HaplotypeCaller -R $genome_fa -L $chr -I $chr.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0  -O $chr.filtered.vcf
 RET=$?
