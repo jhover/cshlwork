@@ -2,34 +2,53 @@
 #   Usage: runsamgatvigv <setup> <infile> <outfile> <outvcf> <outwig> <outcut>
 # 
 #   args = $(setup) 
-#          $(outdir)/$(filebase).Aligned.sortedByCoord.out.bam  
-#          $(outdir)/$(filebase).chrX.split.filtered.wig $(outdir)/$(filebase).chrX.filtered.vcf 
-#          $(outdir)/$(filebase).chrX.intersect.wig $(outdir)/$(filebase).chrX.cut
+#          $(basefile)
+#          $(chr)
+#          $(genomedir)
+#          $(outdir)
+#					INFILE
+#					/$(filebase).Aligned.sortedByCoord.out.bam  
+#					OUTFILES
+#          			/$(filebase).chrX.split.filtered.wig 
+#                   /$(filebase).chrX.filtered.vcf 
+#          			/$(filebase).chrX.intersect.wig 
+#                   /$(filebase).chrX.cut
 #   request_cpus = 1
 #   request_memory = 10240
 #
+# job name
+#$ -N run5samgatk
 #
+# job indexes for array all jobs, but only run 10 at a time for disk quota 
+#$ -t 1-107 -tc 4
 #
+# processes per job
+#$ -pe threads 1
+#
+#$ -wd /grid/gillis/data/hover/work/werner1/
+#
+# Per-thread memory request. 
+#$ -l m_mem_free=10G
+# 
+
+#chr="chrX"
+#chr_fa="$genomedir/$chr.fa"
+#genome_fa="$genomedir/GRCh38.p7.genome.fa"
+
+snpdb="/grid/gillis/home/hover/data/snpdb/chrX.snpdb.txt"
+
+COMMON=~/git/cshl-work/scripts/werner1/common.sh 
 echo "*********START*************************"
 date
-
-echo "*********NODE*************************"
-hostname -f
-cat /etc/redhat-release
-CV=`condor_version | tr -d "\n"`
-echo "Condor Version: $CV"
-NPROC=`cat /proc/cpuinfo  | grep processor | wc -l`
-echo "Processors: $NPROC "
-KMEM=`cat /proc/meminfo  | grep MemTotal | awk '{print $2}'`
-MBMEM=`expr $KMEM / 1000`
-echo "Memory MB: $MBMEM"
+. $COMMON
+nodeinfo
 
 
 echo "*********JOB*************************"
 echo "Args are $@"
-if [ $# -ne 6 ]; then
+if [ $# -ne 5 ]; then
     echo "Incorrect number of arguments."
-    echo "Usage: runsamgatvigv <setup> <infile> <outfile> <outvcf> <outwig> <outcut>"
+    echo "Usage: run5samgatvigv <setup> <basefile> <workdir>"
     exit 1
 fi
 
@@ -40,20 +59,30 @@ IGV=`igvtools version`
 echo "IGV version: $IGV"
 echo "PATH=$PATH"
 
-chr="chrX"
-chr_fa="/data/jwerner/data/annot_genomes/GRCh38_Gencode25/$chr.fa"
-genome_fa="/data/jwerner/data/annot_genomes/GRCh38_Gencode25/GRCh38.p7.genome.fa"
-snpdb="/data/jwerner/data/snpdb/chrX.snpdb.txt"
+basefile=$2
+# $SGE_TASK_ID
+TASKID=$(gettaskid)
+echo "TASKID is $TASKID"
+filebase=`head -$TASKID $2 | tail -1 `
+echo "Filebase is $filebase"
+
+chr=$3
+genomedir=$4
+outdir=$5
+ 
+# FILES
+infile="$(outdir)/$(filebase).Aligned.sortedByCoord.out.bam"
+splitwig="$(outdir)/$(filebase).$(chr).split.filtered.wig" 
+filtvcf="$(outdir)/$(filebase).$(chr).filtered.vcf" 
+intwig="$(outdir)/$(filebase).$(chr).intersect.wig"
+cut="$(outdir)/$(filebase).$(chr).cut
 
 
-echo "Staging in..."
-INTMP=`mktemp -p ./`
-echo cp -v $2 $INTMP
-time cp -v $2 $INTMP
+mkdir -p $outdir/$filebase
+cd $outdir/$filebase
 
-
-echo "samtools view -b $INTMP  chrX > $chr.bam"
-samtools view -b $INTMP chrX > $chr.bam
+echo "samtools view -b $infile $chr > $chr.bam"
+samtools view -b $infile $chr > $chr.bam
 RET=$?
 echo "Command Return code was $RET"
 if [ $RET -ne 0 ] ; then
@@ -115,34 +144,36 @@ if [ $RET -ne 0 ] ; then
 fi
 
 echo "Additional filtering/cutting..."
-grep chrX chrX.filtered.vcf | cut -f2-5 > A
+grep $chr $chr.filtered.vcf | cut -f2-5 > A
 cut -f1 A > B
 grep -Fw -f B $snpdb > D
-grep -Fw -f D $TMPFILE > chrX.intersect.wig
-grep -Fw -f D A > chrX.cut 
+grep -Fw -f D $TMPFILE > $chr.intersect.wig
+grep -Fw -f D A > $chr.cut 
 
 
 echo "**************FINALIZE************"
 ls -alh
 
 # handle TMPFILE (which is chrX.split.filtered.wig) 
-echo mv -v $TMPFILE $3
-time mv -v $TMPFILE $3
+echo mv -v $TMPFILE $splitwig
+time mv -v $TMPFILE $splitwig
 
-# handle 
-echo mv -v chrX.filtered.vcf $4
-mv -v chrX.filtered.vcf $4
+# handle files...
+echo mv -v $chr.filtered.vcf $filtvcf
+mv -v $chr.filtered.vcf $filtvcf
 
-echo mv -v chrX.intersect.wig $5
-mv -v chrX.intersect.wig $5
+echo mv -v $chr.intersect.wig $intwig
+mv -v $chr.intersect.wig $intwig
 
-echo mv -v chrX.cut $6
-mv -v chrX.cut $6
+echo mv -v $chr.cut $cut
+mv -v $chr.cut $cut
 
+cd ..
+rm -rf $filebase/*
+rmdir $filebase 
 
-echo "*********DONE*************************"
-date
 echo "*********END***************************"
+date
 sleep 30
 exit $RET
 

@@ -13,21 +13,22 @@ sys.path.append(gitpath)
 
 from egad.egad import *
 
-SALMON_NET=os.path.expanduser('~/data/cococonet/atlanticsalmon_prioAggNet.hdf5')
-#SALMON_NET=os.path.expanduser('~/data/cococonet/atlanticsalmon_metaAggNet.Rdata')
+#SPECIES_NET=os.path.expanduser('~/data/cococonet/atlanticspecies_prioAggNet.hdf5')
+SPECIES_NET=os.path.expanduser('~/data/cococonet/networks/afrog_prioAggNet.hdf5')
 
 
-PREDOUT=os.path.expanduser('~/play/jones/gillis_seqs.predout')
+#PREDOUT=os.path.expanduser('~/play/jones/gillis_seqs.predout')
+PREDOUT=os.path.expanduser('~/play/jones/afrog_prio.predout')
 #  G803000000001    GO:0005667    0.10
 #  G803000000001    GO:0043966    0.10
 #  G803000000001    GO:0045893    0.10
 
-SEQ_IDMAP=os.path.expanduser('~/play/jones/salmon_hiprio_seqmap.tsv')
+SEQ_IDMAP=os.path.expanduser('~/play/jones/species_hiprio_seqmap.tsv')
 #  G803000000001 A0A1S3SK04_SALSA
 #  G803000000002 A0A1S3RA14_SALSA
 #  G803000000003 A0A1S3RDQ3_SALSA
 
-UID_GN_MAP=os.path.expanduser('~/play/jones/uniprot-trembl-salmon.8030.map.tsv')
+UID_GN_MAP=os.path.expanduser('~/play/jones/uniprot-trembl-species.8030.map.tsv')
 #  db  acc          uid                 gn
 #  tr  A0A1S3RID5   A0A1S3RID5_SALSA    LOC106602976
 #  tr  B5XFF4       B5XFF4_SALSA        WRB
@@ -54,51 +55,12 @@ def read_network_hdf5(filename):
     return df        
     
 
-def read_predout(predout, seqidmap):
+def read_predout(predout):
     columns = ['seqid','goterm','prob'] 
     df = pd.read_csv(predout, sep='\t', header=None, names=columns)
+    logging.debug(f"predout\n{df.head()}")
     logging.debug(f"predout shape: {df.shape}")
-    columns = ['seqid','uid'] 
-    smdf = pd.read_csv(seqidmap, sep='\t', header=None, names=columns) 
-    logging.debug(f"seqmap shape: {smdf.shape}")
-    logging.debug(f"seqmap:\n{smdf}")
-
-    fixedpredout = pd.merge(df, smdf,  how='left', on=['seqid'])
-    fixedpredout.drop(['seqid'], inplace=True, axis=1)
-    logging.debug(f"fixed pred out is \n{fixedpredout}")
-
-    return fixedpredout
-
-def fix_rowcol_names(network, mapfile):
-
-    ugm = pd.read_csv(mapfile, sep='\t', header=0, index_col=0)
-    logging.debug(f"uid_gn_map:\n{ugm}")
-    mapdict = pd.Series(ugm.uid.values, index=ugm.gn).to_dict()
-    #logging.debug(f"mapdict={mapdict}")
-    gncolumns = list(network.columns)
-    #logging.debug(f"columnlist={gncolumns}")
-    newcols = []
-    for g in gncolumns:
-        try:
-            newcols.append(mapdict[g])
-        except KeyError:
-            newcols.append(g)
-    
-    logging.debug(f"newcols={newcols[:10]} length={len(newcols)}")
-    
-    
-    #coldf = pd.DataFrame()
-    #coldf['gn'] = network.columns
-    #mdf = pd.merge(coldf, ugm, how='inner',on=['gn'] )
-    #logging.debug(f"mergedf=\n{mdf}")
-    #network.columns = mdf['uid']
-    logging.debug(f"network shape={network.shape} assigning columns..")
-    network.columns=newcols
-    logging.debug("assigning row index..")
-    network.index = newcols
-    logging.debug("done.")
-    return network
-    
+    return df
 
 
 if __name__ == '__main__':
@@ -106,18 +68,18 @@ if __name__ == '__main__':
     logging.basicConfig(format=FORMAT)
     logging.getLogger().setLevel(logging.DEBUG)
     
-    logging.info(f"Reading network: {SALMON_NET}")
-    nw = read_network_hdf5(SALMON_NET)
-    logging.info(f"salmon_network:\n{nw}")
-    nw = fix_rowcol_names(nw, UID_GN_MAP)
-    logging.info(f"fixed salmon_network:\n{nw}")        
+    logging.info(f"Reading network: {SPECIES_NET}")
+    nw = read_network_hdf5(SPECIES_NET)
+    logging.info(f"SPECIES_NETwork:\n{nw}")
+    #nw = fix_rowcol_names(nw, UID_GN_MAP)
+    #logging.info(f"fixed SPECIES_NETwork:\n{nw}")        
     
     logging.info(f"Reading predictions: {PREDOUT}")
-    po = read_predout(PREDOUT, SEQ_IDMAP)   
+    po = read_predout(PREDOUT)   
     #po.to_csv(f"{PREDOUT}.csv", sep="\t")
     logging.info(f"\n{po}")    
     
-    amdf = build_annotation_matrix(po, 'uid','goterm')
+    amdf = build_annotation_matrix(po, 'seqid','goterm')
     logging.info(f"\n{amdf}")    
     
     logging.info(f"input to run_egad: genesXgo:\n{po}\ngenesXgenes:\n{nw}")    

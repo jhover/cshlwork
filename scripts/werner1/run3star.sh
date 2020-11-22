@@ -63,7 +63,6 @@ infile2="$outdir/$filebase.end2.fq"
 
 
 echo "Running job..."
-
 mkdir -p $outdir/$filebase
 cd $outdir/$filebase
 

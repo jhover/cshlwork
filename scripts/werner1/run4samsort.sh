@@ -32,12 +32,11 @@ date
 . $COMMON
 nodeinfo
 
-
 echo "*********JOB*************************"
 echo "Args are $@"
 if [ $# -ne 3 ]; then
     echo "Incorrect number of arguments."
-    echo "Usage: runsamtools <setup> <infile> <outfile>"
+    echo "Usage: run4samsort <setup> <basefile> <workdir>"
     exit 1
 fi
 
@@ -56,10 +55,9 @@ outdir=$3
 infile="$outdir/$filebase.Aligned.out.bam"
 outfile="$outdir/$filebase.Aligned.sortedByCoord.out.bam"
 
-
 echo "Running job..."
-TMPFILE=`mktemp -p ./`
-echo "TMPFILE is $TMPFILE"
+#TMPFILE=`mktemp -p ./`
+#echo "TMPFILE is $TMPFILE"
 echo samtools sort -m 2G -o $outfile -O bam  -@ $NUMTHR $infile
 time samtools sort -m 2G -o $outfile -O bam  -@ $NUMTHR $infile
 RET=$?
@@ -76,15 +74,9 @@ fi
 
 echo "Job command Return code was $RET"
 
-#echo "********STAGEOUT**********************"
-#echo mv -v $TMPFILE $3
-#time mv -v $TMPFILE $3
-
-#echo mv -v $TMPFILE.bai $3.bai
-#time mv -v $TMPFILE.bai $3.bai 
-
 echo "*********DONE*************************"
 date
+
 echo "*********END***************************"
 exit $RET
 
