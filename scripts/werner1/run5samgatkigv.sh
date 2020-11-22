@@ -71,11 +71,11 @@ genomedir=$4
 outdir=$5
  
 # FILES
-infile="$(outdir)/$(filebase).Aligned.sortedByCoord.out.bam"
-splitwig="$(outdir)/$(filebase).$(chr).split.filtered.wig" 
-filtvcf="$(outdir)/$(filebase).$(chr).filtered.vcf" 
-intwig="$(outdir)/$(filebase).$(chr).intersect.wig"
-cut="$(outdir)/$(filebase).$(chr).cut
+infile="$outdir/$filebase.Aligned.sortedByCoord.out.bam"
+splitwig="$outdir/$filebase.$chr.split.filtered.wig" 
+filtvcf="$outdir/$filebase.$chr.filtered.vcf" 
+intwig="$outdir/$filebase.$chr.intersect.wig"
+cut="$outdir/$filebase.$chr.cut
 
 
 mkdir -p $outdir/$filebase
