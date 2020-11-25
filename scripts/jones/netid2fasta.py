@@ -53,7 +53,7 @@ def parse_tfa_file(infile):
     except FileNotFoundError:
         logging.error(f"file not readable {infile} ")
         
-    logging.debug(f"got {len(listoflists)} entries...")
+    logging.info(f"got {len(listoflists)} entries...")
     logging.debug(f"listoflists: {listoflists}") 
     df = pd.DataFrame(listoflists, columns=['pacc','pid','sequence'])
     #df = pd.DataFrame(priormatrix, index=ontobj.gotermlist, columns=['score'])
@@ -64,25 +64,26 @@ def parse_tfa_file(infile):
     return map
 
 
-
-
 def parse_info_file(filename):
     '''
     return dictionary of netids to UniprotIDs for protein-coding gene/proteins in network. 
     '''
-    with open(filename) as f:
-        df = pd.read_csv(filename)
-        logging.debug(f"initial shape={df.shape}")
-        df = df[df.Type == "protein-coding"]
-        logging.debug(f"protein-coding shape={df.shape}")
-        try:
-            df = df[df["UniProtID.y"].notna()]
-            map = pd.Series(df['UniProtID.y'].values, index=df.NetworkIDs).to_dict()
-        except:
-            df = df[df["UniProtID"].notna()]
-            map = pd.Series(df['UniProtID'].values, index=df.NetworkIDs).to_dict()
-      
-    f.close()
+    
+    df = pd.read_csv(filename)
+    logging.debug(f"initial shape={df.shape}")
+    df = df[df.Type == "protein-coding"]
+    logging.debug(f"protein-coding shape={df.shape}")
+    try:
+        logging.debug(f"has column UniProtID.y")
+        df = df[df["UniProtID.y"].notna()]
+        logging.info(f"length after NA filtering {len(df)}")
+        map = pd.Series(df['UniProtID.y'].values, index=df.NetworkIDs).to_dict()
+    except:
+        logging.debug(f"has column UniProtID")
+        df = df[df["UniProtID"].notna()]
+        logging.info(f"length after NA filtering {len(df)}")
+        map = pd.Series(df['UniProtID'].values, index=df.NetworkIDs).to_dict()
+
     return map
 
 
@@ -103,15 +104,19 @@ def parse_expression_hd5(filename):
 
 def make_uidlist(netidlist, uidmap):
     outlist = []
+    nummissing = 0
+    numfound = 0
     for id in netidlist:
         try:
             out = uidmap[id]
             tup = (id, out)
             outlist.append(tup)
+            numfound += 1
         except KeyError:
+            nummissing += 1
             logging.debug(f"missing value for networkid {id}")
     outlist.sort()
-    logging.debug(f"generout out list len {len(outlist)}")
+    logging.info(f"Generated UniprotID list. {numfound} found. {nummissing} missing")
     return outlist
 
 def write_tfa_file(outlist, seqmap, outfile):
@@ -122,12 +127,13 @@ def write_tfa_file(outlist, seqmap, outfile):
     s=""
     x = 60
     nummissing = 0
+    numfound = 0
     
     for (netid, uid ) in outlist:    
         try:
             sequence = seqmap[uid]
+            numfound += 1
             s += f">{netid} {uid}\n"
-            
             chunklist = [ sequence[y-x:y] for y in range(x, len(sequence)+x, x) ] 
             #logging.debug(f"chunklist {chunklist}")
             for c in chunklist:
@@ -138,11 +144,11 @@ def write_tfa_file(outlist, seqmap, outfile):
     
     if nummissing > 10:
         logging.warning(f"{nummissing} sequences missing from DB!")
-    
+    logging.info(f"found {numfound} sequences. {nummissing} missing")
     try:
         f = open(outfile, 'w')
         f.write(s)
-        logging.debug(f"Wrote TFA sequence to file {outfile}")
+        logging.info(f"Wrote TFA sequence to file {outfile}")
     except IOError:
         logging.error(f"could not write to file {outfile}")
         traceback.print_exc(file=sys.stdout) 
