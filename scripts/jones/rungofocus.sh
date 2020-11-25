@@ -21,6 +21,10 @@
 # Per-thread memory request. 
 #$ -l m_mem_free=8G
 # 
+#$ -l gpu=1 
+#
+#
+
 COMMON=~/git/cshl-work/scripts/werner1/common.sh 
 CMD=~/git/gofocus/gofocus/pytorch_goterm_pred.py 
 
