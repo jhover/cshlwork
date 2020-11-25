@@ -25,7 +25,7 @@
 #
 #
 
-COMMON=~/git/cshl-work/scripts/werner1/common.sh 
+COMMON=~/git/cshl-work/scripts/jones/common.sh 
 CMD=~/git/gofocus/gofocus/pytorch_goterm_pred.py 
 
 echo "*********START*************************"
