@@ -72,16 +72,16 @@ def parse_info_file(filename):
     df = pd.read_csv(filename)
     logging.debug(f"initial shape={df.shape}")
     df = df[df.Type == "protein-coding"]
-    logging.debug(f"protein-coding shape={df.shape}")
+    logging.info(f"protein-coding shape={df.shape}")
     try:
         logging.debug(f"has column UniProtID.y")
         df = df[df["UniProtID.y"].notna()]
-        logging.info(f"length after NA filtering {len(df)}")
+        logging.info(f"With UniProtID.y length after NA filtering {len(df)}")
         map = pd.Series(df['UniProtID.y'].values, index=df.NetworkIDs).to_dict()
     except:
         logging.debug(f"has column UniProtID")
         df = df[df["UniProtID"].notna()]
-        logging.info(f"length after NA filtering {len(df)}")
+        logging.info(f"With UniProtID length after NA filtering {len(df)}")
         map = pd.Series(df['UniProtID'].values, index=df.NetworkIDs).to_dict()
 
     return map
@@ -92,7 +92,7 @@ def parse_expression_hd5(filename):
     Loads data in file to dataframe.
     """
     with h5py.File(filename, 'r') as f:
-        logging.debug("reading matrix...")
+        logging.info(f"reading matrix from {filename}")
         matrix = f['agg'][:]
         logging.debug("reading rows. converting to unicode.")
         rows = [ s.decode() for s in  f['row'][:] ]
@@ -145,15 +145,19 @@ def write_tfa_file(outlist, seqmap, outfile):
     if nummissing > 10:
         logging.warning(f"{nummissing} sequences missing from DB!")
     logging.info(f"found {numfound} sequences. {nummissing} missing")
-    try:
-        f = open(outfile, 'w')
-        f.write(s)
-        logging.info(f"Wrote TFA sequence to file {outfile}")
-    except IOError:
-        logging.error(f"could not write to file {outfile}")
-        traceback.print_exc(file=sys.stdout) 
-    finally:
-        f.close()
+    
+    if numfound > 1:    
+        try:
+            f = open(outfile, 'w')
+            f.write(s)
+            logging.info(f"Wrote TFA sequence to file {outfile}")
+        except IOError:
+            logging.error(f"could not write to file {outfile}")
+            traceback.print_exc(file=sys.stdout) 
+        finally:
+            f.close()
+    else:
+        logging.error("No sequences found.")
 
 
 if __name__ == '__main__':
