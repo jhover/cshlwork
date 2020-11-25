@@ -16,7 +16,7 @@
 # processes per job
 #$ -pe threads 4
 #
-#$ -wd /grid/gillis/data/hover/play/jones
+#$ -wd /grid/gillis/home/hover/play/jones
 #
 # Per-thread memory request. 
 #$ -l m_mem_free=3G
