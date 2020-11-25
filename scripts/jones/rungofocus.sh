@@ -4,8 +4,6 @@
 #   args =  $(setup) 
 #           $(basefile)
 #           $(outdir)
-#						$(outdir)/$(filebase).end1.fq  
-#           			$(outdir)/$(filebase).end2.fq  
 #
 # job name
 #$ -N gofocus
@@ -34,9 +32,9 @@ date
 
 echo "*********JOB*************************"
 echo "Args are $@ Numargs is $#"
-if [ $# -ne 4 ]; then
+if [ $# -ne 3 ]; then
     echo "Incorrect number of arguments."
-    "Usage: rungofocus.sh  <setup> <basefile> <outdir>"
+    echo "Usage: rungofocus.sh  <setup> <basefile> <outdir>"
     exit 1
 fi
 
