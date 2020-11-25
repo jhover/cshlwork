@@ -17,7 +17,6 @@ import logging
 import pandas as pd
 import h5py
 
-
 def parse_tfa_file(infile):
     """
     Reads .tfa file, determines species, target ids, geneids. 
@@ -76,8 +75,12 @@ def parse_info_file(filename):
         logging.debug(f"initial shape={df.shape}")
         df = df[df.Type == "protein-coding"]
         logging.debug(f"protein-coding shape={df.shape}")
-        df = df[df["UniProtID.y"].notna()]
-        map = pd.Series(df['UniProtID.y'].values, index=df.NetworkIDs).to_dict()
+        try:
+            df = df[df["UniProtID.y"].notna()]
+            map = pd.Series(df['UniProtID.y'].values, index=df.NetworkIDs).to_dict()
+        except:
+            df = df[df["UniProtID"].notna()]
+            map = pd.Series(df['UniProtID'].values, index=df.NetworkIDs).to_dict()
       
     f.close()
     return map
