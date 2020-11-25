@@ -14,12 +14,12 @@
 #$ -t 1-39
 #
 # processes per job
-#$ -pe threads 1
+#$ -pe threads 4
 #
 #$ -wd /grid/gillis/data/hover/play/jones
 #
 # Per-thread memory request. 
-#$ -l m_mem_free=8G
+#$ -l m_mem_free=3G
 # 
 #$ -l gpu=1 
 #
