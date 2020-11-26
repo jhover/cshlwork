@@ -67,6 +67,7 @@ if [ $RET -ne 0 ] ; then
     exit $RET
 fi
 echo "Job command Return code was $RET"
+date
 echo "*********END***************************"
 exit $RET
 
