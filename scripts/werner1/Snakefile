@@ -1,9 +1,7 @@
 #SAMPLES=[ 'GTEX-1CB4H-1526-SM-7MXU4','GTEX-1CB4H-2426-SM-7PBYR']
 
 HOMEDIR="/grid/gillis/home/hover"
-
-SAMPLES= glob_wildcards("/grid/gillis/home/hover/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam"
-
+SAMPLES= glob_wildcards("/grid/gillis/home/hover/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
 
 rule all:
 	input:
