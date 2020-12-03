@@ -1,0 +1,1 @@
+snakemake --dry-run --jobs 4 --cluster "qsub -N gofocus -pe threads 4 -l m_mem_free=3G -l gpu=1 "

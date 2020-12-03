@@ -4,7 +4,6 @@
 #   args =  $(setup) 
 #           $(basefile)
 #           $(outdir)
-#
 # job name
 #$ -N gofocus
 #

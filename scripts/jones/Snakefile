@@ -1,0 +1,39 @@
+SAMPLES=[ "afrog","apple","arabidopsis","atlanticsalmon","bee","boar","bombyx","brome",
+                        "chicken","chimp","chlam","cotton","cow","crabm","dog","fruitfly","goat",
+                        "grape","horse","human","maize","medicago","mosquito","mouse","potato",
+                        "rabbit","rainbowtrout","rat","rhesusm","rice","roundworm","sheep",
+                        "sorghum","soybean","tobacco","tomato","wfrog","zebrafish" ]
+
+rule all:
+    input:
+        expand("/grid/gillis/home/hover/work/jones/{sample}_hiprio.pred", sample=SAMPLES)
+
+rule gofocus:
+	input: 
+		"/grid/gillis/home/hover/data/cococonet/sequences/{sample}_hiprio.tfa"
+	output:
+		"/grid/gillis/home/hover/work/jones/{sample}_hiprio.predout"
+
+	resources:
+		gpu=1, mem_mb=3072
+
+	threads: 4
+
+	shell:
+		"/grid/gillis/home/hover/git/gofocus/gofocus/pytorch_goterm_pred.py -v {input} {output} "
+
+
+rule sorted:
+	input:
+		"/grid/gillis/home/hover/work/jones/{sample}_hiprio.predout"
+	
+	output:
+		"/grid/gillis/home/hover/work/jones/{sample}_hiprio.pred"
+	
+	resources:
+		mem_mb=2048
+
+	threads: 1
+		
+	shell:
+		"cat {input} | sort -k 1,1 -k 3,3rn > {output} "
