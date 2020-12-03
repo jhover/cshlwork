@@ -22,6 +22,6 @@ rule samtools1:
 	
 	
 	shell:
-		"samtools sort -m 2G -o {output} -O bam -n -@ {threads} {input}
+		"samtools sort -m 2G -o {output} -O bam -n -@ {threads} {input}"
 		
 		
