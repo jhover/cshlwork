@@ -1,6 +1,8 @@
-SAMPLES=[ 'GTEX-1CB4H-1526-SM-7MXU4','GTEX-1CB4H-2426-SM-7PBYR']
+#SAMPLES=[ 'GTEX-1CB4H-1526-SM-7MXU4','GTEX-1CB4H-2426-SM-7PBYR']
 
 HOMEDIR="/grid/gillis/home/hover"
+
+SAMPLES= glob_wildcards("/grid/gillis/home/hover/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam"
 
 
 rule all:
@@ -19,6 +21,9 @@ rule samtools1:
 		mem_mb=3072
 
 	threads: 8
+	
+	log:
+		"{homedir}/project/werner1/logs/{sample}.log"
 	
 	
 	shell:
