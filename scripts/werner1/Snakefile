@@ -1,0 +1,27 @@
+SAMPLES=[ 'GTEX-1CB4H-1526-SM-7MXU4','GTEX-1CB4H-2426-SM-7PBYR']
+
+homedir="/grid/gillis/home/hover"
+
+
+rule all:
+	input:
+		expand("{homedir}/work/werner1.1/{sample}.readSorted.bam", sample=SAMPLES)
+
+
+rule samtools1:
+	input:
+		"{homedir}/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam",
+	
+	output:
+		"{homedir}/work/werner1.1/{sample}.readSorted.bam"	
+	
+	resources:
+		mem_mb=3072
+
+	threads: 8
+	
+	
+	shell:
+		"samtools sort -m 2G -o {output} -O bam -n -@ {threads} {input}
+		
+		

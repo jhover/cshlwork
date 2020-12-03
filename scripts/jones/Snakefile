@@ -15,7 +15,7 @@ rule gofocus:
 		"/grid/gillis/home/hover/work/jones/{sample}_hiprio.predout"
 
 	resources:
-		gpu=1, mem_mb=3072
+		gpu=1, mem_mb=5120
 
 	threads: 4
 
