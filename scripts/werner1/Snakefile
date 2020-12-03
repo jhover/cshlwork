@@ -1,11 +1,11 @@
 SAMPLES=[ 'GTEX-1CB4H-1526-SM-7MXU4','GTEX-1CB4H-2426-SM-7PBYR']
 
-homedir="/grid/gillis/home/hover"
+HOMEDIR="/grid/gillis/home/hover"
 
 
 rule all:
 	input:
-		expand("{homedir}/work/werner1.1/{sample}.readSorted.bam", sample=SAMPLES)
+		expand("{homedir}/work/werner1.1/{sample}.readSorted.bam", sample=SAMPLES, homedir=HOMEDIR)
 
 
 rule samtools1:
