@@ -1,11 +1,19 @@
-#SAMPLES=[ 'GTEX-1CB4H-1526-SM-7MXU4','GTEX-1CB4H-2426-SM-7PBYR']
+SAMPLES=[ 'GTEX-1CB4H-1526-SM-7MXU4','GTEX-1CB4H-2426-SM-7PBYR']
 
 HOMEDIR = "/grid/gillis/home/hover"
-SAMPLES, = glob_wildcards("/grid/gillis/home/hover/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
+CHR = "X"
+SNPDB="/grid/gillis/home/hover/data/snpdb/chrX.snpdb.txt"
+
+# SAMPLES, = glob_wildcards("/grid/gillis/home/hover/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
 
 rule all:
 	input:
-		expand("{homedir}/work/werner1.1/{sample}.readSorted.bam", sample=SAMPLES, homedir=HOMEDIR)
+		expand("{homedir}/work/werner1.1/{sample}.readSorted.bam", 
+				sample=SAMPLES, 
+				homedir=HOMEDIR
+				chr=CHR,
+				snpdb=SNPDB
+				)
 
 
 rule samtools1:
@@ -21,10 +29,138 @@ rule samtools1:
 	threads: 8
 	
 	log:
-		"{homedir}/project/werner1/logs/{sample}.log"
+		"{homedir}/project/werner1/logs/{sample}.1sam.log"
 	
 	
 	shell:
 		"samtools sort -m 2G -o {output} -O bam -n -@ {threads} {input}"
+
+		
+rule bedtools2:
+	input:
+		genomedir=
+		"{homedir}/work/werner1.1/{sample}.readSorted.bam"
+	
+	output:
+		end1="{homedir}/work/werner1.1/{sample}.end1.fq"	
+		end2="{homedir}/work/werner1.1/{sample}.end2.fq"
+	
+	resources:
+		mem_mb=4096
+
+	threads: 1
+	
+	log:
+		"{homedir}/project/werner1/logs/{sample}.2bed.log"
+	
+	shell:
+		"bedtools bamtofastq -i {input} -fq {output.end1} -fq2 {output.end2}"	
+		
+rule star3:
+	input:
+		gdir="{homedir}/data/genomes/GRCh38_Gencode25/"
+		end1="{homedir}/work/werner1.1/{sample}.end1.fq"	
+		end2="{homedir}/work/werner1.1/{sample}.end2.fq"
+	
+	output:
+		"{homedir}/work/werner1.1/{sample}.Aligned.out.bam"	
+
+	params:
+		outdir = "{sample}_starout",
+		rmbam = "{sample}_starout/Aligned.out.bam"
+	
+	resources:
+		mem_mb=4096
+
+	threads: 16
+	
+	log:
+		"{homedir}/project/werner1/logs/{sample}.3star.log"
+
+	shell:
+		" rm -rf {params.outdir} && mkdir {params.outdir} && cd {params.outdir} && "
+		" STAR  --genomeDir {input.gdir} --readFilesIn {input.end1} {input.end2} "
+		" --runThreadN {threads} --twopassMode Basic --twopass1readsN -1 " 
+		" --outSAMtype BAM Unsorted --quantMode GeneCounts && "
+		" mv -v Aligned.out.bam ../{sample}.Aligned.out.bam &&  "
+		" mv -v ReadsPerGene.out.tab ../{sample}.ReadsPerGene.out.tab && "
+		" mv -v SJ.out.tab ../{sample}.SJ.out.tab && "
+		" cd .. && rm -rf {params.outdir} "
+
+	
+rule samtools4: 
+	input:
+		"{homedir}/work/werner1.1/{sample}.Aligned.out.bam"	
+	
+	output:
+	    "{homedir}/work/werner1.1/{sample}.Aligned.sortedByCoord.out.bam"
+	
+	resources:
+		mem_mb=3072
+
+	threads: 20
+	
+	log:
+		"{homedir}/project/werner1/logs/{sample}.4sam.log"
+	
+	shell:
+		"samtools sort -m 4G -o {output} -O bam  -@ {threads} {input} "
+		"samtools index {output} "
+
+
+rule gatk5:
+	input:
+		chr="X"
+		gdir="{homedir}/data/genomes/GRCh38_Gencode25/"
+		snpdb="{homedir}/data/snpdb/chr{chr}.snpdb.txt"
+		bam="{homedir}/work/werner1.1/{sample}.Aligned.sortedByCoord.out.bam"
+	
+	output:
+	    splitwig="{homedir}/work/werner1.1/{sample}.{chr}.split.filtered.wig" 
+		filtvcf="{homedir}/work/werner1.1/{sample}.{chr}.filtered.vcf" 
+		intwig="{homedir}/work/werner1.1/{sample}.{chr}.intersect.wig"
+		cut="{homedir}/work/werner1.1/{sample}.{chr}.cut"
+
+	params:
+		outdir = "{sample}_starout",
+	
+	resources:
+		mem_mb=10240
+
+	threads: 1
+	
+	log:
+		"{homedir}/project/werner1/logs/{sample}.5gatk.log"
+
+	shell:
+		" rm -rf {params.outdir} && mkdir {params.outdir} && cd {params.outdir} && "
+		" samtools view -b {input.bam} {chr} > {chr}.bam "
+		" samtools view -b -q 10 {chr}.bam > {chr}.filt.bam "
+	    " gatk AddOrReplaceReadGroups -I={chr}.filt.bam -O={chr}.rg.bam -SO=coordinate -RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample "
+		" gatk MarkDuplicates -I={chr}.rg.bam -O={chr}.dedupped.bam -CREATE_INDEX=true -VALIDATION_STRINGENCY=SILENT -M=output.metrics "
+		" gatk SplitNCigarReads -R {input.gdir} -I {chr}.dedupped.bam -O {chr}.split.filtered.bam "
+		" gatk HaplotypeCaller -R {input.gdir} -L {chr} -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0  -O {chr}.filtered.vcf "
+		" igvtools count -z 0 -w 1 --bases --strands read {chr}.split.filtered.bam tmp.{sample}.wig {input.gdir}/{chr}.fa "
+		" grep {chr} P{chr}.filtered.vcf | cut -f2-5 > A "
+		" cut -f1 A > B "
+		" grep -Fw -f B  > D  "
+		" grep -Fw -f D tmp.{sample}.wig > {chr}.intersect.wig "
+		" grep -Fw -f D A > {chr}.cut "
+		" mv -v tmp.{sample}.wig {output.splitwig} "
+		" mv -v {chr}.filtered.vcf {output.filtvcf} "
+		" mv -v {chr}.intersect.wig {output.intwig} "
+		" mv -v {chr}.cut {output.cut} "
+		" cd .. && rm -rf {params.outdir} "
+
+
+
+
+
+
+
+
+
+		
+		
 		
 		

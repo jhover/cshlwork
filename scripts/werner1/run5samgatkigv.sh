@@ -132,6 +132,7 @@ if [ $RET -ne 0 ] ; then
 fi
 
 TMPFILE=`mktemp -p ./  tmp.XXXXXX.wig`
+# #chr_fa="$genomedir/$chr.fa"
 echo "TMPFILE is $TMPFILE"
 echo "Counting SNPs..."
 echo igvtools count -z 0 -w 1 --bases --strands read $chr.split.filtered.bam $TMPFILE $chr_fa
