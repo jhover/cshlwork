@@ -74,7 +74,7 @@ rule star3:
 
 	params:
 		outdir = "{sample}_starout",
-		rmbam = "{sample}_starout/Aligned.out.bam"
+
 	
 	resources:
 		mem_mb=4096

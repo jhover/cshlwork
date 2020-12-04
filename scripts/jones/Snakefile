@@ -1,8 +1,15 @@
-SAMPLES=[ "afrog","apple","arabidopsis","atlanticsalmon","bee","boar","bombyx","brome",
+#
+# To submit on Elzar:
+#  snakemake --jobs 6 --cluster "qsub -N gofocus -pe threads {threads} -l m_mem_free={resources.mem_mb}M -l gpu={resources.gpu} "   
+#
+
+# SAMPLES=[ "afrog","apple","arabidopsis","atlanticsalmon","bee","boar","bombyx","brome",
                         "chicken","chimp","chlam","cotton","cow","crabm","dog","fruitfly","goat",
                         "grape","horse","human","maize","medicago","mosquito","mouse","potato",
                         "rabbit","rainbowtrout","rat","rhesusm","rice","roundworm","sheep",
                         "sorghum","soybean","tobacco","tomato","wfrog","zebrafish" ]
+
+SAMPLES, = glob_wildcards("/grid/gillis/home/hover/data/cococonet/sequences/{sample}_hiprio.tfa")
 
 rule all:
     input:
