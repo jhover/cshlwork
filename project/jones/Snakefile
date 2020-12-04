@@ -5,6 +5,9 @@
 
 SAMPLES, = glob_wildcards("/grid/gillis/home/hover/data/cococonet/sequences/{sample}_hiprio.tfa")
 
+wildcard_constraints:
+   sample = '\w+'
+
 rule all:
     input:
         expand("/grid/gillis/home/hover/work/jones/{sample}_hiprio.pred", sample=SAMPLES)

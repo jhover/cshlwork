@@ -1,9 +1,11 @@
+import os
+
+homedir = os.path.expanduser("~/")
+chr="X"
+snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
+
 SAMPLES=[ 'GTEX-1CB4H-1526-SM-7MXU4','GTEX-1CB4H-2426-SM-7PBYR']
 
-HOMEDIR = "/grid/gillis/home/hover"
-CHR = "X"
-
-# SNPDB="/grid/gillis/home/hover/data/snpdb/chrX.snpdb.txt"
 # SAMPLES, = glob_wildcards("/grid/gillis/home/hover/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
 
 wildcard_constraints:
@@ -157,6 +159,4 @@ rule gatk5:
 		" mv -v {chr}.intersect.wig {output.intwig} "
 		" mv -v {chr}.cut {output.cut} "
 		" cd .. && rm -rf {params.outdir} "
-
-		
 		
