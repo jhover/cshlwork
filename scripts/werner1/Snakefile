@@ -27,7 +27,9 @@ rule samtools1:
 		"{homedir}/project/werner1/logs/{sample}.1sam.log"
 	
 	shell:
-		"samtools sort -m 2G -o {output} -O bam -n -@ {threads} {input}"
+		"samtools sort -m 2G -o {output} -O bam -n -@ {threads} {input} "
+	
+	
 	
 rule bedtools2:
 	input:
@@ -47,6 +49,7 @@ rule bedtools2:
 	
 	shell:
 		"bedtools bamtofastq -i {input} -fq {output.end1} -fq2 {output.end2}"	
+	
 		
 rule star3:
 	input:
