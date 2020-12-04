@@ -6,12 +6,20 @@ CHR = "X"
 # SNPDB="/grid/gillis/home/hover/data/snpdb/chrX.snpdb.txt"
 # SAMPLES, = glob_wildcards("/grid/gillis/home/hover/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
 
+wildcard_constraints:
+   seqfile = '\w+'
+
+
 rule all:
 	input:
 		expand("{homedir}/work/werner1.1/{sample}.{chr}.filtered.vcf", sample=SAMPLES, homedir=HOMEDIR, chr=CHR )
 
 
 rule samtools1:
+	
+	wildcard_constraints:
+   		sample = '\w+'
+	
 	input:
 		"{homedir}/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam"
 	
@@ -32,6 +40,10 @@ rule samtools1:
 	
 	
 rule bedtools2:
+
+	wildcard_constraints:
+   		sample = '\w+'
+
 	input:
 		"{homedir}/work/werner1.1/{sample}.readSorted.bam"
 	
