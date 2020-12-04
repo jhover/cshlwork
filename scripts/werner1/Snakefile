@@ -33,7 +33,6 @@ rule samtools1:
 		
 rule bedtools2:
 	input:
-		genomedir=
 		"{homedir}/work/werner1.1/{sample}.readSorted.bam"
 	
 	output:
@@ -133,8 +132,8 @@ rule gatk5:
 		" samtools view -b -q 10 {chr}.bam > {chr}.filt.bam "
 		" gatk AddOrReplaceReadGroups -I={chr}.filt.bam -O={chr}.rg.bam -SO=coordinate -RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample "
 		" gatk MarkDuplicates -I={chr}.rg.bam -O={chr}.dedupped.bam -CREATE_INDEX=true -VALIDATION_STRINGENCY=SILENT -M=output.metrics "
-		" gatk SplitNCigarReads -R {input.gdir} -I {chr}.dedupped.bam -O {chr}.split.filtered.bam "
-		" gatk HaplotypeCaller -R {input.gdir} -L {chr} -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0  -O {chr}.filtered.vcf "
+		" gatk SplitNCigarReads -R {input.gdir}/GRCh38.p7.genome.fa -I {chr}.dedupped.bam -O {chr}.split.filtered.bam "
+		" gatk HaplotypeCaller -R {input.gdir}/GRCh38.p7.genome.fa -L {chr} -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0  -O {chr}.filtered.vcf "
 		" igvtools count -z 0 -w 1 --bases --strands read {chr}.split.filtered.bam tmp.{sample}.wig {input.gdir}/{chr}.fa "
 		" grep {chr} P{chr}.filtered.vcf | cut -f2-5 > A "
 		" cut -f1 A > B "
