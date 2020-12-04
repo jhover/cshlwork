@@ -32,7 +32,7 @@ rule sorted:
 		"/grid/gillis/home/hover/work/jones/{sample}_hiprio.pred"
 	
 	resources:
-		mem_mb=2048
+		gpu=0 , mem_mb=2048
 
 	threads: 1
 		
