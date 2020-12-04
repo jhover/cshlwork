@@ -136,7 +136,7 @@ rule gatk5:
 		" rm -rf {params.outdir} && mkdir {params.outdir} && cd {params.outdir} && "
 		" samtools view -b {input.bam} {chr} > {chr}.bam "
 		" samtools view -b -q 10 {chr}.bam > {chr}.filt.bam "
-	    " gatk AddOrReplaceReadGroups -I={chr}.filt.bam -O={chr}.rg.bam -SO=coordinate -RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample "
+		" gatk AddOrReplaceReadGroups -I={chr}.filt.bam -O={chr}.rg.bam -SO=coordinate -RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample "
 		" gatk MarkDuplicates -I={chr}.rg.bam -O={chr}.dedupped.bam -CREATE_INDEX=true -VALIDATION_STRINGENCY=SILENT -M=output.metrics "
 		" gatk SplitNCigarReads -R {input.gdir} -I {chr}.dedupped.bam -O {chr}.split.filtered.bam "
 		" gatk HaplotypeCaller -R {input.gdir} -L {chr} -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0  -O {chr}.filtered.vcf "
@@ -152,15 +152,5 @@ rule gatk5:
 		" mv -v {chr}.cut {output.cut} "
 		" cd .. && rm -rf {params.outdir} "
 
-
-
-
-
-
-
-
-
-		
-		
 		
 		
