@@ -1,19 +1,19 @@
 SAMPLES=[ 'GTEX-1CB4H-1526-SM-7MXU4','GTEX-1CB4H-2426-SM-7PBYR']
 
-# HOMEDIR = "/grid/gillis/home/hover"
-# CHR = "X"
-# SNPDB="/grid/gillis/home/hover/data/snpdb/chrX.snpdb.txt"
+HOMEDIR = "/grid/gillis/home/hover"
+CHR = "X"
 
+# SNPDB="/grid/gillis/home/hover/data/snpdb/chrX.snpdb.txt"
 # SAMPLES, = glob_wildcards("/grid/gillis/home/hover/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
 
 rule all:
 	input:
-		expand("{homedir}/work/werner1.1/{sample}.readSorted.bam", sample=SAMPLES, homedir=HOMEDIR )
+		expand("{homedir}/work/werner1.1/{sample}.{chr}.filtered.vcf", sample=SAMPLES, homedir=HOMEDIR, chr=CHR )
 
 
 rule samtools1:
 	input:
-		"{homedir}/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam",
+		"{homedir}/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam"
 	
 	output:
 		"{homedir}/work/werner1.1/{sample}.readSorted.bam"	
@@ -26,17 +26,15 @@ rule samtools1:
 	log:
 		"{homedir}/project/werner1/logs/{sample}.1sam.log"
 	
-	
 	shell:
 		"samtools sort -m 2G -o {output} -O bam -n -@ {threads} {input}"
-
-		
+	
 rule bedtools2:
 	input:
 		"{homedir}/work/werner1.1/{sample}.readSorted.bam"
 	
 	output:
-		end1="{homedir}/work/werner1.1/{sample}.end1.fq"	
+		end1="{homedir}/work/werner1.1/{sample}.end1.fq",
 		end2="{homedir}/work/werner1.1/{sample}.end2.fq"
 	
 	resources:
@@ -52,8 +50,8 @@ rule bedtools2:
 		
 rule star3:
 	input:
-		gdir="{homedir}/data/genomes/GRCh38_Gencode25/"
-		end1="{homedir}/work/werner1.1/{sample}.end1.fq"	
+		gdir="{homedir}/data/genomes/GRCh38_Gencode25/",
+		end1="{homedir}/work/werner1.1/{sample}.end1.fq",	
 		end2="{homedir}/work/werner1.1/{sample}.end2.fq"
 	
 	output:
@@ -104,19 +102,19 @@ rule samtools4:
 
 rule gatk5:
 	input:
-		chr="X"
-		gdir="{homedir}/data/genomes/GRCh38_Gencode25/"
-		snpdb="{homedir}/data/snpdb/chr{chr}.snpdb.txt"
+		chr="X",
+		gdir="{homedir}/data/genomes/GRCh38_Gencode25/",
+		snpdb="{homedir}/data/snpdb/chr{chr}.snpdb.txt",
 		bam="{homedir}/work/werner1.1/{sample}.Aligned.sortedByCoord.out.bam"
 	
 	output:
-	    splitwig="{homedir}/work/werner1.1/{sample}.{chr}.split.filtered.wig" 
-		filtvcf="{homedir}/work/werner1.1/{sample}.{chr}.filtered.vcf" 
-		intwig="{homedir}/work/werner1.1/{sample}.{chr}.intersect.wig"
+	    splitwig="{homedir}/work/werner1.1/{sample}.{chr}.split.filtered.wig", 
+		filtvcf="{homedir}/work/werner1.1/{sample}.{chr}.filtered.vcf", 
+		intwig="{homedir}/work/werner1.1/{sample}.{chr}.intersect.wig",
 		cut="{homedir}/work/werner1.1/{sample}.{chr}.cut"
 
 	params:
-		outdir = "{sample}_starout",
+		outdir = "{sample}_starout"
 	
 	resources:
 		mem_mb=10240
@@ -124,7 +122,7 @@ rule gatk5:
 	threads: 1
 	
 	log:
-		"{homedir}/project/werner1/logs/{sample}.5gatk.log"
+		"{homedir}/project/werner1/logs/{sample}.{chr}.5gatk.log"
 
 	shell:
 		" rm -rf {params.outdir} && mkdir {params.outdir} && cd {params.outdir} && "
