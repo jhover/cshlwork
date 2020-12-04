@@ -102,7 +102,6 @@ rule samtools4:
 
 rule gatk5:
 	input:
-		chr="X",
 		gdir="{homedir}/data/genomes/GRCh38_Gencode25/",
 		snpdb="{homedir}/data/snpdb/chr{chr}.snpdb.txt",
 		bam="{homedir}/work/werner1.1/{sample}.Aligned.sortedByCoord.out.bam"
