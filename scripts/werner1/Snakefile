@@ -1,19 +1,14 @@
 SAMPLES=[ 'GTEX-1CB4H-1526-SM-7MXU4','GTEX-1CB4H-2426-SM-7PBYR']
 
-HOMEDIR = "/grid/gillis/home/hover"
-CHR = "X"
-SNPDB="/grid/gillis/home/hover/data/snpdb/chrX.snpdb.txt"
+# HOMEDIR = "/grid/gillis/home/hover"
+# CHR = "X"
+# SNPDB="/grid/gillis/home/hover/data/snpdb/chrX.snpdb.txt"
 
 # SAMPLES, = glob_wildcards("/grid/gillis/home/hover/data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
 
 rule all:
 	input:
-		expand("{homedir}/work/werner1.1/{sample}.readSorted.bam", 
-				sample=SAMPLES, 
-				homedir=HOMEDIR
-				chr=CHR,
-				snpdb=SNPDB
-				)
+		expand("{homedir}/work/werner1.1/{sample}.readSorted.bam", sample=SAMPLES, homedir=HOMEDIR )
 
 
 rule samtools1:
