@@ -49,7 +49,8 @@ rule star3:
 	output: 	homedir + "work/werner1.1/{sample}.Aligned.out.bam"	
 	params:		
 		outdir = "{sample}_starout",
-		sid = "{sample}"
+		sid = "{sample}",
+		workdir = homedir + "work/werner1.1/"
 	
 	resources:
 		mem_mb=6144
@@ -57,8 +58,8 @@ rule star3:
 	threads: 6
 	log:
 		homedir + "project/werner1/logs/{sample}.3star.log"
-
 	shell:
+		" cd {params.workdir} && "
 		" rm -rf {params.outdir} && mkdir {params.outdir} && cd {params.outdir} && "
 		" STAR  --genomeDir {input.gdir} --readFilesIn {input.end1} {input.end2} "
 		" --runThreadN {threads} --twopassMode Basic --twopass1readsN -1 " 
@@ -94,13 +95,15 @@ rule gatk5:
 	params:
 		outdir = "{sample}_starout",
 		chrom = chr,
-		sid = "{sample}"
+		sid = "{sample}",
+		workdir = homedir + "work/werner1.1/"
 	resources:
 		mem_mb=10240
 	threads: 1
 	log:
 		homedir + "project/werner1/logs/{sample}." + chr + ".5gatk.log"
 	shell:
+		" cd {params.workdir} && "
 		" rm -rf {params.outdir} && mkdir {params.outdir} && cd {params.outdir} && "
 		" samtools view -b {input.bam} {params.chrom} > {chr}.bam "
 		" samtools view -b -q 10 {params.chrom}.bam > {params.chrom}.filt.bam "
@@ -109,7 +112,7 @@ rule gatk5:
 		" gatk SplitNCigarReads -R {input.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam -O {params.chrom}.split.filtered.bam "
 		" gatk HaplotypeCaller -R {input.gdir}/GRCh38.p7.genome.fa -L {params.chrom} -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0  -O {params.chrom}.filtered.vcf "
 		" igvtools count -z 0 -w 1 --bases --strands read {params.chrom}.split.filtered.bam tmp.{params.sid}.wig {input.gdir}/{params.chrom}.fa "
-		" grep {params.chrom} P{params.chrom}.filtered.vcf | cut -f2-5 > A "
+		" grep {params.chrom} {params.chrom}.filtered.vcf | cut -f2-5 > A "
 		" cut -f1 A > B "
 		" grep -Fw -f B  > D  "
 		" grep -Fw -f D tmp.{params.sid}.wig > {params.chrom}.intersect.wig "
