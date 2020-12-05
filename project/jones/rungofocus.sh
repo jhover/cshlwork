@@ -34,7 +34,7 @@ echo "Running setup from $1"
 # $SGE_TASK_ID
 taskid=$(gettaskid)
 echo "taskid is $taskid"
-filebase=`head -$SGE_TASK_ID $basefile | tail -1 `
+filebase=`head -$taskid test $basefile | tail -1 `
 echo "filebase is $filebase"
 
 infile="$inputdir/${filebase}_hiprio.tfa "
