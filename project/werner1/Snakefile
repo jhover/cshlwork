@@ -21,8 +21,8 @@ rule samtools1:
 	output:  homedir + "work/werner1.1/{sample}.readSorted.bam"	
 	resources:
 		mem_mb=3072
-	#threads: 8
-	threads: 6
+	threads: 8
+	#threads: 6
 	log: homedir + "project/werner1/logs/{sample}.1sam.log"
 	shell:
 		"samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} "
@@ -54,8 +54,8 @@ rule star3:
 	
 	resources:
 		mem_mb=6144
-	#threads: 16
-	threads: 6
+	threads: 16
+	#threads: 6
 	log:
 		homedir + "project/werner1/logs/{sample}.3star.log"
 	shell:
@@ -74,8 +74,8 @@ rule samtools4:
 	output:	    homedir + "work/werner1.1/{sample}.Aligned.sortedByCoord.out.bam"
 	resources:
 		mem_mb=2048
-	#threads: 20
-	threads: 6
+	threads: 20
+	#threads: 6
 	log:
 		homedir + "project/werner1/logs/{sample}.4sam.log"
 	shell:
