@@ -3,7 +3,10 @@
 #            --cluster "qsub -N gofocus 
 #            -pe threads {threads} 
 #            -l m_mem_free={resources.mem_mb}M 
-#            -l gpu={resources.gpu} "   
+#            -l gpu={resources.gpu} 
+#            -o  $HOME/project/$JOB_NAME/logs/$JOB_NAME.o$JOB_ID.$TASK_ID
+#            -e  $HOME/project/$JOB_NAME/logs/$JOB_NAME.e$JOB_ID.$TASK_ID "
+   
 import os
 homedir = os.path.expanduser("~/")
 

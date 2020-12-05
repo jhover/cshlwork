@@ -1,7 +1,12 @@
 #
 # To submit on Elzar:
-#  snakemake --jobs 20 --cluster "qsub -N werner1 -pe threads {threads} -l m_mem_free={resources.mem_mb}M "   
-#
+#  snakemake --jobs 20 --cluster "qsub 
+#									-N werner1 
+#									-pe threads {threads} 
+#									-l m_mem_free={resources.mem_mb}M 
+#									-o $HOME/project/$JOB_NAME/logs/$JOB_NAME.o$JOB_ID.$TASK_ID
+#									-e  $HOME/project/$JOB_NAME/logs/$JOB_NAME.e$JOB_ID.$TASK_ID "   
+
 import os
 
 homedir = os.path.expanduser("~/")
@@ -79,7 +84,7 @@ rule samtools4:
 	log:
 		homedir + "project/werner1/logs/{sample}.4sam.log"
 	shell:
-		"samtools sort -m 4G -o {output} -O bam  -@ {threads} {input} "
+		"samtools sort -m 4G -o {output} -O bam  -@ {threads} {input} && "
 		"samtools index {output} "
 
 rule gatk5:
@@ -105,22 +110,22 @@ rule gatk5:
 	shell:
 		" cd {params.workdir} && "
 		" rm -rf {params.outdir} && mkdir {params.outdir} && cd {params.outdir} && "
-		" samtools view -b {input.bam} {params.chrom} > {chr}.bam "
-		" samtools view -b -q 10 {params.chrom}.bam > {params.chrom}.filt.bam "
-		" gatk AddOrReplaceReadGroups -I={params.chrom}.filt.bam -O={params.chrom}.rg.bam -SO=coordinate -RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample "
-		" gatk MarkDuplicates -I={params.chrom}.rg.bam -O={params.chrom}.dedupped.bam -CREATE_INDEX=true -VALIDATION_STRINGENCY=SILENT -M=output.metrics "
-		" gatk SplitNCigarReads -R {input.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam -O {params.chrom}.split.filtered.bam "
+		" samtools view -b {input.bam} {params.chrom} > {chr}.bam && "
+		" samtools view -b -q 10 {params.chrom}.bam > {params.chrom}.filt.bam && "
+		" gatk AddOrReplaceReadGroups -I={params.chrom}.filt.bam -O={params.chrom}.rg.bam -SO=coordinate -RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample && "
+		" gatk MarkDuplicates -I={params.chrom}.rg.bam -O={params.chrom}.dedupped.bam -CREATE_INDEX=true -VALIDATION_STRINGENCY=SILENT -M=output.metrics && "
+		" gatk SplitNCigarReads -R {input.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam -O {params.chrom}.split.filtered.bam && "
 		" gatk HaplotypeCaller -R {input.gdir}/GRCh38.p7.genome.fa -L {params.chrom} -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0  -O {params.chrom}.filtered.vcf "
 		" igvtools count -z 0 -w 1 --bases --strands read {params.chrom}.split.filtered.bam tmp.{params.sid}.wig {input.gdir}/{params.chrom}.fa "
-		" grep {params.chrom} {params.chrom}.filtered.vcf | cut -f2-5 > A "
-		" cut -f1 A > B "
-		" grep -Fw -f B  > D  "
-		" grep -Fw -f D tmp.{params.sid}.wig > {params.chrom}.intersect.wig "
-		" grep -Fw -f D A > {params.chrom}.cut "
-		" mv -v tmp.{params.sid}.wig {output.splitwig} "
-		" mv -v {params.chrom}.filtered.vcf {output.filtvcf} "
-		" mv -v {params.chrom}.intersect.wig {output.intwig} "
-		" mv -v {params.chrom}.cut {output.cut} "
-		" cd .. && rm -rf {params.outdir} "
+		" grep {params.chrom} {params.chrom}.filtered.vcf | cut -f2-5 > A && "
+		" cut -f1 A > B && "
+		" grep -Fw -f B  > D && "
+		" grep -Fw -f D tmp.{params.sid}.wig > {params.chrom}.intersect.wig && "
+		" grep -Fw -f D A > {params.chrom}.cut && "
+		" mv -v tmp.{params.sid}.wig {output.splitwig}  && "
+		" mv -v {params.chrom}.filtered.vcf {output.filtvcf} && "
+		" mv -v {params.chrom}.intersect.wig {output.intwig} && "
+		" mv -v {params.chrom}.cut {output.cut} && "
+		" cd .. && rm -rf {params.outdir} && "
 		
 		
