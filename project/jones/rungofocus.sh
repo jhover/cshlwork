@@ -5,8 +5,8 @@
 #$ -pe threads 8
 #$ -l m_mem_free=5G
 #$ -l gpu=1 
-#$ -o  $HOME/project/$JOB_NAME/logs/$JOB_NAME.o$JOBID.$TASK_ID
-#$ -e  $HOME/project/$JOB_NAME/logs/$JOB_NAME.e$JOBID.$TASK_ID
+#$ -o  $HOME/project/$JOB_NAME/logs/$JOB_NAME.o$JOB_ID.$TASK_ID
+#$ -e  $HOME/project/$JOB_NAME/logs/$JOB_NAME.e$JOB_ID.$TASK_ID
 
 COMMON=~/git/elzar-example/lib/common.sh 
 CMD=~/git/gofocus/gofocus/pytorch_goterm_pred.py 
