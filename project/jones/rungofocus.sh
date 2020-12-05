@@ -1,72 +1,54 @@
 #!/bin/bash 
-#   Usage: rungofocus.sh  <setup> <basefile> <outdir> 
-#
-#   args =  $(setup) 
-#           $(basefile)
-#           $(outdir)
-# job name
+#   Usage: rungofocus.sh <setup> <basefile> <inputdir> <outputdir> 
 #$ -N gofocus
-#
-# job indexes for array all jobs, but only run 10 at a time for disk quota 
-#$ -t 1-39
-#
-# processes per job
-#$ -pe threads 4
-#
-#$ -wd /grid/gillis/home/hover/play/jones
-#
-# Per-thread memory request. 
-#$ -l m_mem_free=3G
-# 
+#$ -wd $HOME/project/$JOB_NAME
+#$ -pe threads 8
+#$ -l m_mem_free=5G
 #$ -l gpu=1 
-#
-#
+#$ -o  $HOME/project/$JOB_NAME/logs/$JOB_NAME.o$TASK_ID
+#$ -e  $HOME/project/$JOB_NAME/logs/$JOB_NAME.e$TASK_ID
 
-COMMON=~/git/cshl-work/scripts/jones/common.sh 
+COMMON=~/git/elzar-example/lib/common.sh 
 CMD=~/git/gofocus/gofocus/pytorch_goterm_pred.py 
+NUMARGS=4
 
-echo "*********START*************************"
-date
-. $COMMON
-
-echo "*********JOB*************************"
-echo "Args are $@ Numargs is $#"
-if [ $# -ne 3 ]; then
+# Check for arg count...
+if [ $# -ne $NUMARGS ]; then
     echo "Incorrect number of arguments."
-    echo "Usage: rungofocus.sh  <setup> <basefile> <outdir>"
+    echo "Usage: rungofocus.sh  <setup> <basefile> <indir> <outdir>"
     exit 1
 fi
 
-echo "Running setup from $1"
-. $1
-echo "PATH=$PATH"
+# Source common functions. 
+. $COMMON
 
+# Normalize args.
+setup=$1       
 basefile=$2
+inputdir=$3
+outputdir=$4
+
+echo "Running setup from $1"
+. $setup
+
 # $SGE_TASK_ID
-TASKID=gettaskid
+taskid=gettaskid
+filebase=`head -$SGE_TASK_ID $taskid | tail -1 `
+echo "filebase is $filebase"
 
-filebase=`head -$SGE_TASK_ID $2 | tail -1 `
-echo "Filebase is $filebase"
+infile="$inputdir/${filebase}_hiprio.tfa "
+outfile="$outputdir/${filebase}_hiprio.predout"
+echo "$infile -> $outfile"
 
-outdir=$3
-echo "Outdir is $outdir"
-infile="$outdir/fasta/${filebase}_hiprio.tfa "
-outfile="$outdir/${filebase}_hiprio.predout"
+nodeinfo
+prelude
 
-echo "infile is $infile"
-echo "outfile is $outfile"
-
-#
-#    time ~/git/gofocus/gofocus/pytorch_goterm_pred.py -d <species<_hiprio.tfa <species>_hiprio.predout
-echo $CMD -v $infile $outfile
 time $CMD -v $infile $outfile
-
 RET=$?
 if [ $RET -ne 0 ] ; then
     exit $RET
 fi
 echo "Job command Return code was $RET"
-date
-echo "*********END***************************"
-exit $RET
 
+postlude
+exit $RET
