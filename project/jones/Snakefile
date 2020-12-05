@@ -1,44 +1,40 @@
-#
 # To submit on Elzar:
-#  snakemake --jobs 6 --cluster "qsub -N gofocus -pe threads {threads} -l m_mem_free={resources.mem_mb}M -l gpu={resources.gpu} "   
-#
+#  snakemake --jobs 6 
+#            --cluster "qsub -N gofocus 
+#            -pe threads {threads} 
+#            -l m_mem_free={resources.mem_mb}M 
+#            -l gpu={resources.gpu} "   
+import os
+homedir = os.path.expanduser("~/")
 
-SAMPLES, = glob_wildcards("/grid/gillis/home/hover/data/cococonet/sequences/{sample}_hiprio.tfa")
+(SAMPLES,) = glob_wildcards(homedir + "data/cococonet/sequences/{sample}_hiprio.tfa")
 
 wildcard_constraints:
    sample = '\w+'
 
 rule all:
     input:
-        expand("/grid/gillis/home/hover/work/jones/{sample}_hiprio.pred", sample=SAMPLES)
+        expand(homedir + "work/jones/{sample}_hiprio.pred", sample=SAMPLES)
 
 rule gofocus:
 	input: 
-		"/grid/gillis/home/hover/data/cococonet/sequences/{sample}_hiprio.tfa"
+		homedir + "data/cococonet/sequences/{sample}_hiprio.tfa"
 	output:
-		"/grid/gillis/home/hover/work/jones/{sample}_hiprio.predout"
-
+		homedir + "work/jones/{sample}_hiprio.predout"
 	resources:
 		gpu=1, mem_mb=5120
-
 	threads: 4
-
 	shell:
-		"/grid/gillis/home/hover/git/gofocus/gofocus/pytorch_goterm_pred.py -v {input} {output} "
-
+		homedir + "git/gofocus/gofocus/pytorch_goterm_pred.py -v {input} {output} "
 
 rule sorted:
 	input:
-		"/grid/gillis/home/hover/work/jones/{sample}_hiprio.predout"
-	
+		homedir + "work/jones/{sample}_hiprio.predout"
 	output:
-		"/grid/gillis/home/hover/work/jones/{sample}_hiprio.pred"
-	
+		homedir + "work/jones/{sample}_hiprio.pred"
 	resources:
 		gpu=0 , mem_mb=2048
-
 	threads: 1
-		
 	shell:
 		"cat {input} | sort -k 1,1 -k 3,3rn > {output} "
 		
