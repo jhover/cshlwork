@@ -44,6 +44,7 @@ echo "$infile -> $outfile"
 nodeinfo
 prelude
 
+echo $CMD -v $infile $outfile
 time $CMD -v $infile $outfile
 RET=$?
 if [ $RET -ne 0 ] ; then
