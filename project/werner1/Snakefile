@@ -98,7 +98,7 @@ rule gatk5:
 		intwig= homedir + "work/werner1.1/{sample}." + chr + ".intersect.wig",
 		cut= homedir + "work/werner1.1/{sample}." + chr + ".cut"
 	params:
-		outdir = "{sample}_starout",
+		outdir = "{sample}_tmpdir",
 		chrom = chr,
 		sid = "{sample}",
 		workdir = homedir + "work/werner1.1/"

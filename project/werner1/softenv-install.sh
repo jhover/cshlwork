@@ -19,6 +19,9 @@ conda install -c conda-forge -c bioconda snakemake
 
 # Tarball installs
 #  Samtools 1.11
+#  samtools 1.9 for compatiblity?
+#
+wget https://github.com/samtools/samtools/releases/download/1.9/samtools-1.9.tar.bz2
 wget https://github.com/samtools/samtools/releases/download/1.11/samtools-1.11.tar.bz2
 tar -xvjf samtools-1.11.tar.bz2
 cd samtools-1.11
@@ -38,6 +41,7 @@ cd ..
 rm -rf bedtools2 bedtools-2.29.1.tar.gz
 
 #  gatk-4.1.9.0 
+# ? 4.1.4.1 for compatibility?
 wget https://github.com/broadinstitute/gatk/releases/download/4.1.9.0/gatk-4.1.9.0.zip
 unzip gatk-4.1.9.0.zip
 mv gatk-4.1.9.0 $CONDA_PREFIX/
