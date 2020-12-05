@@ -32,7 +32,7 @@ echo "Running setup from $1"
 . $setup
 
 # $SGE_TASK_ID
-taskid=gettaskid
+taskid=$(gettaskid)
 filebase=`head -$SGE_TASK_ID $taskid | tail -1 `
 echo "filebase is $filebase"
 
