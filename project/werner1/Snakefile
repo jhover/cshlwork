@@ -1,21 +1,18 @@
-#
 # To submit on Elzar:
 #  snakemake --jobs 20 --cluster "qsub 
 #									-N werner1 
 #									-pe threads {threads} 
 #									-l m_mem_free={resources.mem_mb}M 
-#									-o $HOME/project/$JOB_NAME/logs/$JOB_NAME.o$JOB_ID.$TASK_ID
-#									-e  $HOME/project/$JOB_NAME/logs/$JOB_NAME.e$JOB_ID.$TASK_ID "   
+#									-o ~/project/$JOB_NAME/logs/$JOB_NAME.o$JOB_ID.$TASK_ID
+#									-e ~/project/$JOB_NAME/logs/$JOB_NAME.e$JOB_ID.$TASK_ID "   
 
 import os
-
 homedir = os.path.expanduser("~/")
 chr="X"
 snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
 
 (SAMPLE,) = glob_wildcards(homedir + "data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
-SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ' ]
-
+#SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ' ]
 
 rule all:
 	input:
@@ -27,7 +24,6 @@ rule samtools1:
 	resources:
 		mem_mb=3072
 	threads: 8
-	#threads: 6
 	log: homedir + "project/werner1/logs/{sample}.1sam.log"
 	shell:
 		"samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} "
@@ -60,7 +56,6 @@ rule star3:
 	resources:
 		mem_mb=6144
 	threads: 16
-	#threads: 6
 	log:
 		homedir + "project/werner1/logs/{sample}.3star.log"
 	shell:
@@ -74,17 +69,17 @@ rule star3:
 		" mv -v SJ.out.tab ../{params.sid}.SJ.out.tab && "
 		" cd .. && rm -rf {params.outdir} "
 
+
 rule samtools4: 
 	input: 		homedir + "work/werner1.1/{sample}.Aligned.out.bam"	
 	output:	    homedir + "work/werner1.1/{sample}.Aligned.sortedByCoord.out.bam"
 	resources:
 		mem_mb=2048
 	threads: 20
-	#threads: 6
 	log:
 		homedir + "project/werner1/logs/{sample}.4sam.log"
 	shell:
-		"samtools sort -m 4G -o {output} -O bam  -@ {threads} {input} && "
+		"samtools sort -m 4G -o {output} -O bam -@ {threads} {input} && "
 		"samtools index {output} "
 
 rule gatk5:
@@ -112,11 +107,17 @@ rule gatk5:
 		" rm -rf {params.outdir} && mkdir {params.outdir} && cd {params.outdir} && "
 		" samtools view -b {input.bam} {params.chrom} > {chr}.bam && "
 		" samtools view -b -q 10 {params.chrom}.bam > {params.chrom}.filt.bam && "
-		" gatk AddOrReplaceReadGroups -I={params.chrom}.filt.bam -O={params.chrom}.rg.bam -SO=coordinate -RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample && "
-		" gatk MarkDuplicates -I={params.chrom}.rg.bam -O={params.chrom}.dedupped.bam -CREATE_INDEX=true -VALIDATION_STRINGENCY=SILENT -M=output.metrics && "
-		" gatk SplitNCigarReads -R {input.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam -O {params.chrom}.split.filtered.bam && "
-		" gatk HaplotypeCaller -R {input.gdir}/GRCh38.p7.genome.fa -L {params.chrom} -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0  -O {params.chrom}.filtered.vcf "
-		" igvtools count -z 0 -w 1 --bases --strands read {params.chrom}.split.filtered.bam tmp.{params.sid}.wig {input.gdir}/{params.chrom}.fa "
+		" gatk AddOrReplaceReadGroups -I={params.chrom}.filt.bam -O={params.chrom}.rg.bam -SO=coordinate "
+		"-RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample && "
+		" gatk MarkDuplicates -I={params.chrom}.rg.bam -O={params.chrom}.dedupped.bam -CREATE_INDEX=true " 
+		" -VALIDATION_STRINGENCY=SILENT -M=output.metrics && "
+		" gatk SplitNCigarReads -R {input.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam " 
+		" -O {params.chrom}.split.filtered.bam && "
+		" gatk HaplotypeCaller -R {input.gdir}/GRCh38.p7.genome.fa -L {params.chrom} " 
+		" -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0 "
+		" -O {params.chrom}.filtered.vcf && "
+		" igvtools count -z 0 -w 1 --bases --strands read {params.chrom}.split.filtered.bam " 
+		" tmp.{params.sid}.wig {input.gdir}/{params.chrom}.fa  && "
 		" grep {params.chrom} {params.chrom}.filtered.vcf | cut -f2-5 > A && "
 		" cut -f1 A > B && "
 		" grep -Fw -f B  > D && "
