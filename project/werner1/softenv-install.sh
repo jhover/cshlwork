@@ -20,16 +20,16 @@ conda install -c conda-forge -c bioconda snakemake
 # Tarball installs
 #  Samtools 1.11
 #  samtools 1.9 for compatiblity?
-#
-wget https://github.com/samtools/samtools/releases/download/1.9/samtools-1.9.tar.bz2
-wget https://github.com/samtools/samtools/releases/download/1.11/samtools-1.11.tar.bz2
-tar -xvjf samtools-1.11.tar.bz2
-cd samtools-1.11
+# ver=1.11
+ver=1.9
+wget https://github.com/samtools/samtools/releases/download/$ver/samtools-1.9.tar.bz2
+tar -xvjf samtools-$ver.tar.bz2
+cd samtools-$ver
 ./configure --prefix=$CONDA_PREFIX
 make
 make install
 cd ..
-rm -rf samtools-1.11.tar.bz2 samtools-1.11
+rm -rf samtools-$ver.tar.bz2 samtools-$ver
 
 #  bedtools
 wget https://github.com/arq5x/bedtools2/releases/download/v2.29.1/bedtools-2.29.1.tar.gz
@@ -42,15 +42,19 @@ rm -rf bedtools2 bedtools-2.29.1.tar.gz
 
 #  gatk-4.1.9.0 
 # ? 4.1.4.1 for compatibility?
-wget https://github.com/broadinstitute/gatk/releases/download/4.1.9.0/gatk-4.1.9.0.zip
-unzip gatk-4.1.9.0.zip
-mv gatk-4.1.9.0 $CONDA_PREFIX/
+# ver=4.1.9.0 
+ver=4.1.4.1
+wget https://github.com/broadinstitute/gatk/releases/download/$ver/gatk-$ver.zip
+unzip gatk-$ver.zip
+mv gatk-$ver $CONDA_PREFIX/
 cd $CONDA_PREFIX/bin
-ln -s ../gatk-4.1.9.0/gatk ./
+ln -s ../gatk-$ver/gatk ./
 cd -
-rm gatk-4.1.9.0.zip
+rm gatk-$ver.zip
 
 # igvtools-2.8.9
+#
+ver=2.8.10
 wget https://data.broadinstitute.org/igv/projects/downloads/2.8/IGV_2.8.13.zip
 mv IGV_2.8.13 $CONDA_PREFIX/
 cd $CONDA_PREFIX/bin/

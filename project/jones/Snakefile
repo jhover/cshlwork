@@ -1,6 +1,7 @@
 # To submit on Elzar:
 #  snakemake --jobs 6 
-#            --cluster "qsub -N gofocus 
+#            --cluster "qsub -N jones
+#            -wd ~/work/$JOB_NAME 
 #            -pe threads {threads} 
 #            -l m_mem_free={resources.mem_mb}M 
 #            -l gpu={resources.gpu} 
