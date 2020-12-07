@@ -96,7 +96,8 @@ rule gatk5:
 		outdir = "{sample}_tmpdir",
 		chrom = chr,
 		sid = "{sample}",
-		workdir = homedir + "work/werner1.1/"
+		workdir = homedir + "work/werner1.1/",
+		gdir=homedir + "data/genomes/GRCh38_Gencode25",
 	resources:
 		mem_mb=10240
 	threads: 1
@@ -105,7 +106,7 @@ rule gatk5:
 	shell:
 		" cd {params.workdir} && "
 		" rm -rf {params.outdir} && mkdir {params.outdir} && cd {params.outdir} && "
-		" samtools view -b {input.bam} {params.chrom} > {chr}.bam && "
+		" samtools view -b {input.bam} chr{params.chrom} > {params.chrom}.bam && "
 		" samtools view -b -q 10 {params.chrom}.bam > {params.chrom}.filt.bam && "
 		" gatk AddOrReplaceReadGroups -I={params.chrom}.filt.bam -O={params.chrom}.rg.bam -SO=coordinate "
 		"-RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample && "
@@ -113,9 +114,20 @@ rule gatk5:
 		" -VALIDATION_STRINGENCY=SILENT -M=output.metrics && "
 		" gatk SplitNCigarReads -R {input.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam " 
 		" -O {params.chrom}.split.filtered.bam && "
-		" gatk HaplotypeCaller -R {input.gdir}/GRCh38.p7.genome.fa -L {params.chrom} " 
-		" -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 20.0 "
+		" gatk HaplotypeCaller -R {input.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} " 
+		" -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 0.0 "
 		" -O {params.chrom}.filtered.vcf && "
+		" gatk SelectVariants -R {params.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} "
+        "-V {params.chrom}.filtered.vcf -O {params.chrom}.snps.vcf -select-type SNP &&"
+		" gatk VariantFiltration -R {params.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} "
+        " -V {params.chrom}.snps.vcf -O {params.chrom}.snps_filtered.vcf "
+        ' -filter "QD < 2.0" --filter-name "QD2" '
+        ' -filter "QUAL < 30.0" --filter-name "QUAL30" '
+        ' -filter "SOR > 3.0" --filter-name "SOR3" '
+        ' -filter "FS > 60.0" --filter-name "FS60" '
+        ' -filter "MQ < 40.0" --filter-name "MQ40" ''
+        ' -filter "MQRankSum < -12.5" --filter-name "MQRankSum-12.5" '
+        ' -filter "ReadPosRankSum < -8.0" --filter-name "ReadPosRankSum-8" && '
 		" igvtools count -z 0 -w 1 --bases --strands read {params.chrom}.split.filtered.bam " 
 		" tmp.{params.sid}.wig {input.gdir}/{params.chrom}.fa  && "
 		" grep {params.chrom} {params.chrom}.filtered.vcf | cut -f2-5 > A && "
