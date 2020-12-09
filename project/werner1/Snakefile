@@ -123,13 +123,15 @@ rule gatk6:
 		xfiltbam= wdir + "/{sample}."+ chr +".filt.bam"	
 
 	output:
-		spbam = wdir + "/{sample}." + chr + ".split.filtered.bam"
-
+		sfbam = wdir + "/{sample}." + chr + ".split.filtered.bam",
+		sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf"
+		
 	params:
 		tmpdir = "{sample}_tmpdir",
 		chrom = chr,
 		wdir = wdir + "/",
 		gdir = homedir + "data/genomes/GRCh38_Gencode25",
+	
 	resources:
 		mem_mb=10240
 	threads: 1
@@ -146,13 +148,17 @@ rule gatk6:
 		"-RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample && "
 		" gatk MarkDuplicates -I={params.chrom}.rg.bam -O={params.chrom}.dedupped.bam -CREATE_INDEX=true " 
 		" -VALIDATION_STRINGENCY=SILENT -M=output.metrics && "
+		
 		" gatk SplitNCigarReads -R {input.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam " 
 		" -O {params.chrom}.split.filtered.bam && "
+		
 		" gatk HaplotypeCaller -R {input.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} " 
-		" -I {chr}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 0.0 "
+		" -I {params.chrom}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 0.0 "
 		" -O {params.chrom}.filtered.vcf && "
+		
 		" gatk SelectVariants -R {params.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} "
         "-V {params.chrom}.filtered.vcf -O {params.chrom}.snps.vcf -select-type SNP &&"
+		
 		" gatk VariantFiltration -R {params.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} "
         " -V {params.chrom}.snps.vcf -O {params.chrom}.snps_filtered.vcf "
         ' -filter "QD < 2.0" --filter-name "QD2" '
@@ -163,19 +169,23 @@ rule gatk6:
         ' -filter "MQRankSum < -12.5" --filter-name "MQRankSum-12.5" '
         ' -filter "ReadPosRankSum < -8.0" --filter-name "ReadPosRankSum-8" && '
 		
-		" cd .. && rm -rf {params.outdir} ../ "
+		" mv -v {params.chrom}.split.filtered.bam {output.sfbam} && "	
+		" mv -v {params.chrom}.snps_filtered.vcf {output.sfvcf} && "
+		" cd .. && rm -rf {params.tmpdir}"
 
 rule igvtools7:	
 	input:
 		snpdb= homedir + "data/snpdb/chr"+ chr +".snpdb.txt",
 		gdir= homedir + "data/genomes/GRCh38_Gencode25",    
-		bam= wdir + "/{sample}." + chr + ".split.filtered.bam"
+		sfbam= wdir + "/{sample}." + chr + ".split.filtered.bam",
+		#sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf"
 
 	output:
 	    splitwig= wdir + "/{sample}." + chr + ".split.filtered.wig", 
 		filtvcf= wdir + "/{sample}." + chr + ".filtered.vcf", 
 		intwig= wdir + "/{sample}." + chr + ".intersect.wig",
 		cut= wdir + "/{sample}." + chr + ".cut"	
+		
 	resources:
 		mem_mb=10240
 	threads: 1
@@ -188,8 +198,9 @@ rule igvtools7:
 	shell:
 		" cd {params.wdir} && "
 		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "		
-		" igvtools count -z 0 -w 1 --bases --strands read {params.chrom}.split.filtered.bam " 
-		" tmp.{wildcard.sample}.wig {input.gdir}/chr{params.chrom}.fa  && "
+		
+		" igvtools count -z 0 -w 1 --bases --strands read {input.sfbam} " 
+		" tmp.{wildcards.sample}.wig {input.gdir}/chr{params.chrom}.fa  && "
 		
 		" grep {params.chrom} {params.chrom}.filtered.vcf | cut -f2-5 > A && "
 		" cut -f1 A > B && "
