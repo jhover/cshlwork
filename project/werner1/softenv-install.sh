@@ -22,7 +22,7 @@ conda install -c conda-forge -c bioconda snakemake
 #  samtools 1.9 for compatiblity?
 # ver=1.11
 ver=1.9
-wget https://github.com/samtools/samtools/releases/download/$ver/samtools-1.9.tar.bz2
+wget https://github.com/samtools/samtools/releases/download/$ver/samtools-$ver.tar.bz2
 tar -xvjf samtools-$ver.tar.bz2
 cd samtools-$ver
 ./configure --prefix=$CONDA_PREFIX
