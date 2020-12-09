@@ -49,7 +49,6 @@ rule bedtools2:
 	
 rule star3:
 	input:
-		gdir= homedir + "data/genomes/GRCh38_Gencode25/",
 		end1= wdir + "/{sample}.end1.fq",	
 		end2= wdir + "/{sample}.end2.fq"
 	
@@ -61,6 +60,7 @@ rule star3:
 	params:		
 		tmpdir = "{sample}_starout",
 		wdir = wdir + "/",
+		gdir= homedir + "data/genomes/GRCh38_Gencode25/",
 	
 	resources:
 		mem_mb=6144
@@ -70,7 +70,7 @@ rule star3:
 	shell:
 		" cd {params.wdir} && "
 		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
-		" STAR  --genomeDir {input.gdir} --readFilesIn {input.end1} {input.end2} "
+		" STAR  --genomeDir {params.gdir} --readFilesIn {input.end1} {input.end2} "
 		" --runThreadN {threads} --twopassMode Basic --twopass1readsN -1 " 
 		" --outSAMtype BAM Unsorted --quantMode GeneCounts && "
 		" mv -v Aligned.out.bam ../{wildcards.sample}.Aligned.out.bam &&  "
@@ -120,7 +120,7 @@ rule samtools5:
 rule gatk6:		
 	input:
 		xbam= wdir + "/{sample}."+ chr +".bam",	
-		xfiltbam= wdir + "/{sample}."+ chr +".filt.bam"	
+		xfiltbam= wdir + "/{sample}."+ chr +".filt.bam",
 
 	output:
 		sfbam = wdir + "/{sample}." + chr + ".split.filtered.bam",
@@ -149,10 +149,10 @@ rule gatk6:
 		" gatk MarkDuplicates -I={params.chrom}.rg.bam -O={params.chrom}.dedupped.bam -CREATE_INDEX=true " 
 		" -VALIDATION_STRINGENCY=SILENT -M=output.metrics && "
 		
-		" gatk SplitNCigarReads -R {input.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam " 
+		" gatk SplitNCigarReads -R {params.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam " 
 		" -O {params.chrom}.split.filtered.bam && "
 		
-		" gatk HaplotypeCaller -R {input.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} " 
+		" gatk HaplotypeCaller -R {params.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} " 
 		" -I {params.chrom}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 0.0 "
 		" -O {params.chrom}.filtered.vcf && "
 		
@@ -175,8 +175,7 @@ rule gatk6:
 
 rule igvtools7:	
 	input:
-		snpdb= homedir + "data/snpdb/chr"+ chr +".snpdb.txt",
-		gdir= homedir + "data/genomes/GRCh38_Gencode25",    
+		snpdb= homedir + "data/snpdb/chr"+ chr +".snpdb.txt", 
 		sfbam= wdir + "/{sample}." + chr + ".split.filtered.bam",
 		#sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf"
 
@@ -192,6 +191,7 @@ rule igvtools7:
 	
 	params:
 		tmpdir = "{sample}_tmpdir",
+		gdir= homedir + "data/genomes/GRCh38_Gencode25", 
 		wdir = wdir + "/",
 		chrom=chr,
 		
@@ -200,7 +200,7 @@ rule igvtools7:
 		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "		
 		
 		" igvtools count -z 0 -w 1 --bases --strands read {input.sfbam} " 
-		" tmp.{wildcards.sample}.wig {input.gdir}/chr{params.chrom}.fa  && "
+		" tmp.{wildcards.sample}.wig {params.gdir}/chr{params.chrom}.fa && "
 		
 		" grep {params.chrom} {params.chrom}.filtered.vcf | cut -f2-5 > A && "
 		" cut -f1 A > B && "
