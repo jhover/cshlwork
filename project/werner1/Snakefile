@@ -124,7 +124,8 @@ rule gatk6:
 
 	output:
 		sfbam = wdir + "/{sample}." + chr + ".split.filtered.bam",
-		sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf"
+		sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf",
+		xfvcf = wdir + "/{sample}." + chr + ".filtered.vcf",
 		
 	params:
 		tmpdir = "{sample}_tmpdir",
@@ -177,6 +178,7 @@ rule igvtools7:
 	input:
 		snpdb= homedir + "data/snpdb/chr"+ chr +".snpdb.txt", 
 		sfbam= wdir + "/{sample}." + chr + ".split.filtered.bam",
+		xfvcf = wdir + "/{sample}." + chr + ".filtered.vcf",
 		#sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf"
 
 	output:
@@ -202,7 +204,7 @@ rule igvtools7:
 		" igvtools count -z 0 -w 1 --bases --strands read {input.sfbam} " 
 		" tmp.{wildcards.sample}.wig {params.gdir}/chr{params.chrom}.fa && "
 		
-		" grep {params.chrom} {params.chrom}.filtered.vcf | cut -f2-5 > A && "
+		" grep {params.chrom} {input.xfvcf} | cut -f2-5 > A && "
 		" cut -f1 A > B && "
 		" grep -Fw -f B  > D && "
 		" grep -Fw -f D tmp.{wildcards.sample}.wig > {params.chrom}.intersect.wig && "
