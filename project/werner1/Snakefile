@@ -6,7 +6,6 @@
 #									-l m_mem_free={resources.mem_mb}M 
 #									-o ~/project/$JOB_NAME/logs/$JOB_NAME.o$JOB_ID.$TASK_ID
 #									-e ~/project/$JOB_NAME/logs/$JOB_NAME.e$JOB_ID.$TASK_ID "   
-
 import os
 
 homedir = os.path.expanduser("~/")
