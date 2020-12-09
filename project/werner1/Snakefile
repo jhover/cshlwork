@@ -20,7 +20,7 @@ SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ' ]
 
 rule all:
 	input:
-	    expand(wdir + "/{sample}." + chr + ".filtered.vcf", sample=SAMPLE )
+	    expand(wdir + "/{sample}." + chr + ".cut", sample=SAMPLE )
     
 	    
 rule samtools1: 		
@@ -179,7 +179,7 @@ rule igvtools7:
 		snpdb= homedir + "data/snpdb/chr"+ chr +".snpdb.txt", 
 		sfbam= wdir + "/{sample}." + chr + ".split.filtered.bam",
 		xfvcf = wdir + "/{sample}." + chr + ".filtered.vcf",
-		#sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf"
+		sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf"
 
 	output:
 	    splitwig= wdir + "/{sample}." + chr + ".split.filtered.wig", 
