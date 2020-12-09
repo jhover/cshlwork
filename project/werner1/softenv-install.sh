@@ -55,12 +55,12 @@ rm gatk-$ver.zip
 # igvtools-2.8.9
 #
 ver=2.8.10
-wget https://data.broadinstitute.org/igv/projects/downloads/2.8/IGV_2.8.13.zip
-mv IGV_2.8.13 $CONDA_PREFIX/
+wget https://data.broadinstitute.org/igv/projects/downloads/2.8/IGV_$ver.zip
+mv IGV_$ver $CONDA_PREFIX/
 cd $CONDA_PREFIX/bin/
-ln -s  $CONDA_PREFIX/IGV_2.8.13/igvtools ./
+ln -s  $CONDA_PREFIX/IGV_$ver/igvtools ./
 cd -
-rm IGV_2.8.13.zip
+rm IGV_$ver.zip
 
 # STAR
 # may need to brew install gcc llvm libomp on mac. 
