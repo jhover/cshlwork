@@ -115,9 +115,8 @@ rule samtools5:
 		" samtools view -b -q 10 {params.chrom}.bam > {params.chrom}.filt.bam && "
 		" mv -v {params.chrom}.bam {output.xbam} && "
 		" mv -v {params.chrom}.filt.bam {output.xfiltbam} && "
-		" cd .. && rm -rf {params.outdir} ../ "
+		" cd .. && rm -rf {params.tmpdir} ../ "
 		
-
 rule gatk6:		
 	input:
 		xbam= wdir + "/{sample}."+ chr +".bam",	

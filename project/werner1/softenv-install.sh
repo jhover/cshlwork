@@ -75,9 +75,9 @@ cd -
 
 # STAR
 # may need to brew install gcc llvm libomp on mac. 
-wget https://github.com/alexdobin/STAR/archive/2.4.2a.tar.gz
-tar -xvzf 2.4.2a.tar.gz
-cd STAR-2.4.2a/source
+wget https://github.com/alexdobin/STAR/archive/STAR_2.4.2a.tar.gz
+tar -xvzf STAR_2.4.2a.tar.gz
+cd STAR-STAR-2.4.2a/source
 #make STARforMacStatic CXX=/usr/local/Cellar/gcc/10.2.0/bin/g++-10 
 make STAR
 cp STAR $CONDA_PREFIX/bin/
