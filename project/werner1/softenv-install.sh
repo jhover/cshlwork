@@ -55,12 +55,23 @@ rm gatk-$ver.zip
 # igvtools-2.8.9
 #
 ver=2.8.10
-wget https://data.broadinstitute.org/igv/projects/downloads/2.8/IGV_$ver.zip
-mv IGV_$ver $CONDA_PREFIX/
+pkg="IGV_${ver}"
+wget https://data.broadinstitute.org/igv/projects/downloads/2.8/$pkg.zip
+unzip $pkg.zip
+mv $pkg $CONDA_PREFIX/
+rm $pkg.zip
+
+dpkg="IGV_Linux_${ver}_WithJava"
+lpkg="IGV_Linux_${ver}"
+wget https://data.broadinstitute.org/igv/projects/downloads/2.8/$dpkg.zip
+unzip $dpkg.zip
+rm $lpkg.zip
+
+mv $lpkg  $CONDA_PREFIX/
+mv $CONDA_PREFIX/$lpkg/jdk-11 $CONDA_PREFIX/$pkg/
 cd $CONDA_PREFIX/bin/
-ln -s  $CONDA_PREFIX/IGV_$ver/igvtools ./
+ln -s $CONDA_PREFIX/$pkg/igvtools ./
 cd -
-rm IGV_$ver.zip
 
 # STAR
 # may need to brew install gcc llvm libomp on mac. 
@@ -70,7 +81,7 @@ cd STAR-2.7.2a/source
 #make STARforMacStatic CXX=/usr/local/Cellar/gcc/10.2.0/bin/g++-10 
 make STAR
 cp STAR $CONDA_PREFIX/bin/
-cd ..
+cd -
 rm -rf STAR-2.7.2a 2.7.2a.tar.gz
 
 
