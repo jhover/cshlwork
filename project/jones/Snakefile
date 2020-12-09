@@ -26,7 +26,8 @@ rule gofocus:
 	output:
 		homedir + "work/jones/{sample}_hiprio.predout"
 	resources:
-		gpu=1, mem_mb=5120
+		gpu=1, 
+		mem_mb=5120
 	threads: 4
 	shell:
 		homedir + "git/gofocus/gofocus/pytorch_goterm_pred.py -v {input} {output} "
