@@ -172,6 +172,7 @@ rule gatk6:
 		
 		" mv -v {params.chrom}.split.filtered.bam {output.sfbam} && "	
 		" mv -v {params.chrom}.snps_filtered.vcf {output.sfvcf} && "
+		" mv -v {params.chrom}.filtered.vcf {output.xfvcf} && "
 		" cd .. && rm -rf {params.tmpdir}"
 
 rule igvtools7:	
