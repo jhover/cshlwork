@@ -20,8 +20,8 @@ SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ' ]
 
 rule all:
 	input:
-	    expand(wdir + "/{sample}." + chr + ".cut", sample=SAMPLE )
-    
+	    expand(wdir + "/{sample}." + chr + ".split.filtered.wig", sample=SAMPLE )
+   
 	    
 rule samtools1: 		
 	input: homedir + "data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam"
@@ -178,12 +178,11 @@ rule igvtools7:
 	input:
 		snpdb= homedir + "data/snpdb/chr"+ chr +".snpdb.txt", 
 		sfbam= wdir + "/{sample}." + chr + ".split.filtered.bam",
+		sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf",
 		xfvcf = wdir + "/{sample}." + chr + ".filtered.vcf",
-		sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf"
 
 	output:
 	    splitwig= wdir + "/{sample}." + chr + ".split.filtered.wig", 
-		filtvcf= wdir + "/{sample}." + chr + ".filtered.vcf", 
 		intwig= wdir + "/{sample}." + chr + ".intersect.wig",
 		cut= wdir + "/{sample}." + chr + ".cut"	
 		
@@ -211,9 +210,9 @@ rule igvtools7:
 		" grep -Fw -f D A > {params.chrom}.cut && "
 		
 		" mv -v tmp.{wildcards.sample}.wig {output.splitwig}  && "
-		" mv -v {params.chrom}.filtered.vcf {output.filtvcf} && "
 		" mv -v {params.chrom}.intersect.wig {output.intwig} && "
 		" mv -v {params.chrom}.cut {output.cut} && "
+		
 		" cd .. && rm -rf {params.tmpdir} && "
 		
 		
