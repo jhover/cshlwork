@@ -67,7 +67,8 @@ rm IGV_2.8.13.zip
 wget https://github.com/alexdobin/STAR/archive/2.7.2a.tar.gz
 tar -xvzf 2.7.2a.tar.gz
 cd STAR-2.7.2a/source
-make STARforMacStatic CXX=/usr/local/Cellar/gcc/10.2.0/bin/g++-10 
+#make STARforMacStatic CXX=/usr/local/Cellar/gcc/10.2.0/bin/g++-10 
+make STAR
 cp STAR $CONDA_PREFIX/bin/
 cd ..
 rm -rf STAR-2.7.2a 2.7.2a.tar.gz
