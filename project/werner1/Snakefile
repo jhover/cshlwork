@@ -30,9 +30,10 @@ rule samtools1:
 		mem_mb=3072
 	threads: 8
 	shell:
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
 		" samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} && "
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
+		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
 	
 rule bedtools2:
 	input:  wdir + "/{sample}.readSorted.bam"
@@ -43,9 +44,10 @@ rule bedtools2:
 		mem_mb=4096
 	threads: 1
 	shell:
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
 		" bedtools bamtofastq -i {input} -fq {output.end1} -fq2 {output.end2} && "
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "	
+		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "	
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
 	
 rule star3:
 	input:
@@ -66,7 +68,7 @@ rule star3:
 		mem_mb=6144
 	threads: 16
 	shell:
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1 && set -x && "
 		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		" STAR  --genomeDir {params.gdir} --readFilesIn {input.end1} {input.end2} "
 		" --runThreadN {threads} --twopassMode Basic --twopass1readsN -1 " 
@@ -75,7 +77,8 @@ rule star3:
 		" mv -v ReadsPerGene.out.tab ../{wildcards.sample}.ReadsPerGene.out.tab && "
 		" mv -v SJ.out.tab ../{wildcards.sample}.SJ.out.tab && "
 		" cd .. && rm -rf {params.tmpdir} && "
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
+		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
 
 rule samtools4: 
 	input: 		wdir + "/{sample}.Aligned.out.bam"	
@@ -84,10 +87,11 @@ rule samtools4:
 		mem_mb=2048
 	threads: 20
 	shell:
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
 		" samtools sort -m {resources.mem_mb}M -o {output} -O bam -@ {threads} {input} && "
 		" samtools index {output} && "
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
+		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
 
 rule samtools5:
 	input:
@@ -105,14 +109,15 @@ rule samtools5:
 		mem_mb=10240
 	threads: 1
 	shell:
-		"d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
 		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		" samtools view -b {input.bam} chr{params.chrom} > {params.chrom}.bam && "
 		" samtools view -b -q 10 {params.chrom}.bam > {params.chrom}.filt.bam && "
 		" mv -v {params.chrom}.bam {output.xbam} && "
 		" mv -v {params.chrom}.filt.bam {output.xfiltbam} && "
 		" cd .. && rm -rf {params.tmpdir} && "
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
+		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
 		
 rule gatk6:		
 	input:
@@ -134,7 +139,7 @@ rule gatk6:
 		mem_mb=10240
 	threads: 1
 	shell:
-		"d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
 		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		
 		" gatk AddOrReplaceReadGroups -I={input.xfiltbam} -O={params.chrom}.rg.bam -SO=coordinate "
@@ -166,7 +171,8 @@ rule gatk6:
 		" mv -v {params.chrom}.snps_filtered.vcf {output.sfvcf} && "
 		" mv -v {params.chrom}.filtered.vcf {output.xfvcf} && "
 		" cd .. && rm -rf {params.tmpdir} && "
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
+		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
 
 rule igvtools7:	
 	input:
@@ -191,7 +197,7 @@ rule igvtools7:
 		chrom=chr,
 	
 	shell:
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
 		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "		
 		" igvtools count -z 0 -w 1 --bases --strands read {input.sfbam} " 
 		" tmp.{wildcards.sample}.wig {params.gdir}/chr{params.chrom}.fa && "
@@ -204,6 +210,6 @@ rule igvtools7:
 		" mv -v {params.chrom}.intersect.wig {output.intwig} && "
 		" mv -v {params.chrom}.cut {output.cut} && "
 		" cd .. && rm -rf {params.tmpdir} && "
-		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
-		
+		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "		
 		
