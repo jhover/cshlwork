@@ -205,7 +205,7 @@ rule igvtools7:
 		
 		" grep {params.chrom} {input.xfvcf} | cut -f2-5 > A && "
 		" cut -f1 A > B && "
-		" grep -Fw {input.snpdb} -f B  > D && "
+		" grep -Fw -f B {input.snpdb}  > D && "
 		" grep -Fw -f D tmp.{wildcards.sample}.wig > {params.chrom}.intersect.wig && "
 		" grep -Fw -f D A > {params.chrom}.cut && "
 		
