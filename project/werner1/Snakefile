@@ -16,7 +16,7 @@ snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
 
 
 (SAMPLE,) = glob_wildcards(homedir + "data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
-#SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ' ]
+SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ','GTEX-1GN1W-0526-SM-9MQJQ' ]
 
 rule all:
 	input:
@@ -31,9 +31,9 @@ rule samtools1:
 	threads: 8
 	log: homedir + "project/werner1/logs/{sample}.1sam.log"
 	shell:
-		" date +%s &&  echo {rule} && set -x && "
-		"samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} && "
-		" date +%s "
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} && "
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
 	
 rule bedtools2:
 	input:  wdir + "/{sample}.readSorted.bam"
@@ -43,12 +43,10 @@ rule bedtools2:
 	resources:
 		mem_mb=4096
 	threads: 1
-	log:
-		homedir + "project/werner1/logs/{sample}.2bed.log"
 	shell:
-		" date +%s &&  echo {rule} && set -x && "
-		"bedtools bamtofastq -i {input} -fq {output.end1} -fq2 {output.end2} && "
-		" date +%s "	
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" bedtools bamtofastq -i {input} -fq {output.end1} -fq2 {output.end2} && "
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "	
 	
 rule star3:
 	input:
@@ -68,12 +66,9 @@ rule star3:
 	resources:
 		mem_mb=6144
 	threads: 16
-	log:
-		homedir + "project/werner1/logs/{sample}.3star.log"
 	shell:
-		" date +%s &&  echo {rule} && set -x && "
-		" cd {params.wdir} && "
-		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		" STAR  --genomeDir {params.gdir} --readFilesIn {input.end1} {input.end2} "
 		" --runThreadN {threads} --twopassMode Basic --twopass1readsN -1 " 
 		" --outSAMtype BAM Unsorted --quantMode GeneCounts && "
@@ -81,7 +76,7 @@ rule star3:
 		" mv -v ReadsPerGene.out.tab ../{wildcards.sample}.ReadsPerGene.out.tab && "
 		" mv -v SJ.out.tab ../{wildcards.sample}.SJ.out.tab && "
 		" cd .. && rm -rf {params.tmpdir} && "
-		" date +%s "
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
 
 rule samtools4: 
 	input: 		wdir + "/{sample}.Aligned.out.bam"	
@@ -89,13 +84,11 @@ rule samtools4:
 	resources:
 		mem_mb=2048
 	threads: 20
-	log:
-		homedir + "project/werner1/logs/{sample}.4sam.log"
 	shell:
-		" date +%s &&  echo {rule} && set -x && "
-		"samtools sort -m {resources.mem_mb}M -o {output} -O bam -@ {threads} {input} && "
-		"samtools index {output} && "
-		" date +%s "
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" samtools sort -m {resources.mem_mb}M -o {output} -O bam -@ {threads} {input} && "
+		" samtools index {output} && "
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
 
 rule samtools5:
 	input:
@@ -112,18 +105,15 @@ rule samtools5:
 	resources:
 		mem_mb=10240
 	threads: 1
-	log:
-		homedir + "project/werner1/logs/{sample}." + chr + ".5samtools.log"
 	shell:
-		" date +%s &&  echo {rule} && set -x && "
-		" cd {params.wdir} && "
-		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
+		"d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		" samtools view -b {input.bam} chr{params.chrom} > {params.chrom}.bam && "
 		" samtools view -b -q 10 {params.chrom}.bam > {params.chrom}.filt.bam && "
 		" mv -v {params.chrom}.bam {output.xbam} && "
 		" mv -v {params.chrom}.filt.bam {output.xfiltbam} && "
 		" cd .. && rm -rf {params.tmpdir} && "
-		" date +%s "
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
 		
 rule gatk6:		
 	input:
@@ -144,15 +134,9 @@ rule gatk6:
 	resources:
 		mem_mb=10240
 	threads: 1
-	
-
-	log:
-		homedir + "project/werner1/logs/{sample}." + chr + ".6gatk.log"
-
 	shell:
-		" date +%s &&  echo {rule} && set -x && "
-		" cd {params.wdir} && "
-		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
+		"d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		
 		" gatk AddOrReplaceReadGroups -I={input.xfiltbam} -O={params.chrom}.rg.bam -SO=coordinate "
 		"-RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample && "
@@ -183,7 +167,7 @@ rule gatk6:
 		" mv -v {params.chrom}.snps_filtered.vcf {output.sfvcf} && "
 		" mv -v {params.chrom}.filtered.vcf {output.xfvcf} && "
 		" cd .. && rm -rf {params.tmpdir} && "
-		" date +%s "
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
 
 rule igvtools7:	
 	input:
@@ -206,13 +190,10 @@ rule igvtools7:
 		gdir= homedir + "data/genomes/GRCh38_Gencode25", 
 		wdir = wdir + "/",
 		chrom=chr,
-	log:
-		homedir + "project/werner1/logs/{sample}." + chr + ".7igv.log"
-		
+	
 	shell:
-		" date +%s &&  echo {rule} && set -x && "
-		" cd {params.wdir} && "
-		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "		
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d  && set -x && "
+		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "		
 		" igvtools count -z 0 -w 1 --bases --strands read {input.sfbam} " 
 		" tmp.{wildcards.sample}.wig {params.gdir}/chr{params.chrom}.fa && "
 		" grep {params.chrom} {input.xfvcf} | cut -f2-5 > A && "
@@ -224,6 +205,6 @@ rule igvtools7:
 		" mv -v {params.chrom}.intersect.wig {output.intwig} && "
 		" mv -v {params.chrom}.cut {output.cut} && "
 		" cd .. && rm -rf {params.tmpdir} && "
-		" date +%s "
+		" d=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d "
 		
 		
