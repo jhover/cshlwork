@@ -10,13 +10,13 @@ import os
 
 homedir = os.path.expanduser("~/")
 print(homedir)
-wdir = homedir + "work/werner1.1"
+wdir = homedir + "work/werner1"
 chr="X"
 snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
 
 
 (SAMPLE,) = glob_wildcards(homedir + "data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
-SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ' ]
+#SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ' ]
 
 rule all:
 	input:
