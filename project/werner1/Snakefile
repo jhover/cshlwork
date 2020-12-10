@@ -31,7 +31,9 @@ rule samtools1:
 	threads: 8
 	log: homedir + "project/werner1/logs/{sample}.1sam.log"
 	shell:
-		"samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} "
+		" date +%s &&  echo {rule} && set -x && "
+		"samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} && "
+		" date +%s "
 	
 rule bedtools2:
 	input:  wdir + "/{sample}.readSorted.bam"
@@ -44,7 +46,9 @@ rule bedtools2:
 	log:
 		homedir + "project/werner1/logs/{sample}.2bed.log"
 	shell:
-		"bedtools bamtofastq -i {input} -fq {output.end1} -fq2 {output.end2}"	
+		" date +%s &&  echo {rule} && set -x && "
+		"bedtools bamtofastq -i {input} -fq {output.end1} -fq2 {output.end2} && "
+		" date +%s "	
 	
 rule star3:
 	input:
@@ -67,6 +71,7 @@ rule star3:
 	log:
 		homedir + "project/werner1/logs/{sample}.3star.log"
 	shell:
+		" date +%s &&  echo {rule} && set -x && "
 		" cd {params.wdir} && "
 		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		" STAR  --genomeDir {params.gdir} --readFilesIn {input.end1} {input.end2} "
@@ -75,8 +80,8 @@ rule star3:
 		" mv -v Aligned.out.bam ../{wildcards.sample}.Aligned.out.bam &&  "
 		" mv -v ReadsPerGene.out.tab ../{wildcards.sample}.ReadsPerGene.out.tab && "
 		" mv -v SJ.out.tab ../{wildcards.sample}.SJ.out.tab && "
-		" cd .. && rm -rf {params.tmpdir} "
-
+		" cd .. && rm -rf {params.tmpdir} && "
+		" date +%s "
 
 rule samtools4: 
 	input: 		wdir + "/{sample}.Aligned.out.bam"	
@@ -87,8 +92,10 @@ rule samtools4:
 	log:
 		homedir + "project/werner1/logs/{sample}.4sam.log"
 	shell:
+		" date +%s &&  echo {rule} && set -x && "
 		"samtools sort -m {resources.mem_mb}M -o {output} -O bam -@ {threads} {input} && "
-		"samtools index {output} "
+		"samtools index {output} && "
+		" date +%s "
 
 rule samtools5:
 	input:
@@ -108,13 +115,15 @@ rule samtools5:
 	log:
 		homedir + "project/werner1/logs/{sample}." + chr + ".5samtools.log"
 	shell:
+		" date +%s &&  echo {rule} && set -x && "
 		" cd {params.wdir} && "
 		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		" samtools view -b {input.bam} chr{params.chrom} > {params.chrom}.bam && "
 		" samtools view -b -q 10 {params.chrom}.bam > {params.chrom}.filt.bam && "
 		" mv -v {params.chrom}.bam {output.xbam} && "
 		" mv -v {params.chrom}.filt.bam {output.xfiltbam} && "
-		" cd .. && rm -rf {params.tmpdir} "
+		" cd .. && rm -rf {params.tmpdir} && "
+		" date +%s "
 		
 rule gatk6:		
 	input:
@@ -141,6 +150,7 @@ rule gatk6:
 		homedir + "project/werner1/logs/{sample}." + chr + ".6gatk.log"
 
 	shell:
+		" date +%s &&  echo {rule} && set -x && "
 		" cd {params.wdir} && "
 		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		
@@ -172,7 +182,8 @@ rule gatk6:
 		" mv -v {params.chrom}.split.filtered.bam {output.sfbam} && "	
 		" mv -v {params.chrom}.snps_filtered.vcf {output.sfvcf} && "
 		" mv -v {params.chrom}.filtered.vcf {output.xfvcf} && "
-		" cd .. && rm -rf {params.tmpdir}"
+		" cd .. && rm -rf {params.tmpdir} && "
+		" date +%s "
 
 rule igvtools7:	
 	input:
@@ -195,24 +206,24 @@ rule igvtools7:
 		gdir= homedir + "data/genomes/GRCh38_Gencode25", 
 		wdir = wdir + "/",
 		chrom=chr,
+	log:
+		homedir + "project/werner1/logs/{sample}." + chr + ".7igv.log"
 		
 	shell:
+		" date +%s &&  echo {rule} && set -x && "
 		" cd {params.wdir} && "
 		" rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "		
-		
 		" igvtools count -z 0 -w 1 --bases --strands read {input.sfbam} " 
 		" tmp.{wildcards.sample}.wig {params.gdir}/chr{params.chrom}.fa && "
-		
 		" grep {params.chrom} {input.xfvcf} | cut -f2-5 > A && "
 		" cut -f1 A > B && "
 		" grep -Fw -f B {input.snpdb}  > D && "
 		" grep -Fw -f D tmp.{wildcards.sample}.wig > {params.chrom}.intersect.wig && "
-		" grep -Fw -f D A > {params.chrom}.cut && "
-		
+		" grep -Fw -f D A > {params.chrom}.cut && "		
 		" mv -v tmp.{wildcards.sample}.wig {output.splitwig}  && "
 		" mv -v {params.chrom}.intersect.wig {output.intwig} && "
 		" mv -v {params.chrom}.cut {output.cut} && "
-		
-		" cd .. && rm -rf {params.tmpdir} "
+		" cd .. && rm -rf {params.tmpdir} && "
+		" date +%s "
 		
 		
