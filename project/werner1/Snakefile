@@ -213,6 +213,6 @@ rule igvtools7:
 		" mv -v {params.chrom}.intersect.wig {output.intwig} && "
 		" mv -v {params.chrom}.cut {output.cut} && "
 		
-		" cd .. && rm -rf {params.tmpdir} && "
+		" cd .. && rm -rf {params.tmpdir} "
 		
 		
