@@ -33,7 +33,7 @@ rule samtools1:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
 		" samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} && "
 		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
-		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt "
 	
 rule bedtools2:
 	input:  wdir + "/{sample}.readSorted.bam"
@@ -47,7 +47,7 @@ rule bedtools2:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
 		" bedtools bamtofastq -i {input} -fq {output.end1} -fq2 {output.end2} && "
 		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "	
-		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt "
 	
 rule star3:
 	input:
@@ -78,7 +78,7 @@ rule star3:
 		" mv -v SJ.out.tab ../{wildcards.sample}.SJ.out.tab && "
 		" cd .. && rm -rf {params.tmpdir} && "
 		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
-		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt "
 
 rule samtools4: 
 	input: 		wdir + "/{sample}.Aligned.out.bam"	
@@ -91,7 +91,7 @@ rule samtools4:
 		" samtools sort -m {resources.mem_mb}M -o {output} -O bam -@ {threads} {input} && "
 		" samtools index {output} && "
 		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
-		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt "
 
 rule samtools5:
 	input:
@@ -117,7 +117,7 @@ rule samtools5:
 		" mv -v {params.chrom}.filt.bam {output.xfiltbam} && "
 		" cd .. && rm -rf {params.tmpdir} && "
 		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
-		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt "
 		
 rule gatk6:		
 	input:
@@ -172,7 +172,7 @@ rule gatk6:
 		" mv -v {params.chrom}.filtered.vcf {output.xfvcf} && "
 		" cd .. && rm -rf {params.tmpdir} && "
 		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
-		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt "
 
 rule igvtools7:	
 	input:
@@ -211,5 +211,5 @@ rule igvtools7:
 		" mv -v {params.chrom}.cut {output.cut} && "
 		" cd .. && rm -rf {params.tmpdir} && "
 		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
-		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $d2 "		
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt "		
 		
