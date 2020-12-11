@@ -29,7 +29,7 @@ rule samtools1:
 	input: homedir + "data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam"
 	output:  wdir + "/{sample}.readSorted.bam"	
 	resources:
-		mem_mb=3072
+		mem_mb=4096
 	threads: 8
 	shell:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
@@ -43,7 +43,7 @@ rule bedtools2:
 		end1=wdir + "/{sample}.end1.fq",
 		end2=wdir + "/{sample}.end2.fq"
 	resources:
-		mem_mb=4096
+		mem_mb=2048
 	threads: 1
 	shell:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
@@ -67,7 +67,7 @@ rule star3:
 		gdir= homedir + "data/genomes/GRCh38_Gencode25/",
 	
 	resources:
-		mem_mb=6144
+		mem_mb=3072
 	threads: 16
 	shell:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1 && set -x && "
@@ -86,7 +86,7 @@ rule samtools4:
 	input: 		wdir + "/{sample}.Aligned.out.bam"	
 	output:	    wdir + "/{sample}.Aligned.sortedByCoord.out.bam"
 	resources:
-		mem_mb=2048
+		mem_mb=3072
 	threads: 20
 	shell:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
@@ -108,7 +108,7 @@ rule samtools5:
 		wdir = wdir + "/",
 		gdir=homedir + "data/genomes/GRCh38_Gencode25",
 	resources:
-		mem_mb=10240
+		mem_mb=3072
 	threads: 1
 	shell:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
@@ -138,7 +138,7 @@ rule gatk6:
 		gdir = homedir + "data/genomes/GRCh38_Gencode25",
 	
 	resources:
-		mem_mb=10240
+		mem_mb=46080
 	threads: 1
 	shell:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
@@ -189,7 +189,7 @@ rule igvtools7:
 		cut= wdir + "/{sample}." + chr + ".cut"	
 		
 	resources:
-		mem_mb=10240
+		mem_mb=12288
 	threads: 1
 	
 	params:
