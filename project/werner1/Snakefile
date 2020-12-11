@@ -16,8 +16,8 @@ snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
 
 
 (SAMPLE,) = glob_wildcards(homedir + "data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
-SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ','GTEX-1GN1W-0526-SM-9MQJQ' ]
-SAMPLE = ['GTEX-11DXX-2326-SM-9YFKS']
+#SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ','GTEX-1GN1W-0526-SM-9MQJQ' ]
+#SAMPLE = ['GTEX-11DXX-2326-SM-9YFKS']
 
 
 rule all:
