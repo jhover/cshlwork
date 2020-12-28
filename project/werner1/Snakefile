@@ -22,7 +22,23 @@ SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ','GTEX-1GN1W-0526
 
 rule all:
 	input:
-	    expand(wdir + "/{sample}." + chr + ".split.filtered.wig", sample=SAMPLE )
+		# from STAR
+	    log = expand(wdir + "/{sample}.Log.out", sample=SAMPLE ),		
+		flog= expand(wdir + "/{sample}.Log.final.out", sample=SAMPLE),
+		rpg=  expand(wdir + "/{sample}.ReadsPerGene.out.tab",	sample=SAMPLE),
+	   
+		# from gatk
+		sfbam = expand(wdir + "/{sample}." + chr + ".split.filtered.bam",  sample=SAMPLE ),
+		sfvcf = expand(wdir + "/{sample}." + chr + ".snps_filtered.vcf",  sample=SAMPLE ),
+   		sftab = expand(wdir + "/{sample}." + chr + ".snps_filtered.tab", sample=SAMPLE ),
+		xfvcf = expand(wdir + "/{sample}." + chr + ".filtered.vcf",  sample=SAMPLE ),
+	    
+	    # from igvtools
+	    wig =   expand(wdir + "/{sample}." + chr + ".split.filtered.wig", sample=SAMPLE ),
+		intwig= expand(wdir + "/{sample}." + chr + ".intersect.wig",sample=SAMPLE),
+		cut= 	expand(wdir + "/{sample}." + chr + ".cut", sample=SAMPLE),
+
+
    
 	    
 rule samtools1: 		
@@ -61,7 +77,9 @@ rule star3:
 		rpg= wdir + "/{sample}.ReadsPerGene.out.tab",
 		sjtab= wdir + "/{sample}.SJ.out.tab",
 		log= wdir + "/{sample}.Log.out",		
+		plog= wdir + "/{sample}.Log.progress.out",
 		flog= wdir + "/{sample}.Log.final.out",
+
 			
 	params:		
 		tmpdir = "{sample}_starout",
@@ -81,6 +99,7 @@ rule star3:
 		" mv -v ReadsPerGene.out.tab {output.rpg} && "
 		" mv -v SJ.out.tab {output.sjtab} && "
 		" mv -v Log.out {output.log} && "
+		" mv -v Log.progress.out {output.plog} && "
 		" mv -v Log.final.out {output.flog} && "
 		
 		" cd .. && rm -rf {params.tmpdir} && "
