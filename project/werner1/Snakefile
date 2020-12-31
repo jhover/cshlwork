@@ -37,11 +37,19 @@ rule all:
 		intwig= expand(wdir + "/{sample}." + chr + ".intersect.wig",sample=SAMPLE),
 		cut= 	expand(wdir + "/{sample}." + chr + ".cut", sample=SAMPLE),
 
-rule samtool5out:
+rule samtools5out:
 	input:
 		xbam= 	  expand(wdir + "/{sample}."+ chr +".bam", sample=SAMPLE),	
 		xfiltbam= expand(wdir + "/{sample}."+ chr +".filt.bam"	, sample=SAMPLE)
-   
+
+rule gatk6out:
+	input:
+		sfbam = expand(wdir + "/{sample}." + chr + ".split.filtered.bam", sample=SAMPLE),
+		sfvcf = expand(wdir + "/{sample}." + chr + ".snps_filtered.vcf", sample=SAMPLE),
+		sftab = expand(wdir + "/{sample}." + chr + ".snps_filtered.tab", sample=SAMPLE),
+		xfvcf = expand(wdir + "/{sample}." + chr + ".filtered.vcf", sample=SAMPLE)   
+
+
 	    
 rule samtools1: 		
 	input: homedir + "data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam"
