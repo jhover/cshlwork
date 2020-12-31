@@ -37,7 +37,10 @@ rule all:
 		intwig= expand(wdir + "/{sample}." + chr + ".intersect.wig",sample=SAMPLE),
 		cut= 	expand(wdir + "/{sample}." + chr + ".cut", sample=SAMPLE),
 
-
+rule samtool5out:
+	input:
+		xbam= 	  expand(wdir + "/{sample}."+ chr +".bam", sample=SAMPLE),	
+		xfiltbam= expand(wdir + "/{sample}."+ chr +".filt.bam"	, sample=SAMPLE)
    
 	    
 rule samtools1: 		
