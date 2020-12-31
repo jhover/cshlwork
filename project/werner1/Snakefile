@@ -13,6 +13,7 @@ chr="X"
 snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
 
 
+
 (SAMPLE,) = glob_wildcards(homedir + "data/GTEx/v8/jon_bams/{sample}.Aligned.sortedByCoord.out.patched.md.bam")
 #SAMPLE = ['GTEX-1HFI7-1126-SM-A96S5','GTEX-1HFI7-1926-SM-A96TQ','GTEX-1GN1W-0526-SM-9MQJQ' ]
 #SAMPLE = ['GTEX-11DXX-2326-SM-9YFKS']
@@ -161,19 +162,23 @@ rule gatk6:
 		gdir = homedir + "data/genomes/GRCh38_Gencode25",
 	
 	resources:
-		mem_mb=46080
-	threads: 1
+		#mem_mb=46080
+		mem_mb= 5760
+	#threads: 1
+	threads: 8
+	
 	shell:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
 		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		
 		" gatk AddOrReplaceReadGroups -I={input.xfiltbam} -O={params.chrom}.rg.bam -SO=coordinate "
 		"-RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample && "
+		
 		" gatk MarkDuplicates -I={params.chrom}.rg.bam -O={params.chrom}.dedupped.bam -CREATE_INDEX=true " 
 		" -VALIDATION_STRINGENCY=SILENT -M=output.metrics && "
 		
 		" gatk SplitNCigarReads -R {params.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam " 
-		" -O {params.chrom}.split.filtered.bam && "
+		" -O {params.chrom}.split.filtered.bam --java-options '-XXgcThreads:4 -XX:ConcGCThreads ' && "
 		
 		" gatk HaplotypeCaller -R {params.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} " 
 		" -I {params.chrom}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 0.0 "
