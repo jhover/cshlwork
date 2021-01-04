@@ -170,20 +170,20 @@ rule gatk6:
 		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		
 		" gatk AddOrReplaceReadGroups -I={input.xfiltbam} -O={params.chrom}.rg.bam -SO=coordinate "
-		"-RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample && "
+		"-RGID=id -RGLB=library -RGPL=platform -RGPU=machine -RGSM=sample --java-options ' -XX:ActiveProcessorCount=8 ' && "
 		
 		" gatk MarkDuplicates -I={params.chrom}.rg.bam -O={params.chrom}.dedupped.bam -CREATE_INDEX=true " 
-		" -VALIDATION_STRINGENCY=SILENT -M=output.metrics && "
+		" -VALIDATION_STRINGENCY=SILENT -M=output.metrics --java-options ' -XX:ActiveProcessorCount=8 ' && "
 		
 		" gatk SplitNCigarReads -R {params.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam " 
 		" -O {params.chrom}.split.filtered.bam --java-options ' -XX:ActiveProcessorCount=8 ' && "
 		
 		" gatk HaplotypeCaller -R {params.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} " 
 		" -I {params.chrom}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 0.0 "
-		" -O {params.chrom}.filtered.vcf && "
+		" -O {params.chrom}.filtered.vcf --java-options ' -XX:ActiveProcessorCount=8 ' && "
 		
 		" gatk SelectVariants -R {params.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} "
-        "-V {params.chrom}.filtered.vcf -O {params.chrom}.snps.vcf -select-type SNP &&"
+        "-V {params.chrom}.filtered.vcf -O {params.chrom}.snps.vcf -select-type SNP --java-options ' -XX:ActiveProcessorCount=8 ' &&"
 		
 		" gatk VariantFiltration -R {params.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} "
         " -V {params.chrom}.snps.vcf -O {params.chrom}.snps_filtered.vcf "
@@ -193,13 +193,14 @@ rule gatk6:
         ' -filter "FS > 60.0" --filter-name "FS60" '
         ' -filter "MQ < 40.0" --filter-name "MQ40" '
         ' -filter "MQRankSum < -12.5" --filter-name "MQRankSum-12.5" '
-        ' -filter "ReadPosRankSum < -8.0" --filter-name "ReadPosRankSum-8" && '
+        ' -filter "ReadPosRankSum < -8.0" --filter-name "ReadPosRankSum-8" '
+        " --java-options ' -XX:ActiveProcessorCount=8 ' && "
 
 		" gatk VariantsToTable "
 		" -V {params.chrom}.snps_filtered.vcf -O {params.chrom}.snps_filtered.tab "
   		"-F CHROM -F POS -F REF -F ALT -F QUAL -F FILTER -F FS -F MQ -F MQRankSum -F " 
   		"QD -F ReadPosRankSum -F SOR -GF GT -GF AD -GF DP -GF GQ -GF PL "
-  		" --show-filtered true && "
+  		" --show-filtered true --java-options ' -XX:ActiveProcessorCount=8 ' && "
 
 		" mv -v {params.chrom}.split.filtered.bam {output.sfbam} && "	
 		" mv -v {params.chrom}.snps_filtered.vcf {output.sfvcf} && "
