@@ -84,8 +84,15 @@ cp STAR $CONDA_PREFIX/bin/
 cd -
 rm -rf STAR-2.4.2a 2.4.2a.tar.gz
 
-
-
+#
+# Need newest Java in order to pass -XX:ActiveProcessorCount=8
+# https://www.java.com/en/download/manual.jsp 
+wget https://javadl.oracle.com/webapps/download/AutoDL?BundleId=243727_61ae65e088624f5aaa0b1d2d801acb16 -O jre-8u271-linux-x64.tar.gz
+tar -xvzf jre-8u271-linux-x64.tar.gz
+mv jre1.8.0_271 jre
+cd $CONDA_PREFIX/bin/
+ln -s cd $CONDA_PREFIX/jre/bin/* ./
+cd -
 
 	
 
