@@ -176,7 +176,7 @@ rule gatk6:
 		" -VALIDATION_STRINGENCY=SILENT -M=output.metrics && "
 		
 		" gatk SplitNCigarReads -R {params.gdir}/GRCh38.p7.genome.fa -I {params.chrom}.dedupped.bam " 
-		" -O {params.chrom}.split.filtered.bam --java-options '-XXgcThreads:2 -XX:ConcGCThreads ' && "
+		" -O {params.chrom}.split.filtered.bam --java-options ' -XX:ActiveProcessorCount=8 ' && "
 		
 		" gatk HaplotypeCaller -R {params.gdir}/GRCh38.p7.genome.fa -L chr{params.chrom} " 
 		" -I {params.chrom}.split.filtered.bam --dont-use-soft-clipped-bases -stand-call-conf 0.0 "
