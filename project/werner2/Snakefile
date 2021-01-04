@@ -7,7 +7,7 @@
 import os
 
 homedir = os.path.expanduser("~/")
-print(homedir)
+#print(homedir)
 wdir = homedir + "work/werner2"
 chr="X"
 snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
@@ -15,8 +15,10 @@ snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
 
 
 (SAMPLE,) = glob_wildcards(homedir + "data/AWS/bams/{sample}.Aligned.sortedByCoord.out.bam")
-SAMPLE = ['SRR835999','SRR836000','SRR2071349' ]
+(SAMPLE,) = glob_wildcards(homedir + "data/AWS/bams/{sample}.Aligned.sortedByCoord.out.bam")[:10]
+#SAMPLE = ['SRR835999','SRR836000','SRR2071349' ]
 #SAMPLE = ['GTEX-11DXX-2326-SM-9YFKS']
+print(SAMPLE)
 
 
 rule all:
