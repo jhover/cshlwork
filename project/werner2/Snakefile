@@ -23,6 +23,10 @@ snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
 
 rule all:
 	input:
+		wig =   expand(wdir + "/{sample}." + chr + ".split.filtered.wig", sample=SAMPLE ),
+		intwig= expand(wdir + "/{sample}." + chr + ".intersect.wig",sample=SAMPLE),
+		cut= 	expand(wdir + "/{sample}." + chr + ".cut", sample=SAMPLE)
+		
 		# from STAR
 	    #log = expand(wdir + "/{sample}.Log.out", sample=SAMPLE ),		
 		#flog= expand(wdir + "/{sample}.Log.final.out", sample=SAMPLE),
@@ -35,9 +39,7 @@ rule all:
 		#xfvcf = expand(wdir + "/{sample}." + chr + ".filtered.vcf",  sample=SAMPLE ),
 	    
 	    # from igvtools
-	    wig =   expand(wdir + "/{sample}." + chr + ".split.filtered.wig", sample=SAMPLE ),
-		intwig= expand(wdir + "/{sample}." + chr + ".intersect.wig",sample=SAMPLE),
-		cut= 	expand(wdir + "/{sample}." + chr + ".cut", sample=SAMPLE)
+
 
 	    
 rule samtools1: 		
