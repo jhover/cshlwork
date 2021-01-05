@@ -18,7 +18,7 @@ snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
 #SAMPLE=SAMPLE[:50]
 #SAMPLE = ['SRR835999','SRR836000','SRR2071349' ]
 #SAMPLE = ['GTEX-11DXX-2326-SM-9YFKS']
-print(SAMPLE)
+#print(SAMPLE)
 
 
 rule all:
@@ -37,7 +37,7 @@ rule all:
 	    # from igvtools
 	    wig =   expand(wdir + "/{sample}." + chr + ".split.filtered.wig", sample=SAMPLE ),
 		intwig= expand(wdir + "/{sample}." + chr + ".intersect.wig",sample=SAMPLE),
-		cut= 	expand(wdir + "/{sample}." + chr + ".cut", sample=SAMPLE),
+		cut= 	expand(wdir + "/{sample}." + chr + ".cut", sample=SAMPLE)
 
 	    
 rule samtools1: 		
@@ -78,7 +78,7 @@ rule bedtools2:
 rule star3:
 	input:
 		end1= wdir + "/{sample}.end1.fq",	
-		end2= wdir + "/{sample}.end2.fq",
+		end2= wdir + "/{sample}.end2.fq"
 	
 	output: 	
 		abam= wdir + "/{sample}.Aligned.out.bam",
@@ -86,13 +86,13 @@ rule star3:
 		sjtab= wdir + "/{sample}.SJ.out.tab",
 		log= wdir + "/{sample}.Log.out",		
 		plog= wdir + "/{sample}.Log.progress.out",
-		flog= wdir + "/{sample}.Log.final.out",
+		flog= wdir + "/{sample}.Log.final.out"
 
 			
 	params:		
 		tmpdir = "{sample}_starout",
 		wdir = wdir + "/",
-		gdir= homedir + "data/genomes/GRCh38_Gencode25/",
+		gdir= homedir + "data/genomes/GRCh38_Gencode25/"
 	
 	resources:
 		mem_mb=3072
@@ -138,7 +138,8 @@ rule samtools5:
 		tmpdir = "{sample}_tmpdir",
 		chrom = chr,
 		wdir = wdir + "/",
-		gdir=homedir + "data/genomes/GRCh38_Gencode25",
+		gdir=homedir + "data/genomes/GRCh38_Gencode25"
+		
 	resources:
 		mem_mb=3072
 	threads: 1
@@ -156,19 +157,19 @@ rule samtools5:
 rule gatk6:		
 	input:
 		xbam= wdir + "/{sample}."+ chr +".bam",	
-		xfiltbam= wdir + "/{sample}."+ chr +".filt.bam",
+		xfiltbam= wdir + "/{sample}."+ chr +".filt.bam"
 
 	output:
 		sfbam = wdir + "/{sample}." + chr + ".split.filtered.bam",
 		sfvcf = wdir + "/{sample}." + chr + ".snps_filtered.vcf",
 		sftab = wdir + "/{sample}." + chr + ".snps_filtered.tab",
-		xfvcf = wdir + "/{sample}." + chr + ".filtered.vcf",
+		xfvcf = wdir + "/{sample}." + chr + ".filtered.vcf"
 		
 	params:
 		tmpdir = "{sample}_tmpdir",
 		chrom = chr,
 		wdir = wdir + "/",
-		gdir = homedir + "data/genomes/GRCh38_Gencode25",
+		gdir = homedir + "data/genomes/GRCh38_Gencode25"
 	
 	resources:
 		#mem_mb=46080
@@ -242,7 +243,7 @@ rule igvtools7:
 		tmpdir = "{sample}_tmpdir",
 		gdir= homedir + "data/genomes/GRCh38_Gencode25", 
 		wdir = wdir + "/",
-		chrom=chr,
+		chrom=chr
 	
 	shell:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
@@ -260,4 +261,4 @@ rule igvtools7:
 		" cd .. && rm -rf {params.tmpdir} && "
 		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
 		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt "		
-		
+
