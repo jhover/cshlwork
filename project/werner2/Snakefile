@@ -61,8 +61,8 @@ rule samtools1:
 		echo $? ;
 		let rt=$d2-$d1 ;
 		echo $JOB_NAME $JOB_ID {rule} runtime $rt ;
-		echo $?
-		|| true
+		echo $? ;
+		true
 		"""
 
 rule bedtools2:
