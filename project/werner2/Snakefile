@@ -55,7 +55,7 @@ rule samtools1:
 		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
 		" echo $? && "
 		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt && "
-		" echo $? && "
+		" echo $? "
 
 rule bedtools2:
 	input:  wdir + "/{sample}.readSorted.bam"
