@@ -24,15 +24,15 @@ snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
 rule all:
 	input:
 		# from STAR
-	    log = expand(wdir + "/{sample}.Log.out", sample=SAMPLE ),		
-		flog= expand(wdir + "/{sample}.Log.final.out", sample=SAMPLE),
-		rpg=  expand(wdir + "/{sample}.ReadsPerGene.out.tab", sample=SAMPLE),
+	    #log = expand(wdir + "/{sample}.Log.out", sample=SAMPLE ),		
+		#flog= expand(wdir + "/{sample}.Log.final.out", sample=SAMPLE),
+		#rpg=  expand(wdir + "/{sample}.ReadsPerGene.out.tab", sample=SAMPLE),
 	   
 		# from gatk
-		sfbam = expand(wdir + "/{sample}." + chr + ".split.filtered.bam",  sample=SAMPLE ),
-		sfvcf = expand(wdir + "/{sample}." + chr + ".snps_filtered.vcf",  sample=SAMPLE ),
-   		sftab = expand(wdir + "/{sample}." + chr + ".snps_filtered.tab", sample=SAMPLE ),
-		xfvcf = expand(wdir + "/{sample}." + chr + ".filtered.vcf",  sample=SAMPLE ),
+		#sfbam = expand(wdir + "/{sample}." + chr + ".split.filtered.bam",  sample=SAMPLE ),
+		#sfvcf = expand(wdir + "/{sample}." + chr + ".snps_filtered.vcf",  sample=SAMPLE ),
+   		#sftab = expand(wdir + "/{sample}." + chr + ".snps_filtered.tab", sample=SAMPLE ),
+		#xfvcf = expand(wdir + "/{sample}." + chr + ".filtered.vcf",  sample=SAMPLE ),
 	    
 	    # from igvtools
 	    wig =   expand(wdir + "/{sample}." + chr + ".split.filtered.wig", sample=SAMPLE ),
