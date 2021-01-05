@@ -48,11 +48,15 @@ rule samtools1:
 	threads: 8
 	shell:
 		" set +o pipefail && "
-		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
+		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1 && "
+		" echo $? && "
 		" samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} && "
+		" echo $? && "
 		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
-		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt "
-	
+		" echo $? && "
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt && "
+		" echo $? && "
+
 rule bedtools2:
 	input:  wdir + "/{sample}.readSorted.bam"
 	output:
@@ -62,10 +66,14 @@ rule bedtools2:
 		mem_mb=2048
 	threads: 1
 	shell:
-		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && set -x && "
+		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1  && "
+		" echo $? && "
 		" bedtools bamtofastq -i {input} -fq {output.end1} -fq2 {output.end2} && "
-		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "	
-		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt "
+		" echo $? && "
+		" d2=`date +%s` && echo $JOB_NAME $JOB_ID {rule} end $d2 && "
+		" echo $? && "	
+		" let rt=$d2-$d1 && echo $JOB_NAME $JOB_ID {rule} runtime $rt && "
+		" echo $? "
 	
 rule star3:
 	input:
@@ -90,7 +98,7 @@ rule star3:
 		mem_mb=3072
 	threads: 16
 	shell:
-		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1 && set -x && "
+		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1 &&  "
 		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
 		" STAR  --genomeDir {params.gdir} --readFilesIn {input.end1} {input.end2} "
 		" --runThreadN {threads} --twopassMode Basic --twopass1readsN -1 " 
