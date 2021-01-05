@@ -50,18 +50,18 @@ rule samtools1:
 	threads: 8
 	shell:
 		"""
-		set +o pipefail ; 
-		d1=`date +%s` ; 
-		echo $JOB_NAME $JOB_ID {rule} start $d1 ;
-		echo $? ;
-		samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} ;
-		echo $? ;
-		d2=`date +%s` ;
-		echo $JOB_NAME $JOB_ID {rule} end $d2 ;
-		echo $? ;
-		let rt=$d2-$d1 ;
-		echo $JOB_NAME $JOB_ID {rule} runtime $rt ;
-		echo $? ;
+		set +o pipefail  
+		d1=`date +%s`  
+		echo $JOB_NAME $JOB_ID {rule} start $d1 
+		echo $? 
+		samtools sort -m {resources.mem_mb}M -o {output} -O bam -n -@ {threads} {input} 
+		echo $? 
+		d2=`date +%s` 
+		echo $JOB_NAME $JOB_ID {rule} end $d2 
+		echo $? 
+		let rt=$d2-$d1 
+		echo $JOB_NAME $JOB_ID {rule} runtime $rt 
+		echo $? 
 		true
 		"""
 
