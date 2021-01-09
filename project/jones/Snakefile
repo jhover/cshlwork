@@ -45,7 +45,7 @@ rule sorted:
 
 rule egad:
     input:
-        network = homedir + "work/jones/{sample}_prioAggNet.hdf5",
+        network = homedir + "data/cococonet/networks/{sample}_prioAggNet.hdf5",
         pred = homedir + "work/jones/{sample}_hiprio.pred"
     
     output:
