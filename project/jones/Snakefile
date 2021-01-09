@@ -42,4 +42,17 @@ rule sorted:
 	threads: 1
 	shell:
 		"cat {input} | sort -k 1,1 -k 3,3rn > {output} "
-		
+
+rule egad:
+    input:
+        network = homedir + "work/jones/{sample}_prioAggNet.hdf5",
+        pred = homedir + "work/jones/{sample}_hiprio.pred"
+    
+    output:
+        homedir + "work/jones/{sample}_hiprio.egad.tsv"    		
+    resources:
+        gpu=0 , mem_mb=4096
+    threads: 1
+    shell:
+        homedir + "git/cshlwork/scripts/go_egad.py -v {input.network} {input.pred} {output} "
+        

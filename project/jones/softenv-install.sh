@@ -8,5 +8,5 @@ conda create -y -n pytorch python=3.8
 conda activate pytorch
 
 # Conda available packages
-conda install -y pandas numpy scipy seaborn matplotlib plotly h5py 
-conda install -c conda-forge -c bioconda snakemake
+conda install -c conda-forge -c bioconda snakemake pytorch pandas numpy scipy seaborn matplotlib plotly h5py ipython
+
