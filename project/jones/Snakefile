@@ -18,7 +18,7 @@ wildcard_constraints:
 
 rule all:
     input:
-        expand(homedir + "work/jones/{sample}_hiprio.pred", sample=SAMPLES)
+        expand(homedir + "work/jones/{sample}_hiprio.egad.tsv", sample=SAMPLES)
 
 rule gofocus:
 	input: 
