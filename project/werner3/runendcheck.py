@@ -42,15 +42,20 @@ def parse_basefile(basefile):
 	flist = f.readlines()
 	f.close() 
 	return flist
-  
+ 
 
 def run_all(basefile, indir, outdir):
 	taskid = elzar.get_taskid()
 	logging.debug(f"taskid is {taskid}")
+
+	lowidx = (taskid - 1) * FILEBLOCK 
+	highidx = taskid * FILEBLOCK
+	logging.debug(f"lowidx={lowidx} highidx={highidx} ")
 	blist = parse_basefile(basefile)
-	logging.debug(f"basefile len={len(blist)}")
+	logging.debug(f"basefile raw len={len(blist)}")	
+	blist = blist[lowidx:highidx]
+	logging.debug(f"basefile processed len={len(blist)}")
 	donelist = []
-		
 	for bf in blist:
 		bf = bf.strip()
 		infile=f"{indir}/{bf}"
