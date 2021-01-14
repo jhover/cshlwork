@@ -59,9 +59,12 @@ def run_all(basefile, indir, outdir):
 	for bf in blist:
 		bf = bf.strip()
 		infile=f"{indir}/{bf}"
-		out = run_samview(infile)
-		logging.debug(f"got {out} for {bf}. next...")
-		donelist.append( (bf, out))
+		try:
+			out = run_samview(infile)
+			logging.debug(f"got {out} for {bf}. next...")
+			donelist.append( (bf, out))
+		except:
+			logging.warning(f"got exception from infile {infile}")
 	logging.debug("done. returning donelist.")
 	return donelist
 
