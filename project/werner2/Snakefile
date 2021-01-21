@@ -108,7 +108,7 @@ rule star3:
 	shell:
 		" d1=`date +%s` && echo $JOB_NAME $JOB_ID {rule} start $d1 &&  "
 		" cd {params.wdir} && rm -rf {params.tmpdir} && mkdir {params.tmpdir} && cd {params.tmpdir} && "
-		" STAR  --genomeDir {params.gdir} --readFilesIn {input.end1} {input.end2} "
+		" STARlong  --genomeDir {params.gdir} --readFilesIn {input.end1} {input.end2} "
 		" --runThreadN {threads} --twopassMode Basic --twopass1readsN -1 " 
 		" --outSAMtype BAM Unsorted --quantMode GeneCounts && "
 		" mv -v Aligned.out.bam {output.abam} &&  "
