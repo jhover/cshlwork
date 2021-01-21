@@ -42,7 +42,7 @@ rule all:
 
 	    
 rule samtools1: 		
-	input: homedir + "data/AWS/bams/{sample}.Aligned.sortedByCoord.out.bam"
+	input: homedir + "data/AWS/single/{sample}.Aligned.sortedByCoord.out.bam"
 	output:  wdir + "/{sample}.readSorted.bam"	
 	resources:
 		mem_mb=4096
