@@ -9,10 +9,13 @@ sys.path.append(gitpath)
 
 from fastcafa.fastcafa import *
 
-phmmerdf = os.path.expanduser("~/project/hamsini2/dupe_targets_phmmer_20210207.csv")
-dupepairs = os.path.expanduser("~/project/hamsini2/mouse_dup_pairs_uniprot.txt")
-evaltable = os.path.expanduser("~/project/hamsini2/mouse_dupe_scores.csv")
+#phmmerdf = os.path.expanduser("~/project/hamsini2/dupe_targets_phmmer_20210207.csv")
+#dupepairs = os.path.expanduser("~/project/hamsini2/mouse_dup_pairs_uniprot.txt")
+#evaltable = os.path.expanduser("~/project/hamsini2/mouse_dupe_scores.csv")
 
+phmmerdf = os.path.expanduser("~/project/hamsini2/dupe_targets_phmmer_20210207.csv")
+dupepairs = os.path.expanduser("~/project/hamsini2/mouse_sgd_genes.txt")
+evaltable = os.path.expanduser("~/project/hamsini2/mouse_dupe_scores.csv")
 
 def parse_dupepairs():
     f = open(dupepairs)
