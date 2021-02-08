@@ -15,16 +15,22 @@ from fastcafa.fastcafa import *
 #targetfasta = os.path.expanduser("~/play/hamsini/dupe_targets_10.tfa")
 #phmmerdf = os.path.expanduser("~/play/hamsini/dupe_targets_10_phmmer.csv")
 
-
 # Real files
-dupepairs = os.path.expanduser("~/play/hamsini/mouse_dup_pairs_uniprot.txt")
-dupefasta = os.path.expanduser("~/play/hamsini/dupe_pairs.tfa")
-targetfasta = os.path.expanduser("~/play/hamsini/dupe_targets.tfa")
-phmmerdf = os.path.expanduser("~/play/hamsini/dupe_targets_phmmer_20200925.csv")
+#dupepairs = os.path.expanduser("~/play/hamsini/mouse_dup_pairs_uniprot.txt")
+#dupefasta = os.path.expanduser("~/play/hamsini/dupe_pairs.tfa")
+#targetfasta = os.path.expanduser("~/play/hamsini/dupe_targets.tfa")
+#phmmerdf = os.path.expanduser("~/play/hamsini/dupe_targets_phmmer_20200925.csv")
 
+#uniprot_fasta=os.path.expanduser('~/data/uniprot/uniprot_mouse_all.fasta')
+#uniprot_altcodes = os.path.expanduser("~/play/hamsini/uniprot_all_rodents_altcodes.txt")
+
+# hamsini 2
+dupepairs = os.path.expanduser("~/project/hamsini2/mouse_sgd_genes.txt")
+dupefasta = os.path.expanduser("~/project/hamsini2/mouse_sgd_genes.tfa")
+targetfasta = os.path.expanduser("~/project/hamsini2/dupe_targets.tfa")
+phmmerdf = os.path.expanduser("~/project/hamsini2/dupe_targets_phmmer_20210207.csv")
 uniprot_fasta=os.path.expanduser('~/data/uniprot/uniprot_mouse_all.fasta')
-uniprot_altcodes = os.path.expanduser("~/play/hamsini/uniprot_all_rodents_altcodes.txt")
-
+uniprot_altcodes = os.path.expanduser("~/project/hamsini2/uniprot_all_rodents_altcodes.txt")
 
 def indexbypacc(lod):
     logging.debug(f"indexing uniprot list of dicts len: {len(lod)}")

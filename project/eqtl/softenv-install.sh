@@ -5,7 +5,7 @@
 conda create -n fastqtl
 
 # For chapter 2  in eQTL analysis 
-conda install -c conda-forge -c bioconda r-base r-genomictools
+conda install -c conda-forge -c bioconda r-base r-genomictools r-tidyverse r-reticulate
 
 # Python/Pandas based...
 conda install -c bioconda pyranges

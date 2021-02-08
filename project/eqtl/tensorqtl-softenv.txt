@@ -1,0 +1,7 @@
+
+
+conda create -n tensorqtl
+conda install -c conda-forge python scipy pandas pytorch pyarrow ipython jupyter matplotlib
+pip3 install tensorqtl
+conda install -c conda-forge pandas-plink pyvcf
+
