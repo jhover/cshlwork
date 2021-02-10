@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+#
+# run phmmer against comma separated list of Uniprot IDs. 
+# produce csv of pairwise match alignment. 
+# 
+# 
+#
+#
+#
 import os
 import sys
 import logging
@@ -6,31 +14,16 @@ import traceback
 
 gitpath=os.path.expanduser("~/git/cafa4")
 sys.path.append(gitpath)
-
 from fastcafa.fastcafa import *
 
-# Test files
-#dupepairs = os.path.expanduser("~/play/hamsini/mouse_dup_pairs_uniprot_10.txt")
-#dupefasta = os.path.expanduser("~/play/hamsini/dupe_pairs_10.tfa")
-#targetfasta = os.path.expanduser("~/play/hamsini/dupe_targets_10.tfa")
-#phmmerdf = os.path.expanduser("~/play/hamsini/dupe_targets_10_phmmer.csv")
-
-# Real files
-#dupepairs = os.path.expanduser("~/play/hamsini/mouse_dup_pairs_uniprot.txt")
-#dupefasta = os.path.expanduser("~/play/hamsini/dupe_pairs.tfa")
-#targetfasta = os.path.expanduser("~/play/hamsini/dupe_targets.tfa")
-#phmmerdf = os.path.expanduser("~/play/hamsini/dupe_targets_phmmer_20200925.csv")
-
-#uniprot_fasta=os.path.expanduser('~/data/uniprot/uniprot_mouse_all.fasta')
-#uniprot_altcodes = os.path.expanduser("~/play/hamsini/uniprot_all_rodents_altcodes.txt")
-
-# hamsini 2
-dupepairs = os.path.expanduser("~/project/hamsini2/mouse_sgd_genes.txt")
-dupefasta = os.path.expanduser("~/project/hamsini2/mouse_sgd_genes.tfa")
-targetfasta = os.path.expanduser("~/project/hamsini2/dupe_targets.tfa")
-phmmerdf = os.path.expanduser("~/project/hamsini2/dupe_targets_phmmer_20210207.csv")
+#dupepairs = os.path.expanduser("~/project/hamsini2/mouse_sgd_genes.txt")
+#dupefasta = os.path.expanduser("~/project/hamsini2/mouse_sgd_genes.tfa")
+#targetfasta = os.path.expanduser("~/project/hamsini2/dupe_targets.tfa")
+#phmmerdf = os.path.expanduser("~/project/hamsini2/dupe_targets_phmmer_20210207.csv")
 uniprot_fasta=os.path.expanduser('~/data/uniprot/uniprot_mouse_all.fasta')
 uniprot_altcodes = os.path.expanduser("~/project/hamsini2/uniprot_all_rodents_altcodes.txt")
+
+
 
 def indexbypacc(lod):
     logging.debug(f"indexing uniprot list of dicts len: {len(lod)}")
@@ -41,16 +34,12 @@ def indexbypacc(lod):
         #    logging.debug("Indexing later missing pacc! A0A0R4J0X7")
         seq = p['sequence']
         upbypacc[pacc] = p
-    logging.debug(f"produced indexed dict len: {len(upbypacc)}")
-
-    #tp = upbypacc['A0A0J9YTW6']
-    #logging.debug(f"A0A0J9YTW6 still in upbypacc.")
-    
+    logging.debug(f"produced indexed dict len: {len(upbypacc)}")   
     return upbypacc
 
 
-def parse_dupepairs():
-    f = open(dupepairs)
+def parse_dupepairs(filename):
+    f = open(filename)
     lines = f.readlines()
     dupelist = []
     lnum = 0
@@ -70,12 +59,12 @@ def parse_dupepairs():
     #logging.debug(f"dupelist: {dupelist}")
     return dupelist
 
-def write_sequences(dupelist, upbypacc):
+def write_sequences(dupelist, upbypacc, pairtfa, targettfa):
     
     #tp = upbypacc['A0A0J9YTW6']
     #logging.debug(f"A0A0J9YTW6 still in upbypacc in write_sequences. ")
 
-    outfile = dupefasta
+    outfile = pairtfa
     qnum = 0
     tnum = 0
     qmnum = 0
@@ -135,7 +124,7 @@ def write_sequences(dupelist, upbypacc):
         
     logging.debug(f"handled {tnum} dupe queries. {tmnum} missing. ")    
     
-    outfile = targetfasta
+    outfile = targettfa
     try:
         f = open(outfile, 'w')
         f.write(t)
@@ -233,42 +222,145 @@ def add_altcodes(upbypacc, infile):
         traceback.print_exc(file=sys.stdout) 
     finally:
         f.close()    
+
     logging.debug(f"len ubypacc after: {len(upbypacc)} {nadded} alts added. {nmissing} missing.")
-   
+
+
+def parse_filebase(filepath):
+    '''
+    gives back filepath minus the last dot extension, or the
+    same filepath if there is not extension. 
+    '''
+    return os.path.splitext(filepath)[0]
+
+
+def run_phmmer(pairlist, uniprot_fasta, uniprot_altcodes, pairtfa, targettfa):
+    config = get_default_config()
+    up = parse_uniprot_fasta(uniprot_fasta)   
+    logging.debug(f"up len: {len(up)}")
+    upbypacc = indexbypacc(up)   
+    add_altcodes(upbypacc, uniprot_altcodes)
+    
+    logging.debug(f"upbypacc len: {len(upbypacc)}")
+    
+    write_sequences( pairlist, upbypacc, pairtfa, targettfa  )   
+    outfile, exclude_list, cidgidmap = execute_phmmer(config, pairtfa, version='current')
+    logging.info(f"wrote phmmer output to {outfile}")
+    
+    df = get_phmmer_df(config, pairtfa)
+    logging.debug(f"df: {df}")
+    return df
+
+
+def get_match(query, target, df):
+    logging.debug(f"query={query} target={target}")
+    qdf = df[df.cid == query]
+    row = qdf[qdf.pacc == target]
+    if len(row) > 1 :
+        logging.warning(f'multiple matches for query={query} target={target} ')
+        return None
+    elif len(row) == 1:
+        r = row.iloc[0]
+        eval = r['eval']
+        pscore =r['pscore']
+        bias = r['bias']
+        return (eval, pscore, bias)
+    else:
+        logging.warning(f'no matches for query={query} target={target} ')    
+        return None
+
+def make_evaltable(pdf, pairlist, evalfile   ):
+    #config = get_default_config()
+    #pdf  = pd.read_csv(phmmerdf, index_col=0)
+    pdf.drop_duplicates(inplace=True,ignore_index=True)   
+    #dupelist = parse_dupepairs()
+
+    lod = []
+        
+    for tup in pairlist:
+        (p1, p2) = tup
+        logging.debug(f"looking for {p1} -> {p2}")
+        rv = get_match(p1, p2, pdf)
+        if rv is not None:
+            (eval, pscore, bias ) = rv
+            lod.append( { 'query' : p1,
+                          'target' : p2,
+                          'eval' : eval,
+                          'pscore' : pscore,
+                          'bias' : bias,  
+                            }
+            )
+    logging.debug(f"dupelist length: {len(pairlist)}")
+    logging.debug(f"matchlist length: {len(lod)}")
+    edf = pd.DataFrame(lod)
+    edf.to_csv(evalfile)
+    logging.debug(f"wrote match df to {evalfile}")    
+
+
+
+
+
 
 
 if __name__=='__main__':
 
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
     logging.basicConfig(format=FORMAT)
-    #logging.getLogger().setLevel(logging.INFO)
-    logging.getLogger().setLevel(logging.DEBUG)
-    logging.debug("dupe_similarity...")
+    logging.getLogger().setLevel(logging.WARNING)
+
+    parser = argparse.ArgumentParser()
+      
+    parser.add_argument('-d', '--debug', 
+                        action="store_true", 
+                        dest='debug', 
+                        help='debug logging')
+
+    parser.add_argument('-v', '--verbose', 
+                        action="store_true", 
+                        dest='verbose', 
+                        help='verbose logging')
+
+    parser.add_argument('pairfile', 
+                        metavar='pairfile', 
+                        type=str, 
+                        help='')
+
+    parser.add_argument('uniprottfa', 
+                        metavar='uniprottfa', 
+                        default=os.path.expanduser('~/data/uniprot/uniprot_mouse_all.fasta'),
+                        type=str, 
+                        help='')
+
+    parser.add_argument('uniprotalt', 
+                        metavar='uniprotalt', 
+                        default=os.path.expanduser("~/project/hamsini2/uniprot_all_rodents_altcodes.txt"),
+                        type=str, 
+                        help='')
+
+    args= parser.parse_args()
     
-    config = get_default_config()
-    up = parse_uniprot_fasta(uniprot_fasta)   
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+    if args.verbose:
+        logging.getLogger().setLevel(logging.INFO)
 
-    logging.debug(f"up len: {len(up)}")
-
-    upbypacc = indexbypacc(up)
-    
-    add_altcodes(upbypacc, uniprot_altcodes)
-    
-    logging.debug(f"upbypacc len: {len(upbypacc)}")
-
-    pairlist = parse_dupepairs()
-    write_sequences( pairlist, upbypacc )
-    
-    outfile, exclude_list, cidgidmap = execute_phmmer(config, dupefasta, version='current')
-    logging.info(f"wrote phmmer output to {outfile}")
-
-    df = get_phmmer_df(config, dupefasta)
-    logging.debug(f"df: {df}")
-
-    df.to_csv(phmmerdf)
-    logging.debug(f"Wrote phmmer DF to {phmmerdf}")
+    fbase = parse_filebase(args.pairfile)
+    pairtfa = f"{fbase}.tfa"
+    targettfa = f"{fbase}_targets.tfa"
+    phdf = f"{fbase}_phdf.csv"
+    evalfile = f"{fbase}_scores.csv"
         
+    logging.debug("fbase={fbase} pairtf={pairtfa} targettffa={targettfa} phdf={phdf}")
+    logging.debug("uniprottfa={args.uniprottfa} uniprotalt={args.uniprotalt")
 
-
-
-
+    pairlist = parse_dupepairs(args.pairfile)
+    df = run_phmmer(pairlist, args.uniprottfa, args.uniprotalt, pairtfa, targettfa)
+    df.to_csv(phdf)
+    logging.debug(f"Wrote phmmer DF to {phdf}")
+    
+    make_evaltable(df, pairlist, evalfile )
+    
+    
+    
+    
+    
