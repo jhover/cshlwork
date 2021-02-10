@@ -20,8 +20,8 @@ from fastcafa.fastcafa import *
 #dupefasta = os.path.expanduser("~/project/hamsini2/mouse_sgd_genes.tfa")
 #targetfasta = os.path.expanduser("~/project/hamsini2/dupe_targets.tfa")
 #phmmerdf = os.path.expanduser("~/project/hamsini2/dupe_targets_phmmer_20210207.csv")
-uniprot_fasta=os.path.expanduser('~/data/uniprot/uniprot_mouse_all.fasta')
-uniprot_altcodes = os.path.expanduser("~/project/hamsini2/uniprot_all_rodents_altcodes.txt")
+#uniprot_fasta=os.path.expanduser('~/data/uniprot/uniprot_mouse_all.fasta')
+#uniprot_altcodes = os.path.expanduser("~/project/hamsini2/uniprot_all_rodents_altcodes.txt")
 
 
 
