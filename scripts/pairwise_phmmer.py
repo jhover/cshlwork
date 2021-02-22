@@ -16,15 +16,6 @@ gitpath=os.path.expanduser("~/git/cafa4")
 sys.path.append(gitpath)
 from fastcafa.fastcafa import *
 
-#dupepairs = os.path.expanduser("~/project/hamsini2/mouse_sgd_genes.txt")
-#dupefasta = os.path.expanduser("~/project/hamsini2/mouse_sgd_genes.tfa")
-#targetfasta = os.path.expanduser("~/project/hamsini2/dupe_targets.tfa")
-#phmmerdf = os.path.expanduser("~/project/hamsini2/dupe_targets_phmmer_20210207.csv")
-#uniprot_fasta=os.path.expanduser('~/data/uniprot/uniprot_mouse_all.fasta')
-#uniprot_altcodes = os.path.expanduser("~/project/hamsini2/uniprot_all_rodents_altcodes.txt")
-
-
-
 def indexbypacc(lod):
     logging.debug(f"indexing uniprot list of dicts len: {len(lod)}")
     upbypacc = {}
@@ -55,7 +46,7 @@ def parse_dupepairs(filename):
             #logging.debug("skipping NA target. ")
             
         lnum += 1
-    logging.debug(f" processed {lnum} lines. skipped {knum} NAs. produced {len(dupelist)} items in dupelist[1] = {dupelist[1]}")
+    logging.debug(f" processed {lnum} lines. skipped {knum} NAs. produced {len(dupelist)} items in dupelist[0] = {dupelist[0]}")
     #logging.debug(f"dupelist: {dupelist}")
     return dupelist
 
@@ -350,8 +341,8 @@ if __name__=='__main__':
     phdf = f"{fbase}_phdf.csv"
     evalfile = f"{fbase}_scores.csv"
         
-    logging.debug("fbase={fbase} pairtf={pairtfa} targettffa={targettfa} phdf={phdf}")
-    logging.debug("uniprottfa={args.uniprottfa} uniprotalt={args.uniprotalt")
+    logging.debug(f"fbase={fbase} pairtfa={pairtfa} targettffa={targettfa} phdf={phdf}")
+    logging.debug(f"uniprottfa={args.uniprottfa} uniprotalt={args.uniprotalt}")
 
     pairlist = parse_dupepairs(args.pairfile)
     df = run_phmmer(pairlist, args.uniprottfa, args.uniprotalt, pairtfa, targettfa)
