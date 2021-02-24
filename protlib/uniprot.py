@@ -5,20 +5,29 @@
 import argparse
 import logging
 import os
+import pickle
 import sys
 import traceback
 
 from collections import defaultdict
+from configparser import ConfigParser
+
+import pandas as pd
+
 
 ASPECTMAP = { 'C': 'cc',
               'F': 'mf',
               'P': 'bp'
             }
 
+def get_default_config():
+    cp = ConfigParser()
+    cp.read(os.path.expanduser("~/git/cshlwork/etc/uniprot.conf"))
+    return cp
 
 
 #def parse_uniprot_dat(config, version='2019'):
-def parse_uniprot_dat(filepath):
+def parse_uniprot_dat(config, filepath):
         """
         Parses uniprot/sprot DAT file, returns as list of dicts, with sub-dicts...
         [ {'proteinid': '4CLL9_ARATH', 
@@ -38,117 +47,141 @@ def parse_uniprot_dat(filepath):
            .
     
         """
-        logging.debug(f"opening datfile={filepath}")
-        try:
-            logging.debug(f" attempting to open '{filepath}'")
-            filehandle = open(filepath, 'r')
-        except FileNotFoundError:
-            logging.error(f"No such file {filepath}")                
+        allentries = None
         
-        allentries = []
-        current = None
-        sumreport = 1
-        suminterval = 10000
-        repthresh = sumreport * suminterval
-        try:
-            while True:
-                line = filehandle.readline()
-                if line == '':
-                    break
-
-                if line.startswith("ID "):
-                    # ID   001R_FRG3G              Reviewed;         256 AA.
-                    #      <prot_name>_<prot_spec>
-                    proteinid = line[5:16].strip()
-                    current = defaultdict(dict)
-                    current['proteinid'] = proteinid
-                    (protein, species) = proteinid.split('_')
-                    current['protein'] = protein
-                    current['species'] = species
-                    #logging.debug("Handling ID. New entry.")                
-                
-                elif line.startswith("AC "):
-                    # AC   Q6GZX4;
-                    # AC   A0A023GPJ0; 
-                    # AC   Q91896; O57469;
-                    #logging.debug("Handling AC.")
-                    rest = line[5:]
-                    accession = rest.split(';')[0]
-                    #accession = line[5:11].strip()
-                    current['proteinacc'] = accession
-
-                elif line.startswith("OX   "):
-                    #OX   NCBI_TaxID=654924;
-                    #logging.debug("Handling OX.")
-                    taxonid = ""
-                    val = line[5:]
-                    fields = val.split('=')
-                    if fields[0] == 'NCBI_TaxID':
-                        taxonid = fields[1].strip().replace(';','')
-                    current['taxonid'] = taxonid
-                    
-                elif line.startswith("DR   GO;"):
-                    # DR   GO; GO:0046782; P:regulation of viral transcription; IEA:InterPro.
-                    # P biological process, C cellular component, F molecular function.  
-                    #logging.debug("Handling DR.")
-                    fields = line.split(';')
-                    goterm = fields[1].strip()
-                    goinfo = fields[2]
-                    aspcode = goinfo.split(':')[0].strip()
-                    goaspect = ASPECTMAP[aspcode]
-                    goevsrc = fields[3]
-                    (goevidence, evsrc) = goevsrc.split(':') 
-                    goevidence = goevidence.strip()
-                    current['goterms'][goterm] = [ goaspect,  goevidence ]
-
-                elif line.startswith("SQ   SEQUENCE"):
-                    #logging.debug("Handling SQ:  XXX")
-                    # line = filehandle.readline()
-                    current['seqlength'] = int(line.split()[2])
-                    current['sequence'] = ""
-                    seqlen = current['seqlength']
-                    aaread = 0
-                    while aaread < seqlen:
-                        line = filehandle.readline()
-                        lineseq = line.strip().replace(" ","")
-                        current['sequence'] = "%s%s" % (current['sequence'], lineseq)
-                        aaread += len(lineseq) 
-
-                elif line.startswith("GN   "):
-                    # Examples:
-                    #  GN   ABL1 {ECO:0000303|PubMed:21546455},
-                    #  GN   Name=BRCA1; Synonyms=RNF53;
-                    #  GN   ORFNames=T13E15.24/T13E15.23, T14P1.25/T14P1.24;
-                    # logging.debug(f"Handling GN. {line}")
-                    val = line[5:]
-                    if val.startswith("Name="):
-                        fields = val.split()   # by whitespace
-                        (n, gname) = fields[0].split("=")
-                        gname = gname.upper()
-                        #logging.debug(f"Gene name is {gname} ")
-                        current['gene'] = gname.replace(';','') 
+        cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
+        filename = os.path.basename(os.path.expanduser(filepath))
+        (filebase, e) = os.path.splitext(filename)
+        cachefile =f"{cachedir}/{filebase}.dlist.pickle"
+        
+        if os.path.exists(cachefile):
+            logging.info("Cache hit. Using existing data...")
+            f = open(cachefile, 'rb')
+            allentries = pickle.load(f)
+            logging.info("Loaded from cache...")
+            f.close()      
+        else:
+            logging.debug(f"opening datfile={filepath}")
+            try:
+                logging.debug(f" attempting to open '{filepath}'")
+                filehandle = open(filepath, 'r')
+            except FileNotFoundError:
+                logging.error(f"No such file {filepath}")                
             
-                elif line.startswith("//"):
-                    #logging.debug("End of entry.")                  
-                    allentries.append(current)
-                    #logging.debug(f"All entries list now {len(allentries)} items... ")
-                    if len(allentries) >= repthresh:
-                        logging.info(f"Processed {len(allentries)} entries... ")
-                        sumreport +=1
-                        repthresh = sumreport * suminterval
-                    current = None
+            allentries = []
+            current = None
+            sumreport = 1
+            suminterval = 10000
+            repthresh = sumreport * suminterval
+            try:
+                while True:
+                    line = filehandle.readline()
+                    if line == '':
+                        break
+    
+                    if line.startswith("ID "):
+                        # ID   001R_FRG3G              Reviewed;         256 AA.
+                        #      <prot_name>_<prot_spec>
+                        proteinid = line[5:16].strip()
+                        current = defaultdict(dict)
+                        current['proteinid'] = proteinid
+                        (protein, species) = proteinid.split('_')
+                        current['protein'] = protein
+                        current['species'] = species
+                        #logging.debug("Handling ID. New entry.")                
+                    
+                    elif line.startswith("AC "):
+                        # AC   Q6GZX4;
+                        # AC   A0A023GPJ0; 
+                        # AC   Q91896; O57469;
+                        #logging.debug("Handling AC.")
+                        rest = line[5:]
+                        accession = rest.split(';')[0]
+                        #accession = line[5:11].strip()
+                        current['proteinacc'] = accession
+    
+                    elif line.startswith("OX   "):
+                        #OX   NCBI_TaxID=654924;
+                        #logging.debug("Handling OX.")
+                        taxonid = ""
+                        val = line[5:]
+                        fields = val.split('=')
+                        if fields[0] == 'NCBI_TaxID':
+                            taxonid = fields[1].strip().replace(';','')
+                        current['taxonid'] = taxonid
+                        
+                    elif line.startswith("DR   GO;"):
+                        # DR   GO; GO:0046782; P:regulation of viral transcription; IEA:InterPro.
+                        # P biological process, C cellular component, F molecular function.  
+                        #logging.debug("Handling DR.")
+                        fields = line.split(';')
+                        goterm = fields[1].strip()
+                        goinfo = fields[2]
+                        aspcode = goinfo.split(':')[0].strip()
+                        goaspect = ASPECTMAP[aspcode]
+                        goevsrc = fields[3]
+                        (goevidence, evsrc) = goevsrc.split(':') 
+                        goevidence = goevidence.strip()
+                        current['goterms'][goterm] = [ goaspect,  goevidence ]
+    
+                    elif line.startswith("SQ   SEQUENCE"):
+                        #logging.debug("Handling SQ:  XXX")
+                        # line = filehandle.readline()
+                        current['seqlength'] = int(line.split()[2])
+                        current['sequence'] = ""
+                        seqlen = current['seqlength']
+                        aaread = 0
+                        while aaread < seqlen:
+                            line = filehandle.readline()
+                            lineseq = line.strip().replace(" ","")
+                            current['sequence'] = "%s%s" % (current['sequence'], lineseq)
+                            aaread += len(lineseq) 
+    
+                    elif line.startswith("GN   "):
+                        # Examples:
+                        #  GN   ABL1 {ECO:0000303|PubMed:21546455},
+                        #  GN   Name=BRCA1; Synonyms=RNF53;
+                        #  GN   ORFNames=T13E15.24/T13E15.23, T14P1.25/T14P1.24;
+                        # logging.debug(f"Handling GN. {line}")
+                        val = line[5:]
+                        if val.startswith("Name="):
+                            fields = val.split()   # by whitespace
+                            (n, gname) = fields[0].split("=")
+                            gname = gname.upper()
+                            #logging.debug(f"Gene name is {gname} ")
+                            current['gene'] = gname.replace(';','') 
                 
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)                
-        
-        if filehandle is not None:
-            filehandle.close()      
-        
-        logging.info(f"Parsed file with {len(allentries)} entries" )
-        logging.debug(f"Some entries:  {allentries[10:15]}")
+                    elif line.startswith("//"):
+                        #logging.debug("End of entry.")                  
+                        allentries.append(current)
+                        #logging.debug(f"All entries list now {len(allentries)} items... ")
+                        if len(allentries) >= repthresh:
+                            logging.info(f"Processed {len(allentries)} entries... ")
+                            sumreport +=1
+                            repthresh = sumreport * suminterval
+                        current = None
+                    
+            except Exception as e:
+                traceback.print_exc(file=sys.stdout)                
+            
+            if filehandle is not None:
+                filehandle.close()      
+            
+            logging.info(f"Parsed file with {len(allentries)} entries" )
+            logging.debug(f"Some entries:  {allentries[10:15]}")
+            logging.info(f"Caching allentries to {cachefile}...")
+            f = open(cachefile, 'wb')   
+            pickle.dump(allentries, f )
+            f.close()
+            logging.debug("Done.")
         return allentries
 
-def write_tfa_file(dlist, outfile):
+#def get_uniprot_by
+
+
+
+
+def write_tfa_file(dictlist, outfile):
     '''
     defaultdict(<class 'dict'>, 
         {'proteinid': '1433Z_XENTR', 
@@ -167,15 +200,12 @@ def write_tfa_file(dlist, outfile):
     snum = 1
     header=""
     x = 60
-    
-    #for index, row in df.iterrows():
-    for p in dlist:
-        # to be compatible (db, pacc, pid) = fields[0].split('|')
-        header = f">up|{p['proteinacc']}|{p['protein']}_{p['species']} {p['gene']} "
+    for p in dictlist:
+        header = f">{p['proteinacc']}\t{p['protein']}\t{p['species']}\t{p['gene']}"
+        header = header.replace('{}','')  # remove missing values. 
         sequence =  p['sequence']
         s += f"{header}\n"
         chunklist = [ sequence[y-x:y] for y in range(x, len(sequence)+x, x) ] 
-        #logging.debug(f"chunklist {chunklist}")
         for c in chunklist:
             s += f"{c}\n"
         snum += 1
@@ -195,7 +225,7 @@ def write_tfa_file(dlist, outfile):
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
     logging.basicConfig(format=FORMAT)
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.WARN)
     parser = argparse.ArgumentParser()  
     parser.add_argument('-d', '--debug', 
                         action="store_true", 
@@ -213,6 +243,13 @@ if __name__ == '__main__':
                         nargs='?',
                         default=os.path.expanduser("~/data/uniprot/uniprot_all_vertebrates.dat"), 
                         help='Uniprot .dat file') 
+
+    parser.add_argument('-t','--tfafile', 
+                        metavar='tfafile', 
+                        type=str,
+                        required=False,
+                        default=None, 
+                        help='Fasta .tfa output file') 
     
     args= parser.parse_args()
     if args.debug:
@@ -220,6 +257,12 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)       
     
-    logging.info(f"Parsing {args.infile} ...")
-    uplist = parse_uniprot_dat(args.infile)
-    print(f"outlist is length = {len(uplist)}")    
+    config = get_default_config()
+    logging.info(f"Requesting info from {args.infile} ...")
+    uplist = parse_uniprot_dat(config, args.infile)
+    print(f"outlist is length = {len(uplist)}")
+    if args.tfafile is not None:
+        write_tfa_file(uplist, os.path.expanduser(args.tfafile))    
+    
+
+

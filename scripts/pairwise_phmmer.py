@@ -12,9 +12,11 @@ import sys
 import logging
 import traceback
 
-gitpath=os.path.expanduser("~/git/cafa4")
+gitpath=os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
-from fastcafa.fastcafa import *
+from protlib.uniprot import *
+from protlib.phmmer import *
+
 
 def indexbypacc(lod):
     logging.debug(f"indexing uniprot list of dicts len: {len(lod)}")
@@ -50,122 +52,8 @@ def parse_dupepairs(filename):
     #logging.debug(f"dupelist: {dupelist}")
     return dupelist
 
-def write_sequences(dupelist, upbypacc, pairtfa, targettfa):
-    
-    #tp = upbypacc['A0A0J9YTW6']
-    #logging.debug(f"A0A0J9YTW6 still in upbypacc in write_sequences. ")
 
-    outfile = pairtfa
-    qnum = 0
-    tnum = 0
-    qmnum = 0
-    tmnum = 0
-    x = 60
-    s = ""
-    t = ""
-    #for p in spl:
-    for tup in dupelist:
-        (p1, p2) = tup
-        try:
-            seq = upbypacc[p1]['sequence']
-            #r = naspec[naspec.pacc == p].reset_index().iloc[0]
-            s += f">{p1} {p2}\n"
-            chunklist = [ seq[y-x:y] for y in range(x, len(seq)+x, x) ] 
-            for c in chunklist:
-                s += f"{c}\n"
-            qnum += 1
 
-        except KeyError:
-            tmnum += 1
-            logging.warning(f"Query key missing: {p1}")
-        
-    logging.debug(f"handled {qnum} dupe queries. {qmnum} missing. ")
-    
-    try:
-        f = open(outfile, 'w')
-        f.write(s)
-        logging.debug(f"Wrote query TFA sequence to file {outfile}")
-    except IOError:
-        logging.error(f"could not write to file {outfile}")
-        traceback.print_exc(file=sys.stdout) 
-    finally:
-        f.close()    
-
-    for tup in dupelist:
-        (p1, p2) = tup
-        p1 =p1.strip()
-        p2 = p2.strip()
-        #if p2 == "A0A0J9YTW6":
-        #    logging.debug(f"found p2 in duplest: A0A0J9YTW6 in p2. checking. ")
-        #    pseq = upbypacc[p2]
-        #    logging.debug("found p OK!! ")
-        
-        try:
-            seq2 = upbypacc[p2]['sequence']
-            #r = naspec[naspec.pacc == p].reset_index().iloc[0]
-            t += f">{p2}\n"
-            chunklist = [ seq2[y-x:y] for y in range(x, len(seq2)+x, x) ] 
-            for c in chunklist:
-                t += f"{c}\n"
-            tnum += 1
-        
-        except KeyError:
-            tmnum += 1
-            logging.warning(f"Target key missing: {p2}")
-        
-    logging.debug(f"handled {tnum} dupe queries. {tmnum} missing. ")    
-    
-    outfile = targettfa
-    try:
-        f = open(outfile, 'w')
-        f.write(t)
-        logging.debug(f"Wrote target TFA sequences to file {outfile}")
-    except IOError:
-        logging.error(f"could not write to file {outfile}")
-        traceback.print_exc(file=sys.stdout) 
-    finally:
-        f.close()           
-
-def parse_uniprot_fasta(infile):
-    '''
-    parses fasta
-    returns list of dicts:
-    
-    '''
-    try:
-        f = open(infile)
-        lines = f.readlines()
-        lod = []
-        
-        seq = None
-        current = None   
-        
-        for line in lines:
-            if line.startswith("#"):
-                pass
-            
-            elif line.startswith(">"):
-                if current is not None:
-                    current['sequence'] = seq
-                    lod.append(current)
-                current = {}                   
-                seq = ""
-                fields = line[1:].split()
-                (db, pacc, pid) = fields[0].split('|')
-                if pacc == "A0A0J9YTW6":
-                    logging.debug("Found later missing pacc! A0A0J9YTW6")
-                desc = " ".join(fields[1:])
-                current['proteinacc'] = pacc
-            else:
-                seq += line.strip()
-    except IOError:
-        logging.error(f"could not read file {infile}")
-        traceback.print_exc(file=sys.stdout) 
-    finally:
-        f.close()        
-    
-    logging.debug(f"got lod len: {len(lod)}, e.g. {lod[0]}")
-    return lod
 
 def add_altcodes(upbypacc, infile):
     '''
@@ -260,7 +148,7 @@ def get_match(query, target, df):
         logging.warning(f'no matches for query={query} target={target} ')    
         return None
 
-def make_evaltable(pdf, pairlist, evalfile   ):
+def make_evaltable(pdf, pairlist, evalfile ):
     #config = get_default_config()
     #pdf  = pd.read_csv(phmmerdf, index_col=0)
     pdf.drop_duplicates(inplace=True,ignore_index=True)   
@@ -288,9 +176,13 @@ def make_evaltable(pdf, pairlist, evalfile   ):
     logging.debug(f"wrote match df to {evalfile}")    
 
 
-
-
-
+def split_pairlist(pairlist):
+    qlist = []
+    tlist = []
+    for (q, t) in pairlist:
+        qlist.append(q)
+        tlist.append(t)
+    return (qlist, tlist)
 
 
 if __name__=='__main__':
@@ -336,20 +228,23 @@ if __name__=='__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     fbase = parse_filebase(args.pairfile)
-    pairtfa = f"{fbase}.tfa"
+    querytfa = f"{fbase}.tfa"
     targettfa = f"{fbase}_targets.tfa"
     phdf = f"{fbase}_phdf.csv"
     evalfile = f"{fbase}_scores.csv"
         
-    logging.debug(f"fbase={fbase} pairtfa={pairtfa} targettffa={targettfa} phdf={phdf}")
+    logging.debug(f"fbase={fbase} querytfa={querytfa} targettffa={targettfa} phdf={phdf}")
     logging.debug(f"uniprottfa={args.uniprottfa} uniprotalt={args.uniprotalt}")
 
     pairlist = parse_dupepairs(args.pairfile)
-    df = run_phmmer(pairlist, args.uniprottfa, args.uniprotalt, pairtfa, targettfa)
-    df.to_csv(phdf)
-    logging.debug(f"Wrote phmmer DF to {phdf}")
+    (querylist, targetlist) = split_pairlist(pairlist)
+    logging.debug(f"qlist[:2] = {querylist[:2]} tlist[:2] = {targetlist[:2]} ")
     
-    make_evaltable(df, pairlist, evalfile )
+
+#    df = run_phmmer(pairlist, args.uniprottfa, args.uniprotalt, querytfa, targettfa)
+#    df.to_csv(phdf)
+#    logging.debug(f"Wrote phmmer DF to {phdf}")
+#    make_evaltable(df, pairlist, evalfile )
     
     
     
