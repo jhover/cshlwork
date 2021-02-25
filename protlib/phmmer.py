@@ -36,6 +36,7 @@ def execute_phmmer(config, queryfile, database=None):
     logging.debug(f"outfile={outfile}")
     cpus = config.get('phmmer','cpus')
     eval_threshold = config.get('phmmer','eval_threshold')
+    score_threshold = config.get('phmmer','score_threshold')
     if database is None:
         database = os.path.expanduser(config.get('phmmer', 'database'))
         logging.debug(f"Using config file database: {database}")
@@ -49,12 +50,14 @@ def execute_phmmer(config, queryfile, database=None):
            '--tblout', outfile , 
            '--noali',
            '--cpu', cpus,
-           '-E', eval_threshold,
+           #'-E', eval_threshold,
+           '-T', score_threshold,
            queryfile,
            database 
            ]
     
     logging.debug(f"Running: {cmd}")
+    logging.info(f"Command line: {' '.join(cmd)} ")
     cp = subprocess.run(cmd)
    
     logging.debug(f"Ran cmd='{cmd}' outfile={outfile} returncode={cp.returncode} " )
@@ -129,17 +132,17 @@ def parse_phmmer(config, filename):
 '''
 
 
-def get_phmmer_df(config, filepath, database=None ):
+def get_phmmer_df(config, queryfile, database=None ):
     """
     orders by target, evalue ascending (best fit first).  
     cache output for later usage....
 
     """
-    logging.debug(f"Handling input file {filepath}")
-    infile = os.path.expanduser(filepath)
+    logging.debug(f"Handling input file {queryfile}")
+    infile = os.path.expanduser(queryfile)
     pcachedir = config.get('phmmer','cachedir') 
 
-    filename = os.path.basename(os.path.expanduser(filepath))
+    filename = os.path.basename(os.path.expanduser(queryfile))
     (filebase, e) = os.path.splitext(filename)
     pcachefile =f"{pcachedir}/{filebase}.phmmerdf.csv"
     
@@ -150,7 +153,7 @@ def get_phmmer_df(config, filepath, database=None ):
         
     except FileNotFoundError:
         logging.info("No cached phmmer data. Running...")      
-        outfile = execute_phmmer(config, filepath, database)
+        outfile = execute_phmmer(config, queryfile, database)
         logging.debug(f"outfile is {outfile} parsing...")
         phd = parse_phmmer(config, outfile)
         
@@ -158,7 +161,7 @@ def get_phmmer_df(config, filepath, database=None ):
             df = pd.DataFrame.from_dict(phd, orient='index')
             df = df.sort_values(by=['query','score'], ascending=[True, False])
         if df is not None:
-            logging.debug(f"Cacheing phmmer output to {pcachefile}")
+            logging.debug(f"Caching phmmer output to {pcachefile}")
             df.to_csv(pcachefile)
     return df
 

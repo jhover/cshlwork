@@ -2,6 +2,8 @@
 # 
 # Handles interaction with uniprot data.
 #
+#  uniprot vertebrates. 6.7 millino entries. 2 minutes from cache. vs. 14minutes.  
+#   
 import argparse
 import logging
 import os
@@ -25,39 +27,40 @@ def get_default_config():
     cp.read(os.path.expanduser("~/git/cshlwork/etc/uniprot.conf"))
     return cp
 
-
-#def parse_uniprot_dat(config, version='2019'):
 def parse_uniprot_dat(config, filepath):
         """
-        Parses uniprot/sprot DAT file, returns as list of dicts, with sub-dicts...
-        [ {'proteinid': '4CLL9_ARATH', 
-           'protein': '4CLL9', 
-           'species': 'ARATH', 
-           'proteinacc': 'Q84P23', 
-           'taxonid': '3702', 
-           'goterms': {'GO:0005777': ['cc', 'IDA'], 
-                       'GO:0005524': ['mf', 'IEA'], 
-                       'GO:0004321': ['mf', 'IDA'], 
-                       'GO:0016874': ['mf', 'IEA'], 
-                       'GO:0009695': ['bp', 'IDA'], 
-                       'GO:0031408': ['bp', 'IEA']}
+        Parses uniprot/sprot DAT file, returns dictionary of dicts 
+        using primary and secondary accession codes as keys.  
+                
+        { 'Q84P23' :
+            {    'proteinid': '4CLL9_ARATH', 
+                 'protein': '4CLL9', 
+                 'species': 'ARATH', 
+                 'proteinacc': 'Q84P23', 
+                 'taxonid': '3702', 
+                 'goterms': {'GO:0005777': ['cc', 'IDA'], 
+                             'GO:0005524': ['mf', 'IEA'], 
+                             'GO:0004321': ['mf', 'IDA'], 
+                             'GO:0016874': ['mf', 'IEA'], 
+                             'GO:0009695': ['bp', 'IDA'], 
+                             'GO:0031408': ['bp', 'IEA']}
            },
            .
            .
            .
-    
         """
         allentries = None
-        
+        paccidx = {}
+       
         cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
         filename = os.path.basename(os.path.expanduser(filepath))
         (filebase, e) = os.path.splitext(filename)
-        cachefile =f"{cachedir}/{filebase}.dlist.pickle"
+        cachefile =f"{cachedir}/{filebase}.allbypacc.pickle"
         
         if os.path.exists(cachefile):
             logging.info("Cache hit. Using existing data...")
             f = open(cachefile, 'rb')
-            allentries = pickle.load(f)
+            paccidx = pickle.load(f)
             logging.info("Loaded from cache...")
             f.close()      
         else:
@@ -88,21 +91,21 @@ def parse_uniprot_dat(config, filepath):
                         (protein, species) = proteinid.split('_')
                         current['protein'] = protein
                         current['species'] = species
-                        #logging.debug("Handling ID. New entry.")                
+            
                     
                     elif line.startswith("AC "):
                         # AC   Q6GZX4;
                         # AC   A0A023GPJ0; 
                         # AC   Q91896; O57469;
-                        #logging.debug("Handling AC.")
                         rest = line[5:]
-                        accession = rest.split(';')[0]
-                        #accession = line[5:11].strip()
-                        current['proteinacc'] = accession
-    
+                        acclist = rest.split(';')
+                        current['proteinacc'] = acclist[0]
+                        for c in acclist:
+                            if len(c) > 2:
+                                paccidx[c] = current
+                                                
                     elif line.startswith("OX   "):
                         #OX   NCBI_TaxID=654924;
-                        #logging.debug("Handling OX.")
                         taxonid = ""
                         val = line[5:]
                         fields = val.split('=')
@@ -113,7 +116,6 @@ def parse_uniprot_dat(config, filepath):
                     elif line.startswith("DR   GO;"):
                         # DR   GO; GO:0046782; P:regulation of viral transcription; IEA:InterPro.
                         # P biological process, C cellular component, F molecular function.  
-                        #logging.debug("Handling DR.")
                         fields = line.split(';')
                         goterm = fields[1].strip()
                         goinfo = fields[2]
@@ -125,8 +127,6 @@ def parse_uniprot_dat(config, filepath):
                         current['goterms'][goterm] = [ goaspect,  goevidence ]
     
                     elif line.startswith("SQ   SEQUENCE"):
-                        #logging.debug("Handling SQ:  XXX")
-                        # line = filehandle.readline()
                         current['seqlength'] = int(line.split()[2])
                         current['sequence'] = ""
                         seqlen = current['seqlength']
@@ -142,19 +142,15 @@ def parse_uniprot_dat(config, filepath):
                         #  GN   ABL1 {ECO:0000303|PubMed:21546455},
                         #  GN   Name=BRCA1; Synonyms=RNF53;
                         #  GN   ORFNames=T13E15.24/T13E15.23, T14P1.25/T14P1.24;
-                        # logging.debug(f"Handling GN. {line}")
                         val = line[5:]
                         if val.startswith("Name="):
                             fields = val.split()   # by whitespace
                             (n, gname) = fields[0].split("=")
                             gname = gname.upper()
-                            #logging.debug(f"Gene name is {gname} ")
                             current['gene'] = gname.replace(';','') 
                 
-                    elif line.startswith("//"):
-                        #logging.debug("End of entry.")                  
+                    elif line.startswith("//"):          
                         allentries.append(current)
-                        #logging.debug(f"All entries list now {len(allentries)} items... ")
                         if len(allentries) >= repthresh:
                             logging.info(f"Processed {len(allentries)} entries... ")
                             sumreport +=1
@@ -168,18 +164,42 @@ def parse_uniprot_dat(config, filepath):
                 filehandle.close()      
             
             logging.info(f"Parsed file with {len(allentries)} entries" )
+            logging.info(f"Created prim/sec index. {len(paccidx)} entries ")
             logging.debug(f"Some entries:  {allentries[10:15]}")
-            logging.info(f"Caching allentries to {cachefile}...")
+            logging.info(f"Caching paccindex to {cachefile}...")
             f = open(cachefile, 'wb')   
-            pickle.dump(allentries, f )
+            pickle.dump(paccidx, f )
             f.close()
             logging.debug("Done.")
-        return allentries
-
-#def get_uniprot_by
+        return paccidx
 
 
+def index_by_acc(dictlist):
+    accidx = {}
+    n = 0
+    for p in dictlist:
+        acc = p['proteinacc']
+        accidx[acc] = p
+        n += 1
+    logging.debug(f"indexed by acc {n} entries...")
+    return accidx
 
+
+
+def write_tfa_fromlist(pacclist, paccidx, outfile):
+    '''
+    writes only select protein sequences to tfa outfile. 
+    fixes proteinacc inside in case the list entry is an alternate code. 
+    
+    '''
+    newdlist = []
+    for pacc in pacclist:
+        pdict = paccidx[pacc]
+        pdict['proteinacc'] = pacc
+        newdlist.append(pdict)
+    logging.debug(f"Made shorter dictlist length={len(newdlist)} writing to file.")
+    write_tfa_file(newdlist, outfile)
+      
 
 def write_tfa_file(dictlist, outfile):
     '''
@@ -220,6 +240,10 @@ def write_tfa_file(dictlist, outfile):
         traceback.print_exc(file=sys.stdout) 
     finally:
         f.close()
+
+
+
+
         
 
 if __name__ == '__main__':
@@ -264,5 +288,8 @@ if __name__ == '__main__':
     if args.tfafile is not None:
         write_tfa_file(uplist, os.path.expanduser(args.tfafile))    
     
+    logging.info("Generating acc index..")
+    idx = index_by_acc(uplist)
+    logging.info("done.")
 
 

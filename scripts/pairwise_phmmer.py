@@ -3,19 +3,22 @@
 # run phmmer against comma separated list of Uniprot IDs. 
 # produce csv of pairwise match alignment. 
 # 
-# 
+#  
 #
 #
 #
+import argparse
 import os
 import sys
 import logging
 import traceback
 
+import pandas as pd
+
 gitpath=os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
-from protlib.uniprot import *
-from protlib.phmmer import *
+from protlib import uniprot
+from protlib import phmmer
 
 
 def indexbypacc(lod):
@@ -51,8 +54,6 @@ def parse_dupepairs(filename):
     logging.debug(f" processed {lnum} lines. skipped {knum} NAs. produced {len(dupelist)} items in dupelist[0] = {dupelist[0]}")
     #logging.debug(f"dupelist: {dupelist}")
     return dupelist
-
-
 
 
 def add_altcodes(upbypacc, infile):
@@ -133,20 +134,22 @@ def run_phmmer(pairlist, uniprot_fasta, uniprot_altcodes, pairtfa, targettfa):
 
 def get_match(query, target, df):
     logging.debug(f"query={query} target={target}")
-    qdf = df[df.cid == query]
-    row = qdf[qdf.pacc == target]
+    qdf = df[df['query'] == query]
+    row = qdf[qdf['target'] == target]
     if len(row) > 1 :
         logging.warning(f'multiple matches for query={query} target={target} ')
         return None
     elif len(row) == 1:
         r = row.iloc[0]
         eval = r['eval']
-        pscore =r['pscore']
+        score =r['score']
         bias = r['bias']
-        return (eval, pscore, bias)
+        return (eval, score, bias)
     else:
         logging.warning(f'no matches for query={query} target={target} ')    
         return None
+
+
 
 def make_evaltable(pdf, pairlist, evalfile ):
     #config = get_default_config()
@@ -161,11 +164,11 @@ def make_evaltable(pdf, pairlist, evalfile ):
         logging.debug(f"looking for {p1} -> {p2}")
         rv = get_match(p1, p2, pdf)
         if rv is not None:
-            (eval, pscore, bias ) = rv
+            (eval, score, bias ) = rv
             lod.append( { 'query' : p1,
                           'target' : p2,
                           'eval' : eval,
-                          'pscore' : pscore,
+                          'score' : score,
                           'bias' : bias,  
                             }
             )
@@ -208,17 +211,20 @@ if __name__=='__main__':
                         type=str, 
                         help='')
 
-    parser.add_argument('uniprottfa', 
-                        metavar='uniprottfa', 
-                        default=os.path.expanduser('~/data/uniprot/uniprot_mouse_all.fasta'),
+    parser.add_argument('uniprotdat', 
+                        metavar='uniprotdat', 
+                        default=os.path.expanduser('~/data/uniprot/uniprot_all_vertebrates.dat'),
+                        nargs="?",
                         type=str, 
-                        help='')
+                        help='A uniprot .dat database with sequences for all queries.')
 
-    parser.add_argument('uniprotalt', 
-                        metavar='uniprotalt', 
-                        default=os.path.expanduser("~/project/hamsini2/uniprot_all_rodents_altcodes.txt"),
-                        type=str, 
-                        help='')
+    # alt codes now handled natively by uniprot.py
+    # any tfa files created will use whatever accession is in list. 
+    #parser.add_argument('uniprotalt', 
+    #                    metavar='uniprotalt', 
+    #                    default=os.path.expanduser("~/project/hamsini2/uniprot_all_rodents_altcodes.txt"),
+    #                    type=str, 
+    #                    help='')
 
     args= parser.parse_args()
     
@@ -228,23 +234,34 @@ if __name__=='__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     fbase = parse_filebase(args.pairfile)
-    querytfa = f"{fbase}.tfa"
+    querytfa = f"{fbase}_query.tfa"
     targettfa = f"{fbase}_targets.tfa"
     phdf = f"{fbase}_phdf.csv"
     evalfile = f"{fbase}_scores.csv"
         
     logging.debug(f"fbase={fbase} querytfa={querytfa} targettffa={targettfa} phdf={phdf}")
-    logging.debug(f"uniprottfa={args.uniprottfa} uniprotalt={args.uniprotalt}")
+    logging.debug(f"uniprotdat={args.uniprotdat}")
 
     pairlist = parse_dupepairs(args.pairfile)
     (querylist, targetlist) = split_pairlist(pairlist)
     logging.debug(f"qlist[:2] = {querylist[:2]} tlist[:2] = {targetlist[:2]} ")
     
+    logging.info(f"Getting uniprot from {args.uniprotdat}...")
+    uc = uniprot.get_default_config()
+    upbypacc = uniprot.parse_uniprot_dat(uc, args.uniprotdat)
+    
+    logging.info(f"Creating tfa files: query={querytfa} db={targettfa}")
+    uniprot.write_tfa_fromlist(querylist, upbypacc, querytfa)
+    uniprot.write_tfa_fromlist(targetlist, upbypacc, targettfa)
+    
+    pc = phmmer.get_default_config()
+    logging.info(f"Running phmmer query={querytfa} db={targettfa}")
+    pdf = phmmer.get_phmmer_df(pc, querytfa, targettfa)
 
-#    df = run_phmmer(pairlist, args.uniprottfa, args.uniprotalt, querytfa, targettfa)
-#    df.to_csv(phdf)
-#    logging.debug(f"Wrote phmmer DF to {phdf}")
-#    make_evaltable(df, pairlist, evalfile )
+    pdf.to_csv(phdf)
+    logging.debug(f"Wrote phmmer DF to {phdf}")
+
+    make_evaltable(pdf, pairlist, evalfile )
     
     
     
