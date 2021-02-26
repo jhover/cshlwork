@@ -193,11 +193,23 @@ def write_tfa_fromlist(pacclist, paccidx, outfile):
     
     '''
     newdlist = []
+    total = 0
+    found = 0
+    missing = 0
+    missinglist =[]
     for pacc in pacclist:
-        pdict = paccidx[pacc]
-        pdict['proteinacc'] = pacc
-        newdlist.append(pdict)
-    logging.debug(f"Made shorter dictlist length={len(newdlist)} writing to file.")
+        total += 1
+        try:
+            pdict = paccidx[pacc]
+            pdict['proteinacc'] = pacc
+            newdlist.append(pdict)
+            found += 1
+        except KeyError:
+            missing += 1
+            missinglist.append(pacc)
+    logging.info(f"total={total} found={found} missing={missing}")            
+    logging.info(f"missing list: {missinglist}")
+    logging.debug(f"Made shorter dictlist length={len(newdlist)} writing to file={outfile}.")
     write_tfa_file(newdlist, outfile)
       
 

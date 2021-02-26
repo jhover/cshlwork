@@ -34,7 +34,7 @@ def indexbypacc(lod):
     return upbypacc
 
 
-def parse_dupepairs(filename):
+def parse_pairfile(filename):
     f = open(filename)
     lines = f.readlines()
     dupelist = []
@@ -242,7 +242,7 @@ if __name__=='__main__':
     logging.debug(f"fbase={fbase} querytfa={querytfa} targettffa={targettfa} phdf={phdf}")
     logging.debug(f"uniprotdat={args.uniprotdat}")
 
-    pairlist = parse_dupepairs(args.pairfile)
+    pairlist = parse_pairfile(args.pairfile)
     (querylist, targetlist) = split_pairlist(pairlist)
     logging.debug(f"qlist[:2] = {querylist[:2]} tlist[:2] = {targetlist[:2]} ")
     
