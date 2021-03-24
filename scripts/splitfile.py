@@ -31,11 +31,6 @@ def splitfile(filepath, nlines):
         baseline += nlines
         endline += nlines
         fileno += 1
-
-     
-    
-        
-    
     f.close()
 
 if __name__=='__main__':
