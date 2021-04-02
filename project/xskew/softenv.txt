@@ -10,7 +10,7 @@ conda activate xskew
 conda install -c conda-forge uwsgi django nginx
 
 # following https://uwsgi-docs.readthedocs.io/en/latest/tutorials/Django_and_nginx.html
-# add 'rugen15.cshl.edu' to ALLOWED_HOSTS in settings.py
+# add 'rugen15.cshl.edu''localhost'  '127.0.0.1' to ALLOWED_HOSTS in settings.py
 
 # uwsgi --http :8000 --module mysite.wsgi   WORKS
 # browse to http://rugen15.cshl.edu:8000/
