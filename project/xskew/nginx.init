@@ -15,7 +15,7 @@ PATH=/sbin:/usr/sbin:$PATH
 RETVAL=0
 
 # Source function library.
-. /etc/rc.d/init.d/functions
+# . /etc/rc.d/init.d/functions
 
 usage ()
 {
@@ -26,20 +26,20 @@ usage ()
 start ()
 {
 	echo "starting up nginx..."
-	/home/hover/anaconda3/envs/xskew/bin/nginx &
+	$HOME/anaconda3/envs/xskew/bin/nginx &
 	sleep 3
 	PID=`ps aux | grep nginx | grep "nginx: master process" | grep -v grep | awk '{ print $2}'`
-	echo $PID > /home/hover/var/run/nginix.pid
-	touch /home/hover/var/lock/subsys/nginx
+	echo $PID > $HOME/var/run/nginix.pid
+	touch $HOME/var/lock/subsys/nginx
 }
 
 stop ()
 {
-	PID=`cat /home/hover/var/run/nginix.pid`
+	PID=`cat $HOME/var/run/nginix.pid`
 	echo "shutting down pid: $PID"
-	/home/hover/anaconda3/envs/xskew/bin/nginx -s stop
-	rm -f /home/hover/var/run/nginix.pid
-	rm -f /home/hover/var/lock/subsys/nginx
+	$HOME/anaconda3/envs/xskew/bin/nginx -s stop
+	rm -f $HOME/var/run/nginix.pid
+	rm -f $HOME/var/lock/subsys/nginx
 }
 
 status ()
@@ -62,7 +62,7 @@ restart ()
 
 condrestart ()
 {
-	[ -e /home/hover/var/lock/subsys/nginx ] && restart
+	[ -e $HOME/var/lock/subsys/nginx ] && restart
 }
 
 
