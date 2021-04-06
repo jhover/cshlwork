@@ -29,16 +29,16 @@ start ()
 	$HOME/anaconda3/envs/xskew/bin/nginx &
 	sleep 3
 	PID=`ps aux | grep nginx | grep "nginx: master process" | grep -v grep | awk '{ print $2}'`
-	echo $PID > $HOME/var/run/nginix.pid
+	echo $PID > $HOME/var/run/nginx.pid
 	touch $HOME/var/lock/subsys/nginx
 }
 
 stop ()
 {
-	PID=`cat $HOME/var/run/nginix.pid`
+	PID=`cat $HOME/var/run/nginx.pid`
 	echo "shutting down pid: $PID"
 	$HOME/anaconda3/envs/xskew/bin/nginx -s stop
-	rm -f $HOME/var/run/nginix.pid
+	rm -f $HOME/var/run/nginx.pid
 	rm -f $HOME/var/lock/subsys/nginx
 }
 
