@@ -42,6 +42,7 @@ def run_needle(db, p1, p2, outf):
         towrite = parse_output(lines)
         if towrite is not None:
             outf.write(towrite)
+            towrite = tworite.strip()
             logging.debug(f"wrote: '{towrite}'")
         else:
             logging.warning(f"problem parsing output with  p1={p1} p2={p2} ")
