@@ -112,7 +112,8 @@ if __name__ == '__main__':
                         help='verbose logging')
 
     parser.add_argument('-b','--database',
-                        metavar='db',
+                        metavar='database',
+                        dest='db',
                         type=str,
                         help="emboss DB to use. Run 'showdb' for options" 
                         )
@@ -126,8 +127,6 @@ if __name__ == '__main__':
                         metavar='outfile', 
                         type=str, 
                         help='pairwise info. <p1> <p2> <len> <dist>')
-    
-
     
     
     args= parser.parse_args()
