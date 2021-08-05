@@ -8,12 +8,11 @@ import logging
 import traceback
 import subprocess
 
-
 gitpath=os.path.expanduser("~/git/cshl-work")
 sys.path.append(gitpath)
 
-def do_needle(infile, outfile):
-    logging.debug(f"processing {infile} to {outfile}...")
+def do_needle(db, infile, outfile):
+    logging.debug(f"processing {infile} to {outfile} with db {db}...")
     o = open(outfile, 'w')
     with open(infile) as f:
         for i, l in enumerate(f):
@@ -21,12 +20,12 @@ def do_needle(infile, outfile):
             p1 = p1.strip()
             p2 = p2.strip()
             logging.debug(f"p1={p1} p2={p2}")
-            run_needle(p1, p2, o)
+            run_needle(db, p1, p2, o)
     f.close()
     o.close()
     
     
-def run_needle(p1, p2, outf):
+def run_needle(db, p1, p2, outf):
     
     #p1 = f"{p1}_HUMAN"
     #p2 = f"{p2}_HUMAN"    
@@ -112,15 +111,24 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
 
+    parser.add_argument('-b','--database',
+                        metavar='db',
+                        type=str,
+                        help="emboss DB to use. Run 'showdb' for options" 
+                        )
+
     parser.add_argument('infile', 
                         metavar='infile', 
                         type=str, 
-                        help='a .fasta sequence file')
+                        help='a .tsv file with pairs of uniprot accession ids. ')
 
     parser.add_argument('outfile', 
                         metavar='outfile', 
                         type=str, 
                         help='pairwise info. <p1> <p2> <len> <dist>')
+    
+
+    
     
     args= parser.parse_args()
 
@@ -130,5 +138,5 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
     
-    do_needle(args.infile, args.outfile)
+    do_needle(args.db, args.infile, args.outfile)
     
