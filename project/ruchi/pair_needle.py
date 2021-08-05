@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 #
-#  Split file by lines into N pieces.
-#  splitfile.py  <file> <N>
 
 import argparse
 import os

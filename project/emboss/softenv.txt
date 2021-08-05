@@ -1,0 +1,17 @@
+# install conda
+wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.9.2-Linux-x86_64.sh
+bash Miniconda3-py39_4.9.2-Linux-x86_64.sh
+# be sure to restart terminal to allow conda to start
+
+conda create -n emboss python=3.9
+conda activate emboss
+
+# Tarball installs
+wget ftp://emboss.open-bio.org/pub/EMBOSS/emboss-latest.tar.gz
+tar -xvzf emboss-latest.tar.gz
+cd EMBOSS-6.6.0
+./configure --without-x --prefix=$CONDA_PREFIX
+make
+make install 
+cd ..
+rm -rf EMBOSS-6.6.0 EMBOSS-6.6.0.tar.gz

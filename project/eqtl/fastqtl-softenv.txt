@@ -1,0 +1,9 @@
+
+conda create -n fastqtl
+
+wget http://fastqtl.sourceforge.net/files/FastQTL-2.165.macos.tgz
+
+conda install boost
+conda install gsl
+pip install rmath
+
