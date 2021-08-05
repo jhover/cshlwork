@@ -11,10 +11,14 @@ import subprocess
 gitpath=os.path.expanduser("~/git/cshl-work")
 sys.path.append(gitpath)
 
+HEADER=f'protein1\tprotein2\tlength\tident\tsimil\tgaps\tscore\tpident\tpsimil'
+
 def do_needle(db, infile, outfile):
     logging.debug(f"processing {infile} to {outfile} with db {db}...")
     o = open(outfile, 'w')
     with open(infile) as f:
+        
+        o.write(f'{HEADER}\n')
         for i, l in enumerate(f):
             p1, p2 = l.split('\t')
             p1 = p1.strip()
