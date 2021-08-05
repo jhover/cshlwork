@@ -20,7 +20,10 @@ def do_needle(db, infile, outfile):
             p1 = p1.strip()
             p2 = p2.strip()
             logging.debug(f"p1={p1} p2={p2}")
-            run_needle(db, p1, p2, o)
+            if len(f'{p1}') > 2 and len(f'{p2}')> 2:
+                run_needle(db, p1, p2, o)
+            else:
+                logging.warning('missing pair...')
     f.close()
     o.close()
     
