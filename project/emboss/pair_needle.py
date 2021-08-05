@@ -29,7 +29,7 @@ def run_needle(db, p1, p2, outf):
     
     #p1 = f"{p1}_HUMAN"
     #p2 = f"{p2}_HUMAN"    
-    cmd = f'needle -brief -gapopen 10.0 -gapextend 0.5 -stdout -auto uph:{p1} uph:{p2}'
+    cmd = f'needle -brief -gapopen 10.0 -gapextend 0.5 -stdout -auto {db}:{p1} {db}:{p2}'
     cmdlist = cmd.split()
     logging.debug(f"command is {cmd}")
     try:
