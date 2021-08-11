@@ -27,7 +27,7 @@ def get_default_config():
     cp.read(os.path.expanduser("~/git/cshlwork/etc/uniprot.conf"))
     return cp
 
-def parse_uniprot_dat(config, filepath):
+def parse_uniprot_dat(config):
         """
         Parses uniprot/sprot DAT file, returns dictionary of dicts 
         using primary and secondary accession codes as keys.  
@@ -53,8 +53,9 @@ def parse_uniprot_dat(config, filepath):
         paccidx = {}
        
         cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
-        filename = os.path.basename(os.path.expanduser(filepath))
-        (filebase, e) = os.path.splitext(filename)
+        filepath = os.path.expanduser(config.get('uniprot','datfile'))
+        filebase = os.path.basename(filepath)
+        (filebase, e) = os.path.splitext(filebase)
         cachefile =f"{cachedir}/{filebase}.allbypacc.pickle"
         
         if os.path.exists(cachefile):
@@ -92,7 +93,6 @@ def parse_uniprot_dat(config, filepath):
                         current['protein'] = protein
                         current['species'] = species
             
-                    
                     elif line.startswith("AC "):
                         # AC   Q6GZX4;
                         # AC   A0A023GPJ0; 
@@ -173,6 +173,34 @@ def parse_uniprot_dat(config, filepath):
             logging.debug("Done.")
         return paccidx
 
+
+def uniprot_to_df(cp):
+    """
+    
+    """
+    pidx = parse_uniprot_dat(cp) 
+    lol = []
+    for k in pidx.keys():
+        e = pidx[k]
+        COLUMNS = ['proteinid', 'protein', 'species', 'proteinacc', 'gene', 'taxonid']
+        flist = [ e['proteinid'], 
+                  e['protein'], 
+                  e['species'], 
+                  e['proteinacc'],
+                  e['gene'], 
+                  e['taxonid']
+                ]
+        lol.append(flist)         
+    df = pd.DataFrame(lol, columns=COLUMNS)
+    return df
+
+def write_df_tsv(dataframe, filepath):
+    """
+    
+    
+    """
+    dataframe.to_csv(filepath, sep='\t')
+    
 
 def index_by_acc(dictlist):
     accidx = {}
