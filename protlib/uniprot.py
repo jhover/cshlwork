@@ -104,9 +104,10 @@ def parse_uniprot_dat(config):
                         # AC   Q91896; O57469;
                         rest = line[5:]
                         acclist = rest.split(';')
-                        current['proteinacc'] = acclist[0]
+                        current['proteinacc'] = acclist[0].strip()
                         for c in acclist:
                             if len(c) > 2:
+                                c = c.strip()
                                 paccidx[c] = current
                                                 
                     elif line.startswith("OX   "):
