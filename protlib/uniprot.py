@@ -173,7 +173,7 @@ def parse_uniprot_dat(config):
                             fields = val.split()   # by whitespace
                             (n, gname) = fields[0].split("=")
                             gname = gname.upper()
-                            current['gene'] = gname
+                            current['gene'] = gname.replace(';','')
                             #current['gene'] = gname.replace(';','')
                         #elif val.startswith("")
                         else:
