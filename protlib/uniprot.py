@@ -89,7 +89,9 @@ def parse_uniprot_dat(config):
                     if line.startswith("ID "):
                         # ID   001R_FRG3G              Reviewed;         256 AA.
                         #      <prot_name>_<prot_spec>
-                        proteinid = line[5:16].strip()
+                        val = line[5:]
+                        fields = val.split() 
+                        proteinid = fields[0].strip().replace(';','')
                         current = defaultdict(dict)
                         current['proteinid'] = proteinid
                         (protein, species) = proteinid.split('_')
