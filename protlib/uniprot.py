@@ -219,7 +219,7 @@ def uniprot_to_df(cp):
         e = pidx[k]
         
         flist = [k]
-        for col in XCOL:
+        for col in XCOLS:
             v = e[col]
             if len(v) == 0:
                 v = ''
