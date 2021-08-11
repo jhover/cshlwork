@@ -210,14 +210,16 @@ def uniprot_to_df(cp):
     """
     
     """
+    COLUMNS = ['pacc', 'proteinid', 'protein', 'species', 'proteinacc', 'gene', 'taxonid']
+    XCOLS = ['proteinid', 'protein', 'species', 'proteinacc', 'gene', 'taxonid']
     pidx = parse_uniprot_dat(cp) 
     logging.debug('Done parsing uniprot .dat file. Building LOL.')
     lol = []
     for k in pidx.keys():
         e = pidx[k]
-        COLUMNS = ['proteinid', 'protein', 'species', 'proteinacc', 'gene', 'taxonid']
-        flist = []
-        for col in COLUMNS:
+        
+        flist = [k]
+        for col in XCOL:
             v = e[col]
             if len(v) == 0:
                 v = ''
@@ -233,7 +235,7 @@ def write_df_tsv(dataframe, filepath):
     
     
     """
-    dataframe.to_csv(filepath, sep='\t')
+    dataframe.to_csv(filepath, sep='\t', index=False)
     
 
 def index_by_acc(dictlist):
