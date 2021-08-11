@@ -114,7 +114,7 @@ def parse_uniprot_dat(config):
                         fields = val.split('=')
                         if fields[0] == 'NCBI_TaxID':
                             tfields = fields[1].split()
-                            taxonid = tfields[0]
+                            taxonid = tfields[0].strip().replace(';','')
                             #taxonid = fields[1].strip().replace(';','')
                         current['taxonid'] = taxonid
                         
@@ -214,13 +214,12 @@ def uniprot_to_df(cp):
     for k in pidx.keys():
         e = pidx[k]
         COLUMNS = ['proteinid', 'protein', 'species', 'proteinacc', 'gene', 'taxonid']
-        flist = [ e['proteinid'], 
-                  e['protein'], 
-                  e['species'], 
-                  e['proteinacc'],
-                  e['gene'], 
-                  e['taxonid']
-                ]
+        flist = []
+        for col in COLUMNS:
+            v = e[col]
+            if len(v) == 0:
+                v = ''
+            flist.append(v)
         lol.append(flist)
     logging.debug(f'made lol with {len(lol)} entries. Making DF...')         
     df = pd.DataFrame(lol, columns=COLUMNS)
