@@ -16,6 +16,9 @@ from configparser import ConfigParser
 
 import pandas as pd
 
+gitpath = os.path.expanduser("~/git/cshlwork")
+sys.path.append(gitpath)
+
 
 ASPECTMAP = { 'C': 'cc',
               'F': 'mf',
@@ -110,7 +113,9 @@ def parse_uniprot_dat(config):
                         val = line[5:]
                         fields = val.split('=')
                         if fields[0] == 'NCBI_TaxID':
-                            taxonid = fields[1].strip().replace(';','')
+                            tfields = fields[1].split()
+                            taxonid = tfields[0]
+                            #taxonid = fields[1].strip().replace(';','')
                         current['taxonid'] = taxonid
                         
                     elif line.startswith("DR   GO;"):
@@ -139,15 +144,40 @@ def parse_uniprot_dat(config):
     
                     elif line.startswith("GN   "):
                         # Examples:
-                        #  GN   ABL1 {ECO:0000303|PubMed:21546455},
+                        # standard example
+                        #  GN   Name=GRF1;
+                        
+                        #  w/ extra info, but all on one line per protein
                         #  GN   Name=BRCA1; Synonyms=RNF53;
-                        #  GN   ORFNames=T13E15.24/T13E15.23, T14P1.25/T14P1.24;
+                        #  GN   Name=GRF10; OrderedLocusNames=At1g22300; ORFNames=T16E15.8;
+                        #  GN   Name=GRF2; Synonyms=GF14; OrderedLocusNames=At1g78300; ORFNames=F3F9.16;
+
+                        #  non Name= info only
+                        #  GN   ORFNames=OsI_006296;
+                                               
+                                                                      
+                        # multiple lines in one protein (with Name=)
+                        # GN   Name=GRF12 {ECO:0000303|PubMed:11553742};
+                        # GN   OrderedLocusNames=At1g26480 {ECO:0000312|Araport:AT1G26480};
+                        # GN   ORFNames=T1K7.15 {ECO:0000312|EMBL:AAF98570.1};
+                        
+                        # multi-line, no key(s)
+                        # GN   Name=matK {ECO:0000256|HAMAP-Rule:MF_01390,
+                        # GN   ECO:0000313|EMBL:ACK76147.1};
+                        
+                        # multiple lines in one protein (no Name=)
+                        #  GN   OrderedLocusNames=Os02g0224200, LOC_Os02g13110;
+                        #  GN   ORFNames=OsJ_005772, P0470A03.14;
                         val = line[5:]
                         if val.startswith("Name="):
                             fields = val.split()   # by whitespace
                             (n, gname) = fields[0].split("=")
                             gname = gname.upper()
-                            current['gene'] = gname.replace(';','') 
+                            current['gene'] = gname
+                            #current['gene'] = gname.replace(';','')
+                        #elif val.startswith("")
+                        else:
+                            current['gene'] = '' 
                 
                     elif line.startswith("//"):          
                         allentries.append(current)
@@ -179,6 +209,7 @@ def uniprot_to_df(cp):
     
     """
     pidx = parse_uniprot_dat(cp) 
+    logging.debug('Done parsing uniprot .dat file. Building LOL.')
     lol = []
     for k in pidx.keys():
         e = pidx[k]
@@ -190,8 +221,10 @@ def uniprot_to_df(cp):
                   e['gene'], 
                   e['taxonid']
                 ]
-        lol.append(flist)         
+        lol.append(flist)
+    logging.debug(f'made lol with {len(lol)} entries. Making DF...')         
     df = pd.DataFrame(lol, columns=COLUMNS)
+    logging.debug(f'completed DF.')
     return df
 
 def write_df_tsv(dataframe, filepath):
