@@ -31,7 +31,7 @@ def process_infile(filepath, map):
                 u1 = get_uniprot(fields[0], map)
                 u2 = get_uniprot(fields[1], map)
                 if u1 is not None and u2 is not None:
-                    print(f'{u1} {u2}')
+                    print(f'{u1},{u2}')
                 else:
                     logging.error(f'some field None')
                 #logging.debug(fields)

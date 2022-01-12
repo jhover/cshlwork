@@ -30,7 +30,7 @@ def get_default_config():
     cp.read(os.path.expanduser("~/git/cshlwork/etc/uniprot.conf"))
     return cp
 
-def parse_uniprot_dat(config):
+def parse_uniprot_dat(config, datfile=None):
         """
         Parses uniprot/sprot DAT file, returns dictionary of dicts 
         using primary and secondary accession codes as keys.  
@@ -57,6 +57,8 @@ def parse_uniprot_dat(config):
        
         cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
         filepath = os.path.expanduser(config.get('uniprot','datfile'))
+        if datfile is not None:
+            filepath = datfile
         filebase = os.path.basename(filepath)
         (filebase, e) = os.path.splitext(filebase)
         cachefile =f"{cachedir}/{filebase}.allbypacc.pickle"
