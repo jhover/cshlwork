@@ -13,7 +13,6 @@ chr="X"
 snpdb=f"{homedir}/data/snpdb/chr{chr}.snpdb.txt"
 
 
-
 (SAMPLE,) = glob_wildcards(homedir + "data/AWS/bams/{sample}.Aligned.sortedByCoord.out.bam")
 #SAMPLE=SAMPLE[:50]
 #SAMPLE = ['SRR835999','SRR836000','SRR2071349' ]

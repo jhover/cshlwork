@@ -126,7 +126,7 @@ class Phylogeny(object):
         #                  columns = allclades)
         csvpath = "%s.csv" % self.filepath
         if os.path.exists(csvpath):
-            self.df = pd.read_csv(csvpath)
+            self.df = pd.read_csv(csvpath, sep='\t', index_col=0)
         
         else:
             if self.distmatrix is not None:

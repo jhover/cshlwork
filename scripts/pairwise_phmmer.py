@@ -3,8 +3,6 @@
 # run phmmer against comma separated list of Uniprot IDs. 
 # produce csv of pairwise match alignment. 
 # 
-#  
-#
 #
 #
 import argparse
