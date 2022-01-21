@@ -4,10 +4,15 @@ import argparse
 import logging
 import os
 import subprocess
+import sys
 
 from configparser import ConfigParser
 
 import pandas as pd
+
+gitpath = os.path.expanduser("~/git/cshlwork")
+sys.path.append(gitpath)
+from utils import *
 
 def get_default_config():
     cp = ConfigParser()

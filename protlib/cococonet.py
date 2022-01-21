@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
-# consume input file and replace ensembl IDs with uniprot ids where available 
+# cococonet related functions
+# convert identifiers using gene_info.csv files from cococonet
 # 
 #
 #
@@ -32,6 +33,7 @@ def process_infile(filepath, map):
                 u2 = get_uniprot(fields[1], map)
                 if u1 is not None and u2 is not None:
                     print(f'{u1},{u2}')
+                    pairlist.append(u1,u2)
                 else:
                     logging.error(f'some field None')
                 #logging.debug(fields)
@@ -66,9 +68,6 @@ def build_map(filepath):
                     map[ensembl] = (uniprot1, uniprot2)
     return map
                     
-
-
-
 
 if __name__=='__main__':
 
@@ -109,5 +108,4 @@ if __name__=='__main__':
 
     map = build_map(args.infofile)
     process_infile(args.infile, map)
-
 

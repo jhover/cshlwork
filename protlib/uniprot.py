@@ -2,8 +2,23 @@
 # 
 # Handles interaction with uniprot data.
 #
-#  uniprot vertebrates. 6.7 millino entries. 2 minutes from cache. vs. 14minutes.  
+#  uniprot vertebrates. 6.7 million entries. 2 minutes from cache. vs. 14minutes.  
 #   
+#
+#   Uniprot entries  have 1 ID, but sometimes multiple AC s. 
+#   Parsing should index by both. 
+#
+#
+#  Test CLI:
+#    read/parse/cache uniprot.dat
+#
+#    .dat as arg -> use, otherwise .dat in config
+#
+#    list of proteins + tfa:   write protein sequences to tfa file. 
+#    protein(s) as arg     :   write protein sequences to stdout 
+#    tfa file only         :   write all protein sequences in .dat to tfa
+#    nothing               :   write all to stdout
+
 import argparse
 import logging
 import os
@@ -19,6 +34,7 @@ import pandas as pd
 gitpath = os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
+from utils import *
 
 ASPECTMAP = { 'C': 'cc',
               'F': 'mf',
@@ -32,28 +48,32 @@ def get_default_config():
 
 def parse_uniprot_dat(config, datfile=None):
         """
-        Parses uniprot/sprot DAT file, returns dictionary of dicts 
-        using primary and secondary accession codes as keys.  
-                
-        { 'Q84P23' :
-            {    'proteinid': '4CLL9_ARATH', 
-                 'protein': '4CLL9', 
-                 'species': 'ARATH', 
-                 'proteinacc': 'Q84P23', 
-                 'taxonid': '3702', 
-                 'goterms': {'GO:0005777': ['cc', 'IDA'], 
-                             'GO:0005524': ['mf', 'IEA'], 
-                             'GO:0004321': ['mf', 'IDA'], 
-                             'GO:0016874': ['mf', 'IEA'], 
-                             'GO:0009695': ['bp', 'IDA'], 
-                             'GO:0031408': ['bp', 'IEA']}
-           },
-           .
-           .
-           .
+        Parses uniprot/sprot DAT file, returns a list of dicts. 
+        
+        [   raw-entries ,    # all the entries as raw dicts. 
+            pididx,          # dictionary indexed by pid -> entry
+            accidx          # dictionary indexed by accession -> entry
+        ]
+        
+        # raw entries            
+        {    'proteinid': '4CLL9_ARATH', 
+             'protein': '4CLL9', 
+             'species': 'ARATH', 
+             'proteinacc': 'Q84P23', 
+             'taxonid': '3702', 
+             'goterms': {'GO:0005777': ['cc', 'IDA'], 
+                         'GO:0005524': ['mf', 'IEA'], 
+                         'GO:0004321': ['mf', 'IDA'], 
+                         'GO:0016874': ['mf', 'IEA'], 
+                         'GO:0009695': ['bp', 'IDA'], 
+                         'GO:0031408': ['bp', 'IEA']}
+        }
+
         """
-        allentries = None
-        paccidx = {}
+        uplist = ()      #   tuple: entrylist, pididx, accidx  
+        entrylist = []   #     list of dicts
+        pididx = {}        
+        accidx = {}
        
         cachedir = os.path.expanduser(config.get('uniprot','cachedir'))
         filepath = os.path.expanduser(config.get('uniprot','datfile'))
@@ -66,18 +86,19 @@ def parse_uniprot_dat(config, datfile=None):
         if os.path.exists(cachefile):
             logging.info("Cache hit. Using existing data...")
             f = open(cachefile, 'rb')
-            paccidx = pickle.load(f)
+            uniprot_data = pickle.load(f)
             logging.info("Loaded from cache...")
             f.close()      
+        
         else:
             logging.debug(f"opening datfile={filepath}")
             try:
                 logging.debug(f" attempting to open '{filepath}'")
                 filehandle = open(filepath, 'r')
             except FileNotFoundError:
-                logging.error(f"No such file {filepath}")                
+                logging.error(f"No such file {filepath}")
+                raise                
             
-            allentries = []
             current = None
             sumreport = 1
             suminterval = 10000
@@ -99,6 +120,7 @@ def parse_uniprot_dat(config, datfile=None):
                         (protein, species) = proteinid.split('_')
                         current['protein'] = protein
                         current['species'] = species
+                        pididx[proteinid] = current
             
                     elif line.startswith("AC "):
                         # AC   Q6GZX4;
@@ -110,7 +132,7 @@ def parse_uniprot_dat(config, datfile=None):
                         for c in acclist:
                             if len(c) > 2:
                                 c = c.strip()
-                                paccidx[c] = current
+                                accidx[c] = current
                                                 
                     elif line.startswith("OX   "):
                         #OX   NCBI_TaxID=654924;
@@ -185,9 +207,10 @@ def parse_uniprot_dat(config, datfile=None):
                             current['gene'] = '' 
                 
                     elif line.startswith("//"):          
-                        allentries.append(current)
-                        if len(allentries) >= repthresh:
-                            logging.info(f"Processed {len(allentries)} entries... ")
+                        entrylist.append(current)
+                                             
+                        if len(entrylist) >= repthresh:
+                            logging.info(f"Processed {len(entrylist)} entries... ")
                             sumreport +=1
                             repthresh = sumreport * suminterval
                         current = None
@@ -197,16 +220,19 @@ def parse_uniprot_dat(config, datfile=None):
             
             if filehandle is not None:
                 filehandle.close()      
+
+                        
+            uniprot_data = (entrylist, pididx, accidx)
             
-            logging.info(f"Parsed file with {len(allentries)} entries" )
-            logging.info(f"Created prim/sec index. {len(paccidx)} entries ")
-            logging.debug(f"Some entries:  {allentries[10:15]}")
-            logging.info(f"Caching paccindex to {cachefile}...")
+            logging.info(f"Parsed file with {len(entrylist)} entries" )
+            logging.info(f"Created prim/sec index. {len(accidx)} entries ")
+            logging.debug(f"Some entries:  {entrylist[10:15]}")
+            logging.info(f"Caching uniprot list to {cachefile}...")
             f = open(cachefile, 'wb')   
-            pickle.dump(paccidx, f )
+            pickle.dump(uniprot_data, f )
             f.close()
             logging.debug("Done.")
-        return paccidx
+        return uniprot_data
 
 
 def uniprot_to_df(cp):
@@ -216,11 +242,11 @@ def uniprot_to_df(cp):
     COLUMNS = ['pacc', 'proteinid', 'protein', 'species', 'proteinacc', 'gene', 'taxonid']
     XCOLS = ['proteinid', 'protein', 'species', 'proteinacc', 'gene', 'taxonid']
     pidx = parse_uniprot_dat(cp) 
+    (entries, pididx, accidx) = parse_uniprot_dat(cp)
     logging.debug('Done parsing uniprot .dat file. Building LOL.')
     lol = []
-    for k in pidx.keys():
-        e = pidx[k]
-        
+    for k in pididx.keys():
+        e = pidix[k]
         flist = [k]
         for col in XCOLS:
             v = e[col]
@@ -233,6 +259,7 @@ def uniprot_to_df(cp):
     logging.debug(f'completed DF.')
     return df
 
+
 def write_df_tsv(dataframe, filepath):
     """
     
@@ -240,17 +267,6 @@ def write_df_tsv(dataframe, filepath):
     """
     dataframe.to_csv(filepath, sep='\t', index=False)
     
-
-def index_by_acc(dictlist):
-    accidx = {}
-    n = 0
-    for p in dictlist:
-        acc = p['proteinacc']
-        accidx[acc] = p
-        n += 1
-    logging.debug(f"indexed by acc {n} entries...")
-    return accidx
-
 
 
 def write_tfa_fromlist(pacclist, paccidx, outfile):
@@ -279,6 +295,52 @@ def write_tfa_fromlist(pacclist, paccidx, outfile):
     logging.debug(f"Made shorter dictlist length={len(newdlist)} writing to file={outfile}.")
     write_tfa_file(newdlist, outfile)
       
+
+def get_fasta(pdict, keylist=None):
+    """
+    generate fasta entry string from uniprot dict indexed by pid or other. 
+    
+    
+    """
+    s=""
+    snum = 1
+    header=""
+    x = 60
+    logging.debug(pdict)
+    if keylist is None:
+        keylist = pdict.keys()
+        
+    for k in keylist:
+        p = pdict[k]
+        logging.info(f'p = {p}')
+        header = f">{p['proteinacc']}\t{p['protein']}\t{p['species']}\t{p['gene']}"
+        header = header.replace('{}','')  # remove missing values. 
+        sequence =  p['sequence']
+        s += f"{header}\n"
+        chunklist = [ sequence[y-x:y] for y in range(x, len(sequence)+x, x) ] 
+        for c in chunklist:
+            s += f"{c}\n"
+        snum += 1
+    logging.debug(f'\n{s}')   
+    return s
+
+def write_tfa(s, outfile=None):
+       
+    try:
+        if outfile is not None:
+            logging.debug(f'opening {outfile}...')
+            f = open(outfile, 'w')
+        else:
+            logging.debug(f'outfile is None. Writing to stdout')
+            f = sys.stdout
+        f.write(s)
+        logging.debug(f"Wrote TFA sequence to file {outfile}")
+    except IOError:
+        logging.error(f"could not write to file {outfile}")
+        traceback.print_exc(file=sys.stdout) 
+    finally:
+        f.close()    
+
 
 def write_tfa_file(dictlist, outfile):
     '''
@@ -321,9 +383,7 @@ def write_tfa_file(dictlist, outfile):
         f.close()
 
 
-
-
-        
+       
 
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
@@ -340,12 +400,12 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
     
-    parser.add_argument('infile', 
+    parser.add_argument('-u', '--uniprot', 
                         metavar='infile', 
                         type=str,
                         nargs='?',
                         default=os.path.expanduser("~/data/uniprot/uniprot_all_vertebrates.dat"), 
-                        help='Uniprot .dat file') 
+                        help='A Uniprot .dat file') 
 
     parser.add_argument('-t','--tfafile', 
                         metavar='tfafile', 
@@ -353,6 +413,21 @@ if __name__ == '__main__':
                         required=False,
                         default=None, 
                         help='Fasta .tfa output file') 
+
+    parser.add_argument('-p','--pfile', 
+                        metavar='pfile', 
+                        type=str,
+                        required=False,
+                        default=None, 
+                        help='Protein list file. ')
+    
+    parser.add_argument('protlist' ,
+                        metavar='protlist', 
+                        type=str,
+                        nargs='*',
+                        default=None, 
+                        help='UPID [UPID UPID ...] ')
+
     
     args= parser.parse_args()
     if args.debug:
@@ -361,14 +436,30 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)       
     
     config = get_default_config()
-    logging.info(f"Requesting info from {args.infile} ...")
-    uplist = parse_uniprot_dat(config, args.infile)
-    print(f"outlist is length = {len(uplist)}")
-    if args.tfafile is not None:
-        write_tfa_file(uplist, os.path.expanduser(args.tfafile))    
+    logging.info(f"Parsing uniprot .dat file={args.uniprot} ...")
+    (entries, pididx, accidx) = parse_uniprot_dat(config, args.uniprot)
+    logging.debug(f"uniprot length = {len(entries)}")
     
-    logging.info("Generating acc index..")
-    idx = index_by_acc(uplist)
+    tfastr = ""
+    
+    if len(args.protlist) > 0:
+        logging.info(f'protlist={args.protlist}')
+        tfastr = get_fasta(pididx, args.protlist)
+        logging.debug(f'writing to {args.tfafile}')
+        write_tfa(tfastr, args.tfafile)
+        
+    elif args.pfile is not None:
+        logging.info(f'fpile={args.pfile}')
+        idlist = read_identifier_file(args.pfile)
+        logging.debug(f'prot list={idlist}')
+        tfastr = get_fasta(pididx, idlist)
+        logging.debug(f'writing to {args.tfafile}')
+        write_tfa(tfastr, args.tfafile)                
+    else:
+        logging.debug("no proteins our outfile specified. write all to stdout. ")
+        tfastr = get_fasta(pididx)
+        write_tfa(tfastr, args.tfafile)                        
+
     logging.info("done.")
 
 
