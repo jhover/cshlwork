@@ -34,7 +34,7 @@ import pandas as pd
 gitpath = os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
-from utils import *
+from protlib.utils import *
 
 ASPECTMAP = { 'C': 'cc',
               'F': 'mf',
@@ -197,11 +197,18 @@ def parse_uniprot_dat(config, datfile=None):
                         #  GN   ORFNames=OsJ_005772, P0470A03.14;
                         val = line[5:]
                         if val.startswith("Name="):
-                            fields = val.split()   # by whitespace
-                            (n, gname) = fields[0].split("=")
-                            gname = gname.upper()
-                            current['gene'] = gname.replace(';','')
-                            #current['gene'] = gname.replace(';','')
+                            try:
+                                fields = val.split()   # by whitespace
+                                (n, gname) = fields[0].split("=")
+                                gname = gname.upper()
+                                gname = gname.replace(';','')
+                                gname = gname.replace(':','')
+                                current['gene'] = gname
+                            except ValueError as ve:
+                                logging.error(f"val= {val}")
+                                traceback.print_exc(file=sys.stdout)
+                                current['gene'] = '' 
+                                 
                         #elif val.startswith("")
                         else:
                             current['gene'] = '' 
@@ -300,28 +307,32 @@ def get_fasta(pdict, keylist=None):
     """
     generate fasta entry string from uniprot dict indexed by pid or other. 
     
-    
     """
     s=""
     snum = 1
     header=""
     x = 60
-    logging.debug(pdict)
     if keylist is None:
         keylist = pdict.keys()
         
     for k in keylist:
-        p = pdict[k]
-        logging.info(f'p = {p}')
-        header = f">{p['proteinacc']}\t{p['protein']}\t{p['species']}\t{p['gene']}"
-        header = header.replace('{}','')  # remove missing values. 
-        sequence =  p['sequence']
-        s += f"{header}\n"
-        chunklist = [ sequence[y-x:y] for y in range(x, len(sequence)+x, x) ] 
-        for c in chunklist:
-            s += f"{c}\n"
-        snum += 1
-    logging.debug(f'\n{s}')   
+        logging.debug(f'retrieving {k}')
+        try:
+            p = pdict[k]
+            logging.info(f'p = {p}')
+            header = f">{p['proteinacc']}\t{p['protein']}\t{p['species']}\t{p['gene']}"
+            header = header.replace('{}','')  # remove missing values. 
+            sequence =  p['sequence']
+            s += f"{header}\n"
+            chunklist = [ sequence[y-x:y] for y in range(x, len(sequence)+x, x) ] 
+            for c in chunklist:
+                s += f"{c}\n"
+                snum += 1
+            logging.debug(f'\n{s}')
+        except KeyError:
+            logging.error(f'no entry found for {k}')
+            traceback.print_exc(file=sys.stdout) 
+       
     return s
 
 def write_tfa(s, outfile=None):
@@ -420,6 +431,14 @@ if __name__ == '__main__':
                         required=False,
                         default=None, 
                         help='Protein list file. ')
+
+    parser.add_argument('-i','--identifier', 
+                        metavar='identifier', 
+                        type=str,
+                        required=False,
+                        default='accession', 
+                        help='Identifier type accession|protein  (B4FCB1 | B4FCB1_MAIZE ')    
+    
     
     parser.add_argument('protlist' ,
                         metavar='protlist', 
@@ -442,9 +461,17 @@ if __name__ == '__main__':
     
     tfastr = ""
     
+    if args.identifier == 'accession':
+        upidx = accidx
+    elif args.identifier == 'protein':
+        upidx = pididx
+    else:
+        logging.error(f'invalid identifier type: {args.identifier}')
+    
+    
     if len(args.protlist) > 0:
         logging.info(f'protlist={args.protlist}')
-        tfastr = get_fasta(pididx, args.protlist)
+        tfastr = get_fasta(upidx, args.protlist)
         logging.debug(f'writing to {args.tfafile}')
         write_tfa(tfastr, args.tfafile)
         
@@ -452,12 +479,12 @@ if __name__ == '__main__':
         logging.info(f'fpile={args.pfile}')
         idlist = read_identifier_file(args.pfile)
         logging.debug(f'prot list={idlist}')
-        tfastr = get_fasta(pididx, idlist)
+        tfastr = get_fasta(upidx, idlist)
         logging.debug(f'writing to {args.tfafile}')
         write_tfa(tfastr, args.tfafile)                
     else:
         logging.debug("no proteins our outfile specified. write all to stdout. ")
-        tfastr = get_fasta(pididx)
+        tfastr = get_fasta(upidx)
         write_tfa(tfastr, args.tfafile)                        
 
     logging.info("done.")
