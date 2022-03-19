@@ -16,13 +16,24 @@ def read_identifier_file(filepath, flatten=True):
     1 per line
     multi per line: 
         if flatten=True just add to overall list. 
-        otherwise each item in return list represents one line. multi-tiems in sub-list
+        otherwise each item in return list represents one line. multi-items in sub-list
     comma-separated
     ignore empty line
     ignore comment lines/extensions
     remove duplicates
     
     return list of items. 
+    
+    ABCD   EFGH
+    IJK
+    LMN
+    
+    -> [ ['ABCD', 'EFGH'],
+    
+    
+    
+    
+    
     """
     idlist = []
     try:
