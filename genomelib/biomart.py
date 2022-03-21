@@ -2,15 +2,24 @@
 #
 #   get mappings between transcripts, genes, and gene symbol/name. 
 #
+import os
+import sys
+
+gitpath=os.path.expanduser("~/git/cshlwork")
+sys.path.append(gitpath)
+
 import logging
 from pybiomart import Server
-
+ 
 
 DATASETS = { 'Mus_musculus': 'mmusculus_gene_ensembl',
              'Homo_sapiens': 'hsapiens_gene_ensembl',
     }
 
-def get_mapping_df(species='Mus_musculus'):
+def get_mapping_df(species='Mus_musculus', cache=True):
+
+    
+    
     atts = ['external_gene_name',
             #'external_gene_source',
             'ensembl_gene_id',

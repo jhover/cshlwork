@@ -50,7 +50,8 @@ import sys
 gitpath=os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
-from genomelib.genome import read_genome, read_annot, scan_genome
+from genomelib.genome import *
+from genomelib.cellreadr import *
 
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
@@ -103,7 +104,8 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)   
     
-    genome_dict, annot_dict, chr_idx = scan_genome(args.genome, args.annot, args.species)
+    genome_dict, annot_dict = scan_genome(args.genome, args.annot, args.species)
+    
     
     
     
