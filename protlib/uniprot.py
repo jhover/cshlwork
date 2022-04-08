@@ -375,9 +375,7 @@ def get_fasta(pdict, identifier, keylist=None):
                 snum += 1
             logging.debug(f'\n{s}')
         except KeyError:
-            logging.error(f'no entry found for {k}')
-            traceback.print_exc(file=sys.stdout) 
-       
+            logging.error(f'no entry found for {k}')      
     return s
 
 def write_tfa(s, outfile=None):
