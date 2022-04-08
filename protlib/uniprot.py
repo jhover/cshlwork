@@ -2,8 +2,7 @@
 # 
 # Handles interaction with uniprot data.
 #
-#  uniprot vertebrates. 6.7 million entries. 2 minutes from cache. vs. 14minutes.  
-#   
+#  uniprot vertebrates. 6.7 million entries. 2 minutes from cache. vs. 14minutes.   
 #
 #   Uniprot entries  have 1 ID, but sometimes multiple AC s. 
 #   Parsing should index by both. 
@@ -41,6 +40,16 @@ ASPECTMAP = { 'C': 'cc',
               'P': 'bp'
             }
 
+KEYMAP =  { 'OrderedLocusNames' : 'locus'  ,
+            'Name' : 'gene',
+            'ORFNames' : 'orfname',
+            'Synonyms' : 'synonym' 
+            }
+
+VALID_IDS = ['accession', 'proteinid','locus']
+
+
+
 def get_default_config():
     cp = ConfigParser()
     cp.read(os.path.expanduser("~/git/cshlwork/etc/uniprot.conf"))
@@ -70,6 +79,9 @@ def parse_uniprot_dat(config, datfile=None):
         }
 
         """
+        
+        
+        
         uplist = ()      #   tuple: entrylist, pididx, accidx  
         entrylist = []   #     list of dicts
         pididx = {}        
@@ -81,7 +93,7 @@ def parse_uniprot_dat(config, datfile=None):
             filepath = datfile
         filebase = os.path.basename(filepath)
         (filebase, e) = os.path.splitext(filebase)
-        cachefile =f"{cachedir}/{filebase}.allbypacc.pickle"
+        cachefile =f"{cachedir}/{filebase}.allentries.pickle"
         
         if os.path.exists(cachefile):
             logging.info("Cache hit. Using existing data...")
@@ -128,7 +140,7 @@ def parse_uniprot_dat(config, datfile=None):
                         # AC   Q91896; O57469;
                         rest = line[5:]
                         acclist = rest.split(';')
-                        current['proteinacc'] = acclist[0].strip()
+                        current['accession'] = acclist[0].strip()
                         for c in acclist:
                             if len(c) > 2:
                                 c = c.strip()
@@ -181,8 +193,7 @@ def parse_uniprot_dat(config, datfile=None):
 
                         #  non Name= info only
                         #  GN   ORFNames=OsI_006296;
-                                               
-                                                                      
+                                                                          
                         # multiple lines in one protein (with Name=)
                         # GN   Name=GRF12 {ECO:0000303|PubMed:11553742};
                         # GN   OrderedLocusNames=At1g26480 {ECO:0000312|Araport:AT1G26480};
@@ -196,25 +207,42 @@ def parse_uniprot_dat(config, datfile=None):
                         #  GN   OrderedLocusNames=Os02g0224200, LOC_Os02g13110;
                         #  GN   ORFNames=OsJ_005772, P0470A03.14;
                         val = line[5:]
-                        if val.startswith("Name="):
-                            try:
-                                fields = val.split()   # by whitespace
-                                (n, gname) = fields[0].split("=")
-                                gname = gname.upper()
-                                gname = gname.replace(';','')
-                                gname = gname.replace(':','')
-                                current['gene'] = gname
-                            except ValueError as ve:
-                                logging.error(f"val= {val}")
-                                traceback.print_exc(file=sys.stdout)
-                                current['gene'] = '' 
+                       
+
+                        
+                        try:
+                            fields = val.split(';')
+                            for field in fields:
+                                field=field.strip()
+                                key,val = field.split('=')
+                                if key in KEYMAP.keys():
+                                    val = val.split(',')[0].strip()  # take first value of multiples
+                                    val = val.split()[0].strip()     # take first value of whitespace-separated.
+                                    current[KEYMAP[key]] = val
+                        
+                        except Exception as e:
+                            pass        
+                        
+                        
+                        #if val.startswith("Name="):
+                        #    try:
+                        #        fields = val.split()   # by whitespace
+                        #        (n, gname) = fields[0].split("=")
+                        #        gname = gname.upper()
+                        #        gname = gname.replace(';','')
+                        #        gname = gname.replace(':','')
+                        #        current['gene'] = gname
+                        #    except ValueError as ve:
+                        #        logging.error(f"val= {val}")
+                        #        traceback.print_exc(file=sys.stdout)
+                        #        current['gene'] = '' 
                                  
                         #elif val.startswith("")
-                        else:
-                            current['gene'] = '' 
+                        #else:
+                        #    current['gene'] = '' 
                 
                     elif line.startswith("//"):          
-                        entrylist.append(current)
+                        entrylist.append(dict(current))
                                              
                         if len(entrylist) >= repthresh:
                             logging.info(f"Processed {len(entrylist)} entries... ")
@@ -227,12 +255,10 @@ def parse_uniprot_dat(config, datfile=None):
             
             if filehandle is not None:
                 filehandle.close()      
-
                         
-            uniprot_data = (entrylist, pididx, accidx)
+            uniprot_data = entrylist
             
             logging.info(f"Parsed file with {len(entrylist)} entries" )
-            logging.info(f"Created prim/sec index. {len(accidx)} entries ")
             logging.debug(f"Some entries:  {entrylist[10:15]}")
             logging.info(f"Caching uniprot list to {cachefile}...")
             f = open(cachefile, 'wb')   
@@ -240,6 +266,23 @@ def parse_uniprot_dat(config, datfile=None):
             f.close()
             logging.debug("Done.")
         return uniprot_data
+
+
+def index_by(entries, identifier):
+    idx = {}
+    missing = 0
+    handled = 0
+    for entry in entries:
+        try:
+            logging.debug(f'looking up {identifier} in {entry}')
+            key = entry[identifier]
+            idx[key] = entry
+        except KeyError as ke:
+            logging.debug(f'entry without {identifier}')
+            missing += 1
+        handled += 1
+    logging.debug(f'made index of {len(idx)}/{handled} {missing} missing. ')
+    return idx
 
 
 def uniprot_to_df(cp):
@@ -303,10 +346,11 @@ def write_tfa_fromlist(pacclist, paccidx, outfile):
     write_tfa_file(newdlist, outfile)
       
 
-def get_fasta(pdict, keylist=None):
+def get_fasta(pdict, identifier, keylist=None):
     """
-    generate fasta entry string from uniprot dict indexed by pid or other. 
-    
+    generate fasta entry string from uniprot dict indexed by key. 
+    identifier should be first ID string in FASTA header(s) 
+        
     """
     s=""
     snum = 1
@@ -320,7 +364,8 @@ def get_fasta(pdict, keylist=None):
         try:
             p = pdict[k]
             logging.info(f'p = {p}')
-            header = f">{p['proteinacc']}\t{p['protein']}\t{p['species']}\t{p['gene']}"
+            header = f">{p[identifier]}\t{p['gene']}\t{p['proteinid']}\t{p['species']}\t{p['accession']}\t{p['locus']}"
+            #header = f">{p['proteinacc']}\t{p['protein']}\t{p['species']}\t{p['gene']}"
             header = header.replace('{}','')  # remove missing values. 
             sequence =  p['sequence']
             s += f"{header}\n"
@@ -336,21 +381,24 @@ def get_fasta(pdict, keylist=None):
     return s
 
 def write_tfa(s, outfile=None):
-       
-    try:
-        if outfile is not None:
-            logging.debug(f'opening {outfile}...')
-            f = open(outfile, 'w')
-        else:
-            logging.debug(f'outfile is None. Writing to stdout')
-            f = sys.stdout
-        f.write(s)
-        logging.debug(f"Wrote TFA sequence to file {outfile}")
-    except IOError:
-        logging.error(f"could not write to file {outfile}")
-        traceback.print_exc(file=sys.stdout) 
-    finally:
-        f.close()    
+    
+    if len(s) > 0:
+        try:
+            if outfile is not None:
+                logging.debug(f'opening {outfile}...')
+                f = open(outfile, 'w')
+            else:
+                logging.debug(f'outfile is None. Writing to stdout')
+                f = sys.stdout
+            f.write(s)
+            logging.debug(f"Wrote TFA sequence to file {outfile}")
+        except IOError:
+            logging.error(f"could not write to file {outfile}")
+            traceback.print_exc(file=sys.stdout) 
+        finally:
+            f.close()    
+    else:
+        logging.warn(f'fasta string empty. no file created.')
 
 
 def write_tfa_file(dictlist, outfile):
@@ -394,7 +442,66 @@ def write_tfa_file(dictlist, outfile):
         f.close()
 
 
-       
+def print_matching_records(species, filepath):
+    logging.debug(f'handling file {filepath}, species "{species}"')
+    
+    fh = None
+    try:
+        logging.debug(f" attempting to open '{filepath}'")
+        fh = open(filepath, 'r')
+    except FileNotFoundError:
+        logging.error(f"No such file {filepath}")
+        raise                
+
+    current = None
+    toprint = False
+    entries = 0
+    sumreport = 1
+    suminterval = 10000
+    repthresh = sumreport * suminterval
+    
+    try:
+        while True:
+            line = fh.readline()
+            if line == '':
+                break
+
+            elif line.startswith("ID "):
+                current = []
+                current.append(line.strip())
+                toprint = False
+                
+                # ID   001R_FRG3G              Reviewed;         256 AA.
+                #      <prot_name>_<prot_spec>
+
+            elif line.startswith("OS "):
+                current.append(line.strip())
+                val = line[5:]
+                if species in val:
+                    toprint = True
+    
+            elif line.startswith("//"):          
+                entries += 1
+                current.append(line.strip())
+                if entries >= repthresh:
+                    logging.info(f"Processed {entries} entries... ")
+                    sumreport +=1
+                    repthresh = sumreport * suminterval
+                if toprint:
+                    for line in current:
+                        print(line)
+                current = None
+            
+            else:
+                current.append(line.strip())
+
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)   
+
+    if fh is not None:
+        fh.close()      
+
+      
 
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
@@ -412,7 +519,7 @@ if __name__ == '__main__':
                         help='verbose logging')
     
     parser.add_argument('-u', '--uniprot', 
-                        metavar='infile', 
+                        metavar='uniprot', 
                         type=str,
                         nargs='?',
                         default=os.path.expanduser("~/data/uniprot/uniprot_all_vertebrates.dat"), 
@@ -437,7 +544,7 @@ if __name__ == '__main__':
                         type=str,
                         required=False,
                         default='accession', 
-                        help='Identifier type accession|protein  (B4FCB1 | B4FCB1_MAIZE ')    
+                        help='Identifier type [ accession | proteinid | locus ] (B4FCB1 | B4FCB1_MAIZE ')    
     
     
     parser.add_argument('protlist' ,
@@ -447,6 +554,13 @@ if __name__ == '__main__':
                         default=None, 
                         help='UPID [UPID UPID ...] ')
 
+    parser.add_argument('-s','--species', 
+                        metavar='species', 
+                        type=str,
+                        required=False,
+                        default=None, 
+                        help='Exact OS species string to match. print matching records.')
+
     
     args= parser.parse_args()
     if args.debug:
@@ -455,23 +569,33 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)       
     
     config = get_default_config()
+    
+    
+    # Filter DAT files
+    
+    if args.species is not None:
+        logging.info(f'printing records with OS matching string.')
+        print_matching_records(args.species, args.uniprot)
+        sys.exit(0)
+    
+    # Handle commands that require parsing DAT file. 
+    
     logging.info(f"Parsing uniprot .dat file={args.uniprot} ...")
-    (entries, pididx, accidx) = parse_uniprot_dat(config, args.uniprot)
+    entries = parse_uniprot_dat(config, args.uniprot)
+    #(entries, pididx, accidx) 
     logging.debug(f"uniprot length = {len(entries)}")
     
     tfastr = ""
     
-    if args.identifier == 'accession':
-        upidx = accidx
-    elif args.identifier == 'protein':
-        upidx = pididx
+
+    if args.identifier in VALID_IDS:
+        upidx = index_by( entries, args.identifier)
     else:
         logging.error(f'invalid identifier type: {args.identifier}')
-    
-    
+        
     if len(args.protlist) > 0:
         logging.info(f'protlist={args.protlist}')
-        tfastr = get_fasta(upidx, args.protlist)
+        tfastr = get_fasta(upidx, args.identifier, args.protlist )
         logging.debug(f'writing to {args.tfafile}')
         write_tfa(tfastr, args.tfafile)
         
@@ -479,12 +603,13 @@ if __name__ == '__main__':
         logging.info(f'fpile={args.pfile}')
         idlist = read_identifier_file(args.pfile)
         logging.debug(f'prot list={idlist}')
-        tfastr = get_fasta(upidx, idlist)
+        tfastr = get_fasta(upidx, args.identifier, idlist)
         logging.debug(f'writing to {args.tfafile}')
         write_tfa(tfastr, args.tfafile)                
+      
     else:
-        logging.debug("no proteins our outfile specified. write all to stdout. ")
-        tfastr = get_fasta(upidx)
+        logging.debug("no proteins or outfile specified. write all to stdout. ")
+        tfastr = get_fasta(upidx, args.identifier)
         write_tfa(tfastr, args.tfafile)                        
 
     logging.info("done.")
