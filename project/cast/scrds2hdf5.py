@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 
 def readmm(mmfile):
-    m = pd.read_csv(mmfile, skiprows=1, sep=' ', names=['i','j','x'] )  
+    m = pd.read_csv(mmfile, skiprows=2, sep=' ', names=['i','j','x'] )  
     logging.debug(m)
     return (m.i, m.j, m.x)
 
