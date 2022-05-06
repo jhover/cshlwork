@@ -22,7 +22,9 @@ import argparse
 import logging
 import os
 import pickle
+import requests
 import sys
+import time
 import traceback
 
 from collections import defaultdict
@@ -499,6 +501,26 @@ def print_matching_records(species, filepath):
     if fh is not None:
         fh.close()      
 
+
+def get_query(prot_identifier):
+    logging.debug(f'handling {prot_identifier} ')
+
+    url = f"https://www.uniprot.org/uniprot/{prot_identifier}.txt"
+    logging.debug(f"fetching url={url}")
+
+    data = "NA"
+    r = requests.post(url)
+    if r.status_code == 200:
+        data = r.content.decode()
+        logging.debug(f'good HTTP response for {prot_identifier}')
+    else:
+        logging.warning(
+            f'bad HTTP response for id {prot_identifier}. retry in 10s')
+    time.sleep(1)
+    return(data)
+
+
+
       
 
 if __name__ == '__main__':
@@ -543,6 +565,12 @@ if __name__ == '__main__':
                         required=False,
                         default='accession', 
                         help='Identifier type [ accession | proteinid | locus ] (B4FCB1 | B4FCB1_MAIZE ')    
+
+    parser.add_argument('-q', '--query', 
+                        action="store_true", 
+                        dest='query',
+                        default=False, 
+                        help='Query uniprot online for given list of identifiers')
     
     
     parser.add_argument('protlist' ,
@@ -571,44 +599,59 @@ if __name__ == '__main__':
     
     # Filter DAT files
     
-    if args.species is not None:
-        logging.info(f'printing records with OS matching string.')
-        print_matching_records(args.species, args.uniprot)
-        sys.exit(0)
-    
-    # Handle commands that require parsing DAT file. 
-    
-    logging.info(f"Parsing uniprot .dat file={args.uniprot} ...")
-    entries = parse_uniprot_dat(config, args.uniprot)
-    #(entries, pididx, accidx) 
-    logging.debug(f"uniprot length = {len(entries)}")
-    
-    tfastr = ""
-    
 
-    if args.identifier in VALID_IDS:
-        upidx = index_by( entries, args.identifier)
-    else:
-        logging.error(f'invalid identifier type: {args.identifier}')
+    
+    if args.query is True:
+        # handle online query via REST interface.
+        #
+        #
+        #
+        #
+        logging.debug('querying uniprot online...')
+        for protid in args.protlist:
+            logging.debug(f'handling {protid}')
+            info = get_query(protid)
+            print(info)
         
-    if len(args.protlist) > 0:
-        logging.info(f'protlist={args.protlist}')
-        tfastr = get_fasta(upidx, args.identifier, args.protlist )
-        logging.debug(f'writing to {args.tfafile}')
-        write_tfa(tfastr, args.tfafile)
         
-    elif args.pfile is not None:
-        logging.info(f'fpile={args.pfile}')
-        idlist = read_identifier_file(args.pfile)
-        logging.debug(f'prot list={idlist}')
-        tfastr = get_fasta(upidx, args.identifier, idlist)
-        logging.debug(f'writing to {args.tfafile}')
-        write_tfa(tfastr, args.tfafile)                
-      
     else:
-        logging.debug("no proteins or outfile specified. write all to stdout. ")
-        tfastr = get_fasta(upidx, args.identifier)
-        write_tfa(tfastr, args.tfafile)                        
+        # just directly print records that match species.
+        if args.species is not None:
+            logging.info(f'printing records with OS matching string.')
+            print_matching_records(args.species, args.uniprot)
+            sys.exit(0)
+
+        # Prepare for commands that require parsing DAT file. 
+        logging.info(f"Parsing uniprot .dat file={args.uniprot} ...")
+        entries = parse_uniprot_dat(config, args.uniprot)
+        #(entries, pididx, accidx) 
+        logging.debug(f"uniprot length = {len(entries)}")    
+        tfastr = ""
+        
+
+        if args.identifier in VALID_IDS:
+            upidx = index_by( entries, args.identifier)
+        else:
+            logging.error(f'invalid identifier type: {args.identifier}')
+            
+        if len(args.protlist) > 0:
+            logging.info(f'protlist={args.protlist}')
+            tfastr = get_fasta(upidx, args.identifier, args.protlist )
+            logging.debug(f'writing to {args.tfafile}')
+            write_tfa(tfastr, args.tfafile)
+            
+        elif args.pfile is not None:
+            logging.info(f'fpile={args.pfile}')
+            idlist = read_identifier_file(args.pfile)
+            logging.debug(f'prot list={idlist}')
+            tfastr = get_fasta(upidx, args.identifier, idlist)
+            logging.debug(f'writing to {args.tfafile}')
+            write_tfa(tfastr, args.tfafile)                
+          
+        else:
+            logging.debug("no proteins or outfile specified. write all to stdout. ")
+            tfastr = get_fasta(upidx, args.identifier)
+            write_tfa(tfastr, args.tfafile)                        
 
     logging.info("done.")
 

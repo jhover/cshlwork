@@ -11,10 +11,10 @@ import logging
 import os
 import sys
 
-gitpath=os.path.expanduser("~/git/cshl-work")
+gitpath=os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
-from cafa4.ontology import GeneOntology, GOMatrix
+from cshlwork.ontology import GeneOntology, GOMatrix
 
 OBOFILE=os.path.expanduser('~/data/go/go.obo') 
 GAFFILE=os.path.expanduser('~/data/go/zfin.gaf')
