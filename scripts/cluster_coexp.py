@@ -29,12 +29,24 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
 
+    parser.add_argument('-T', '--test', 
+                        action="store_true", 
+                        dest='test', 
+                        help='make small subset of input for quick test.')
+
     parser.add_argument('-i','--infile', 
                         metavar='infile',
                         required=False,  
                         type=str,
-                        default=None,
+                        default=os.path.expanduser('~/data/cococonet/yeast_AggNet.hdf5'),
                         help='hd5 input file ')
+
+    parser.add_argument('-t','--threshold', 
+                        metavar='threshold',
+                        required=False,  
+                        type=float,
+                        default=0.95,
+                        help='only consider coefficients above threshold')
     
     parser.add_argument('-o','--outfile', 
                         metavar='outfile',
@@ -51,9 +63,9 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)   
         
-    outdf = cluster_coexp(exphd5='~/data/cococonet/yeast_AggNet.hdf5', threshold=0.95, test=True)
+    outdf = cluster_coexp(exphd5=args.infile, threshold=args.threshold, test=args.test)
     logging.debug(f'outdf = \n{outdf}')
     if args.outfile is not None:
-        merge_write_df(outdf, args.outfile)
+        write_df(outdf, args.outfile)
     else:
         print(outdf)

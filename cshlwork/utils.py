@@ -132,6 +132,23 @@ def merge_write_df(newdf, filepath,  mode=0o644):
         logging.error(traceback.format_exc(None))
         raise ex
 
+def write_df(newdf, filepath,  mode=0o644):
+    """
+    Writes df in standard format.  
+    """
+    logging.debug(f'inbound df:\n{newdf}')
+    try:
+        df = newdf.reset_index(drop=True)
+        rootpath = os.path.dirname(filepath)
+        basename = os.path.basename(filepath)
+        df.to_csv(filepath, sep='\t')
+        os.chmod(filepath, mode)
+        logging.info(f"wrote df to {filepath}")
+
+    except Exception as ex:
+        logging.error(traceback.format_exc(None))
+        raise ex
+
 
 def matrix2table(df, symmetric=True, merge_label=True, combo_char='x'):
     '''

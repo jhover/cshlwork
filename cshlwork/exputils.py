@@ -124,7 +124,7 @@ def sort_node_degree(df):
 
 def cluster_coexp(exphd5='~/data/cococonet/yeast_AggNet.hdf5', threshold=0.95, test=False ):
     exphd5=os.path.expanduser(exphd5)
-    logging.debug(f'clustering {exphd5} with threshold {threshold} ')
+    logging.debug(f'clustering {exphd5} threshold={threshold} test={test}')
     edf = load_coexp(exphd5)
     logging.debug(edf)
     
