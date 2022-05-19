@@ -31,10 +31,9 @@ import sys
 import traceback
 
 import pandas as pd
-import pdpipe as pdp
 import numpy as np
-import pyarrow as pa
-import pyarrow.parquet as pq
+#import pyarrow as pa
+#import pyarrow.parquet as pq
 
 
 class GOMatrix(object):
@@ -142,6 +141,9 @@ class GOTerm(object):
         s = "GOTerm:"
         for atr in ['goterm','goname', 'goaspect']:
             s += " %s=%s" % (atr, self.__getattribute__(atr))
+        for isa in self.is_a:
+            s += f" isa={isa.goterm}"
+        #s += f" {self.is_a}"
         return s
         
 
@@ -158,7 +160,8 @@ class GeneOntology(object):
         self.kname = self.__class__.__name__
         self.lkname = self.kname.lower()
         self.log = logging.getLogger(self.kname)
-        self.cachedir = os.path.expanduser(config.get('global' ,'cachedir'))
+        self.log.debug(f'config={config} obofile={obofile}')
+        self.cachedir = os.path.expanduser(self.config.get('global' ,'cachedir'))
         self.cachefile = "%s.csv" % self.lkname
         self.cachepath = "%s/%s" % (self.cachedir, self.cachefile)
         self.obofile = os.path.expanduser(obofile)
@@ -166,7 +169,6 @@ class GeneOntology(object):
             self.obofile = os.path.expanduser(self.config.get('ontology','obofile'))
         
         self.goidx = {}   #  { 'GO:XXXXXX' : GoTermObject, }      
-        self.isalists = {}
         self.df = None
         self.get_tree_termindex()
         self.log.debug(f"GeneOntology with {len(self.goidx)} terms initialized.")
@@ -265,11 +267,13 @@ class GeneOntology(object):
         Go through goidx and add foreign refs...
         '''
         for gt in self.goidx.keys():
+            self.log.debug(f'handling term={gt}')
             gto = self.goidx[gt]
             isalist = gto.is_a
             newisa = []
-            for gt in isalist:
-                newisa.append(self.goidx[gt])
+            for igt in isalist:
+                self.log.debug(f'handling isalist term={igt}')
+                newisa.append(self.goidx[igt])
             gto.is_a = newisa    
 
 
@@ -303,6 +307,15 @@ class GeneOntology(object):
 
     def get_dict(self):
         pass
+
+
+    def __repr__(self):
+        s = "GeneOntology:"
+        for gto in self.goidx.values():
+            s +=f'{gto}\n'
+        #for atr in ['goterm','goname', 'goaspect']:
+        #    s += " %s=%s" % (atr, self.__getattribute__(atr))
+        return s
 
     
     @classmethod
@@ -374,8 +387,8 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', 
                         action="store", 
                         dest='conffile', 
-                        default='~/etc/cafa4.conf',
-                        help='Config file path [~/etc/cafa4.conf]')
+                        default='~/git/cshlwork/etc/ontology.conf',
+                        help='Config file path [~/git/cshlwork/etc/ontology.conf]')
 
     parser.add_argument('-t', '--test', 
                         action="store_true", 
@@ -387,6 +400,12 @@ if __name__ == '__main__':
                         dest='gaffile', 
                         default=None,
                         help='Gene annotation file')
+
+    parser.add_argument('-o', '--obofile', 
+                        action="store", 
+                        dest='obofile', 
+                        default=None,
+                        help='GO OBO File.')
 
     parser.add_argument('goterms', 
                         metavar='goterms', 
@@ -401,18 +420,20 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)    
 
-    config = ConfigParser() 
-    config.read(args.conffile)
+    config = ConfigParser()
+    logging.debug(f'config file = {args.conffile}') 
+    config.read(os.path.expanduser(args.conffile))
        
     if args.test:
         test(config)
     
     if len(args.goterms) > 0:
-        go = GeneOntology(config)
+        go = GeneOntology(config, obofile=args.obofile)
+        logging.debug(go)
         goidx = go.get_tree_termindex()
         for gt in args.goterms:
             gobj = goidx[gt]
-            print("%s -> %s " % (gt, gobj.get_isalist()))
+            print(f"{gt} -> {gobj.is_a} ")
     
     if args.gaffile is not None:
         gm = GOMatrix(config, args.gaffile)

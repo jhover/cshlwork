@@ -57,8 +57,48 @@ def plot_auroc(df, pcol, vcol, diagonal=False, title=None):
                       x='f_val', 
                       y='t_val',
                      palette = palette,
-                     legend = 'full',
-                     label=f'{pcol} AUROC = {auroc_str} n={num_items}'
+                     #legend = 'full',
+                     label=f'AUROC={auroc_str} n={num_items}'
+                     )
+    #ax.text(0.65,0.65,f'AUROC={auroc_str}', fontsize=14)
+    #ax.add_shape(type='line', line=dict(dash='dash'), x0=0, x1=1, y0=0, y1=1)
+    if title is not None:
+        ax.set(title=title)
+    else:    
+        ax.set(title=f'AUROC {pcol} vs. {vcol}')
+    ax.set(ylabel='TPR',xlabel='FPR')
+    return ax
+
+
+def plot_auroc_group(df, pcol, vcol, diagonal=False, title=None, group_col=None):
+    '''
+    col_list should be a list of columns in df, where first is model probabilities, and 
+    second is one-hot membership in class (1=member,0=non-member). 
+    
+    '''
+    auroc_str = "NA"
+           
+    logging.debug(f"prob_col={pcol}, valid_col={vcol} group_col={group_col}")
+    #for grp in list(df[group_col].unique() ):
+    #    gdf = df[df[group_col] == grp]
+    #    logging.debug(f'group df len={len(gdf)}')
+    
+    gdf = df.sort_values( by=pcol, ascending=False)       
+    gdf['fval'] = 1 - df[vcol]
+    gdf['t_val']  = gdf[vcol].cumsum() / gdf[vcol].sum()
+    gdf['f_val'] = gdf['fval'].cumsum() / gdf['fval'].sum()
+    num_items = len(gdf['t_val'])
+    
+    auroc_str = calc_auroc(gdf, pcol, vcol)
+            
+    #palette = sns.color_palette("mako_r", 6)
+    ax = sns.lineplot(data=gdf, 
+                      x='f_val', 
+                      y='t_val',
+                      hue=group_col,
+                      #palette = palette,
+                      legend = 'full',
+                      #label=f'{pcol} AUROC = {auroc_str} n={num_items}'
                      )
     #ax.text(0.65,0.65,f'AUROC={auroc_str}', fontsize=14)
     #ax.add_shape(type='line', line=dict(dash='dash'), x0=0, x1=1, y0=0, y1=1)

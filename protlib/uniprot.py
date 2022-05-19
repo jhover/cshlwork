@@ -380,6 +380,58 @@ def get_fasta(pdict, identifier, keylist=None):
             logging.error(f'no entry found for {k}')      
     return s
 
+
+def print_entry(pdict, identifier, keylist=None ):
+    if keylist is None:
+        keylist = pdict.keys()
+        
+    for k in keylist:
+        p = get_entry(pdict, identifier, keylist)
+        godict = p['goterms']
+        glist = []
+        for k,v in godict.items():
+            glist.append(k)
+        gostring = ','.join(glist)
+        info = f"{p[identifier]}\t{p['gene']}\t{p['proteinid']}\t{p['species']}\t{p['accession']}\t{p['locus']}\t{gostring}"
+        #header = f">{p['proteinacc']}\t{p['protein']}\t{p['species']}\t{p['gene']}"
+        info = info.replace('{}','')  # remove missing values. 
+        print(info)
+
+def get_goterms(entry):
+    godict = entry['goterms']
+    glist = []
+    for k,v in godict.items():
+        glist.append(k)
+
+def get_identifier(entry, identifier):
+    '''
+    return specified identifier   
+    [ accession | proteinid | locus | gene ]
+    genes are all caps. 
+    
+    
+    '''
+
+
+def get_entry(pdict, identifier, keylist=None ):
+    """
+
+    get uniprot entry using specified identifer
+        
+    """
+    if keylist is None:
+        keylist = pdict.keys()
+        
+    for k in keylist:
+        logging.debug(f'retrieving {k}')
+        try:
+            p = pdict[k]
+            logging.info(f'p = {p}')
+        except KeyError:
+            logging.error(f'no entry found for {k}')      
+    return p
+
+
 def write_tfa(s, outfile=None):
     
     if len(s) > 0:
@@ -572,7 +624,6 @@ if __name__ == '__main__':
                         default=False, 
                         help='Query uniprot online for given list of identifiers')
     
-    
     parser.add_argument('protlist' ,
                         metavar='protlist', 
                         type=str,
@@ -595,37 +646,41 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)       
     
     config = get_default_config()
-    
-    
-    # Filter DAT files
-    
 
-    
+
+    # Prepare for commands that require parsing DAT file. 
+    logging.info(f"Parsing uniprot .dat file={args.uniprot} ...")
+    entries = parse_uniprot_dat(config, args.uniprot)
+    #(entries, pididx, accidx) 
+    logging.debug(f"uniprot length = {len(entries)}") 
+       
+    # Filter DAT files
     if args.query is True:
         # handle online query via REST interface.
         #
         #
         #
-        #
-        logging.debug('querying uniprot online...')
+        #logging.debug('querying uniprot online...')
+        #for protid in args.protlist:
+        #    logging.debug(f'handling {protid}')
+        #    info = get_query(protid)
+        #    print(info)
+        if args.identifier in VALID_IDS:
+            upidx = index_by( entries, args.identifier)
+        else:
+            logging.error(f'invalid identifier type: {args.identifier}')
+        
         for protid in args.protlist:
-            logging.debug(f'handling {protid}')
-            info = get_query(protid)
-            print(info)
-        
-        
+            logging.debug(f'hanlding {args.protlist}')
+            print_entry(upidx, args.identifier, args.protlist )
+
     else:
         # just directly print records that match species.
         if args.species is not None:
             logging.info(f'printing records with OS matching string.')
             print_matching_records(args.species, args.uniprot)
             sys.exit(0)
-
-        # Prepare for commands that require parsing DAT file. 
-        logging.info(f"Parsing uniprot .dat file={args.uniprot} ...")
-        entries = parse_uniprot_dat(config, args.uniprot)
-        #(entries, pididx, accidx) 
-        logging.debug(f"uniprot length = {len(entries)}")    
+   
         tfastr = ""
         
 
