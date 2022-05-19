@@ -47,6 +47,14 @@ if __name__ == '__main__':
                         type=float,
                         default=0.95,
                         help='only consider coefficients above threshold')
+
+    parser.add_argument('-s','--sense', 
+                        metavar='sense',
+                        required=False,  
+                        type=str,
+                        default='above',
+                        help='keep above or below threshold')
+
     
     parser.add_argument('-o','--outfile', 
                         metavar='outfile',
@@ -63,7 +71,7 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)   
         
-    outdf = cluster_coexp(exphd5=args.infile, threshold=args.threshold, test=args.test)
+    outdf = cluster_coexp(exphd5=args.infile, threshold=args.threshold, test=args.test, sense=args.sense)
     logging.debug(f'outdf = \n{outdf}')
     if args.outfile is not None:
         write_df(outdf, args.outfile)

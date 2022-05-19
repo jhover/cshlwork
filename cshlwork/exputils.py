@@ -109,11 +109,21 @@ def threshold_boolean(df,  thresh):
     newdf[newdf <= thresh] = 0 
     return newdf
 
-def threshold_value(df,  thresh):
+def threshold_value(df,  thresh, sense='above'):
+    '''
+    Only keep values relative to threshold. 
+    'above' means higher, with others set to 0
+    'below' means lower, with others set to 0
+    
+    '''
     thresh = float(thresh)
     newdf = df.copy()
-    newdf[newdf > thresh] = newdf
-    newdf[newdf <= thresh] = 0 
+    if sense == 'above':
+        newdf[newdf > thresh] = newdf
+        newdf[newdf <= thresh] = 0 
+    if sense == 'below':
+        newdf[newdf < thresh] = newdf
+        newdf[newdf >= thresh] = 0 
     return newdf
 
 def sort_node_degree(df):
@@ -122,15 +132,14 @@ def sort_node_degree(df):
     return ts
 
 
-def cluster_coexp(exphd5='~/data/cococonet/yeast_AggNet.hdf5', threshold=0.95, test=False ):
+def cluster_coexp(exphd5='~/data/cococonet/yeast_AggNet.hdf5', threshold=0.95, test=False, sense='above'):
     exphd5=os.path.expanduser(exphd5)
-    logging.debug(f'clustering {exphd5} threshold={threshold} test={test}')
+    logging.debug(f"clustering {exphd5} threshold={threshold} test={test} sense='{sense}'")
     edf = load_coexp(exphd5)
     logging.debug(edf)
     
-    tdf = threshold_value(edf, threshold)
+    tdf = threshold_value(edf, threshold, sense=sense)
     np.fill_diagonal(tdf.values, 0)
-    #tdf[tdf != 0] = 1
     sdf = tdf.copy()
     sdf.drop(sdf.loc[sdf.sum(axis=1)==0].index, inplace=True)
     sdf.drop(columns=sdf.columns[sdf.sum()==0], inplace=True)
