@@ -209,9 +209,7 @@ def parse_uniprot_dat(config, datfile=None):
                         #  GN   OrderedLocusNames=Os02g0224200, LOC_Os02g13110;
                         #  GN   ORFNames=OsJ_005772, P0470A03.14;
                         val = line[5:]
-                       
-
-                        
+                    
                         try:
                             fields = val.split(';')
                             for field in fields:
@@ -220,6 +218,7 @@ def parse_uniprot_dat(config, datfile=None):
                                 if key in KEYMAP.keys():
                                     val = val.split(',')[0].strip()  # take first value of multiples
                                     val = val.split()[0].strip()     # take first value of whitespace-separated.
+                                    logging.debug(f'setting {KEYMAP[key]}={val}')
                                     current[KEYMAP[key]] = val
                         
                         except Exception as e:
@@ -284,6 +283,8 @@ def index_by(entries, identifier):
             missing += 1
         handled += 1
     logging.debug(f'made index of {len(idx)}/{handled} {missing} missing. ')
+    logging.debug(f'one entry: key={list(idx.keys())[0]}  {idx[ list(idx.keys())[0]  ] }')
+    
     return idx
 
 
@@ -571,9 +572,7 @@ def get_query(prot_identifier):
     time.sleep(1)
     return(data)
 
-
-
-      
+     
 
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
@@ -646,7 +645,6 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)       
     
     config = get_default_config()
-
 
     # Prepare for commands that require parsing DAT file. 
     logging.info(f"Parsing uniprot .dat file={args.uniprot} ...")
