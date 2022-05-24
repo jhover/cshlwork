@@ -35,7 +35,7 @@ import pandas as pd
 gitpath = os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
-from protlib.utils import *
+from cshlwork.utils import *
 
 ASPECTMAP = { 'C': 'cc',
               'F': 'mf',
