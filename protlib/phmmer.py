@@ -12,7 +12,8 @@ import pandas as pd
 
 gitpath = os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
-from utils import *
+
+from cshlwork.utils import *
 
 def get_default_config():
     cp = ConfigParser()
