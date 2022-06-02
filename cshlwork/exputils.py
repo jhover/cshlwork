@@ -126,6 +126,16 @@ def threshold_value(df,  thresh, sense='above'):
         newdf[newdf >= thresh] = 0 
     return newdf
 
+def med_idx(nparr):
+    '''
+    return (index, value) of median value in np.ndarry nparr.
+    
+    '''
+    nparr.index(np.percentile(nparr, 50, interpolation='nearest'))
+
+
+
+
 def sort_node_degree(df):
     ts = df.sum(axis=1)
     ts.sort_values(inplace=True, ascending=False)

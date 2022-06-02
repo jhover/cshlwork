@@ -51,6 +51,13 @@ KEYMAP =  { 'OrderedLocusNames' : 'locus'  ,
 VALID_IDS = ['accession', 'proteinid','locus']
 
 
+# persistent cached data from calls
+# key = filename
+UPROT_ENTRY_CACHE = {}
+
+# key = filename+identifier, .e.g  filename+locus'
+UPROT_IDX_CACHE = {}
+
 
 def get_default_config():
     cp = ConfigParser()
@@ -223,24 +230,7 @@ def parse_uniprot_dat(config, datfile=None):
                         
                         except Exception as e:
                             pass        
-                        
-                        
-                        #if val.startswith("Name="):
-                        #    try:
-                        #        fields = val.split()   # by whitespace
-                        #        (n, gname) = fields[0].split("=")
-                        #        gname = gname.upper()
-                        #        gname = gname.replace(';','')
-                        #        gname = gname.replace(':','')
-                        #        current['gene'] = gname
-                        #    except ValueError as ve:
-                        #        logging.error(f"val= {val}")
-                        #        traceback.print_exc(file=sys.stdout)
-                        #        current['gene'] = '' 
-                                 
-                        #elif val.startswith("")
-                        #else:
-                        #    current['gene'] = '' 
+                         
                 
                     elif line.startswith("//"):          
                         entrylist.append(dict(current))
@@ -347,7 +337,40 @@ def write_tfa_fromlist(pacclist, paccidx, outfile):
     logging.info(f"missing list: {missinglist}")
     logging.debug(f"Made shorter dictlist length={len(newdlist)} writing to file={outfile}.")
     write_tfa_file(newdlist, outfile)
-      
+
+
+
+def get_sequence(identifier, datfile, idtype='locus'):
+    
+    entrykey = os.path.basename(datfile)
+    idxkey = f'{entrykey}+{idtype}'
+    idxdict = None
+    sequence = None
+    try:
+        idxdict = UPROT_IDX_CACHE[idxkey]
+         
+    except:
+        try:
+            entries = UPROT_ENTRY_CACHE[entrykey]
+            idxdict = index_by(entries, idtype )
+            UPROT_IDX_CACHE[idxkey] = idxdict
+        
+        except Exception as e:
+            config = get_default_config() 
+            entries = parse_uniprot_dat(config, datfile)
+            UPROT_ENTRY_CACHE[entrykey] = entries
+            idxdict = index_by(entries, idtype )
+            UPROT_IDX_CACHE[idxkey] = idxdict
+    
+    try:
+        sequence = idxdict[identifier]['sequence']
+        
+    except KeyError:
+        pass
+
+    return sequence
+
+    
 
 def get_fasta(pdict, identifier, keylist=None):
     """

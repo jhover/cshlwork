@@ -14,6 +14,10 @@ import plotly.express as px
 
 
 def calc_auroc(df, p_col, t_col ):
+    '''
+    Calculates area under the curve by  
+    
+    '''
     t_array = np.array(df.sort_values( by=p_col, ascending=False).val)
     t_val = t_array.cumsum() / t_array.sum()
     slicewidth = 1 / (len(t_val) ) 
