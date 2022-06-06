@@ -390,7 +390,9 @@ def get_fasta(pdict, identifier, keylist=None):
         try:
             p = pdict[k]
             logging.info(f'p = {p}')
-            header = f">{p[identifier]}\t{p['gene']}\t{p['proteinid']}\t{p['species']}\t{p['accession']}\t{p['locus']}"
+            gene = p['gene'].upper()
+            locus = p['locus'].upper()
+            header = f">{p[identifier]}\t{gene}\t{p['proteinid']}\t{p['species']}\t{p['accession']}\t{locus]}"
             #header = f">{p['proteinacc']}\t{p['protein']}\t{p['species']}\t{p['gene']}"
             header = header.replace('{}','')  # remove missing values. 
             sequence =  p['sequence']
