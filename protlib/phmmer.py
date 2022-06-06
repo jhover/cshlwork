@@ -200,6 +200,19 @@ if __name__ == '__main__':
                         required=False,
                         default=None, 
                         help='Fasta .tfa search database.')  
+
+    parser.add_argument('-n', '--topn',
+                        metavar='topn',
+                        required=False, 
+                        type=int,
+                        default=3, 
+                        help='Top N hits to store.')
+
+    parser.add_argument('-o', '--outfile',
+                        metavar='outfile',
+                        type=str,
+                        default=None,
+                        help='Outfile. ')
     
     args= parser.parse_args()
     
@@ -218,3 +231,9 @@ if __name__ == '__main__':
     logging.debug(f"queryfile={queryfile} dbfile={dbfile}")
     df = get_phmmer_df(c, queryfile, dbfile  )
     logging.info(f'phmmer outfile={df}')
+    if args.outfile is not None:
+        filepath = os.path.expanduser(args.outfile)
+        logging.debug(f'writing df to {filepath}')
+        merge_write_df(df, filepath)
+
+
