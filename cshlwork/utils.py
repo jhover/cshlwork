@@ -792,7 +792,7 @@ def merge_write_df(newdf, filepath,  mode=0o644):
     if os.path.isfile(filepath):
         df = load_df(filepath)
         log.debug(f'read df:\n{df}')
-        df = df.append(newdf, ignore_index=True)
+        df = pd.concat([df, newdf], ignore_index=True, copy=False)
         df.fillna(value='', inplace=True)
         df = df.astype('str', copy=False)
         log.debug(f'appended df:\n{df}')

@@ -102,6 +102,10 @@ def parse_phmmer(config, filename):
         
     if topx is not None:
         df = df.groupby('query').head(topx).reset_index(drop=True) 
+        logging.debug(f'topx is {topx}. reduced df is \n{df}')
+    
+    
+    
     
     dict = df.to_dict(orient='index')
     logging.debug(f"dict is {dict}")
@@ -153,22 +157,37 @@ def get_phmmer_df(config, queryfile, database=None ):
     pcachefile =f"{pcachedir}/{filebase}.phmmerdf.csv"
     
     df = None
-    try:
-        df = pd.read_csv(pcachefile, index_col=0)
-        logging.info("Cached phmmer run found. ")
-        
-    except FileNotFoundError:
-        logging.info("No cached phmmer data. Running...")      
+    
+    if config.getboolean('phmmer','use_cache'):
+        try:
+            df = pd.read_csv(pcachefile, index_col=0)
+            logging.info("Cached phmmer run found. ")
+            
+        except FileNotFoundError:
+            logging.info("No cached phmmer data. Running...")      
+            outfile = execute_phmmer(config, queryfile, database)
+            logging.debug(f"outfile is {outfile} parsing...")
+            phd = parse_phmmer(config, outfile)
+            
+            if len(phd) > 0:
+                df = pd.DataFrame.from_dict(phd, orient='index')
+                df = df.sort_values(by=['query','score'], ascending=[True, False])
+            if df is not None:
+                logging.debug(f"Caching phmmer output to {pcachefile}")
+                df.to_csv(pcachefile)
+    else:
+        logging.debug(f'use_cache false. running...')
         outfile = execute_phmmer(config, queryfile, database)
         logging.debug(f"outfile is {outfile} parsing...")
         phd = parse_phmmer(config, outfile)
-        
+            
         if len(phd) > 0:
             df = pd.DataFrame.from_dict(phd, orient='index')
             df = df.sort_values(by=['query','score'], ascending=[True, False])
         if df is not None:
             logging.debug(f"Caching phmmer output to {pcachefile}")
             df.to_csv(pcachefile)
+            
     return df
 
 
@@ -188,6 +207,12 @@ if __name__ == '__main__':
                         action="store_true", 
                         dest='verbose', 
                         help='verbose logging')
+
+    parser.add_argument('-C', '--usecache', 
+                        action="store_true", 
+                        dest='usecache',
+                        default=False, 
+                        help='Use cached values')
     
     parser.add_argument('infile', 
                         metavar='infile', 
@@ -213,6 +238,7 @@ if __name__ == '__main__':
                         type=str,
                         default=None,
                         help='Outfile. ')
+
     
     args= parser.parse_args()
     
@@ -226,14 +252,25 @@ if __name__ == '__main__':
         dbfile = os.path.expanduser(args.dbasefile)
     else:
         dbfile = None
+    
+    if args.topn is not None:
+        c.set('phmmer','topx_threshold', str(args.topn))
+    
+    if args.usecache:
+        logging.debug('usecache set, setting true')
+        c.set('phmmer', 'use_cache', 'True')
+    else:
+        logging.debug('usecache not set, setting false')
+         
         
     queryfile =  os.path.expanduser(args.infile)
+    
     logging.debug(f"queryfile={queryfile} dbfile={dbfile}")
     df = get_phmmer_df(c, queryfile, dbfile  )
     logging.info(f'phmmer outfile={df}')
     if args.outfile is not None:
         filepath = os.path.expanduser(args.outfile)
         logging.debug(f'writing df to {filepath}')
-        merge_write_df(df, filepath)
+        write_df(df, filepath)
 
 
