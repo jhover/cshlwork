@@ -497,6 +497,7 @@ def write_tfa_file(dictlist, outfile):
     header=""
     x = 60
     for p in dictlist:
+        gene = p['gene'].upper()
         header = f">{p['proteinacc']}\t{p['protein']}\t{p['species']}\t{p['gene']}"
         header = header.replace('{}','')  # remove missing values. 
         sequence =  p['sequence']
