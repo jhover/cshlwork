@@ -48,7 +48,7 @@ KEYMAP =  { 'OrderedLocusNames' : 'locus'  ,
             'Synonyms' : 'synonym' 
             }
 
-VALID_IDS = ['accession', 'proteinid','locus']
+VALID_IDS = ['accession', 'proteinid', 'locus']
 
 
 # persistent cached data from calls
@@ -137,6 +137,7 @@ def parse_uniprot_dat(config, datfile=None):
                         fields = val.split() 
                         proteinid = fields[0].strip().replace(';','')
                         current = defaultdict(dict)
+                        logging.debug(f'setting proteinid={proteinid}')
                         current['proteinid'] = proteinid
                         (protein, species) = proteinid.split('_')
                         current['protein'] = protein
@@ -149,7 +150,9 @@ def parse_uniprot_dat(config, datfile=None):
                         # AC   Q91896; O57469;
                         rest = line[5:]
                         acclist = rest.split(';')
-                        current['accession'] = acclist[0].strip()
+                        accession = acclist[0].strip()
+                        current['accession'] = accession
+                        logging.debug(f'setting accession={accession}')
                         for c in acclist:
                             if len(c) > 2:
                                 c = c.strip()
@@ -200,6 +203,8 @@ def parse_uniprot_dat(config, datfile=None):
                         #  GN   Name=GRF10; OrderedLocusNames=At1g22300; ORFNames=T16E15.8;
                         #  GN   Name=GRF2; Synonyms=GF14; OrderedLocusNames=At1g78300; ORFNames=F3F9.16;
 
+                        # GN   IPK2 {ECO:0000303|PubMed:10720331}; OrderedLocusNames=YDR173C;
+
                         #  non Name= info only
                         #  GN   ORFNames=OsI_006296;
                                                                           
@@ -211,7 +216,8 @@ def parse_uniprot_dat(config, datfile=None):
                         # multi-line, no key(s)
                         # GN   Name=matK {ECO:0000256|HAMAP-Rule:MF_01390,
                         # GN   ECO:0000313|EMBL:ACK76147.1};
-                        
+                     
+                       
                         # multiple lines in one protein (no Name=)
                         #  GN   OrderedLocusNames=Os02g0224200, LOC_Os02g13110;
                         #  GN   ORFNames=OsJ_005772, P0470A03.14;
@@ -220,16 +226,19 @@ def parse_uniprot_dat(config, datfile=None):
                         try:
                             fields = val.split(';')
                             for field in fields:
-                                field=field.strip()
-                                key,val = field.split('=')
-                                if key in KEYMAP.keys():
-                                    val = val.split(',')[0].strip()  # take first value of multiples
-                                    val = val.split()[0].strip()     # take first value of whitespace-separated.
-                                    logging.debug(f'setting {KEYMAP[key]}={val}')
-                                    current[KEYMAP[key]] = val
+                                try:
+                                    field=field.strip()
+                                    key,val = field.split('=')
+                                    if key in KEYMAP.keys():
+                                        val = val.split(',')[0].strip()  # take first value of multiples
+                                        val = val.split()[0].strip()     # take first value of whitespace-separated.
+                                        logging.debug(f'setting {KEYMAP[key]}={val}')
+                                        current[KEYMAP[key]] = val
+                                except Exception as e:
+                                    logging.error(f'unhandled exception for field in GN: {e}')
                         
                         except Exception as e:
-                            pass        
+                            logging.error(f'unhandled exception for ";" in GN: {e}')        
                          
                 
                     elif line.startswith("//"):          

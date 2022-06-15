@@ -62,8 +62,12 @@ class GOMatrix(object):
     
     def _df_from_cache(self):
         self.log.debug("Trying to load from cache: %s" % self.cachepath )  
-        self.df = pd.read_csv(self.cachepath, index_col=0)
-        return self.df
+        ret = None
+        try:
+            self.df = pd.read_csv(self.cachepath, index_col=0)
+        except FileNotFoundError:
+            logging.info('no cached file found')
+        return ret
 
 
 
@@ -273,7 +277,11 @@ class GeneOntology(object):
             newisa = []
             for igt in isalist:
                 self.log.debug(f'handling isalist term={igt}')
-                newisa.append(self.goidx[igt])
+                try:
+                    newisa.append(self.goidx[igt])
+                except KeyError as ke:
+                    self.log.debug(f'no key for {igt}')
+            
             gto.is_a = newisa    
 
 
@@ -435,6 +443,8 @@ if __name__ == '__main__':
             gobj = goidx[gt]
             print(f"{gt} -> {gobj.is_a} ")
     
-    if args.gaffile is not None:
-        gm = GOMatrix(config, args.gaffile)
+    #if args.gaffile is not None:
+    #    gm = GOMatrix(config, args.gaffile)
+    #    df = gm.get_df()
+    #    print(df)
     

@@ -15,6 +15,9 @@ sys.path.append(gitpath)
 
 from cshlwork.utils import *
 
+
+PHMMER_COLS = ['query','target','e_val','score','bias']
+
 def get_default_config():
     cp = ConfigParser()
     cp.read(os.path.expanduser("~/git/cshlwork/etc/phmmer.conf"))
@@ -122,26 +125,6 @@ def parse_phmmer(config, filename):
     return dict
 
 
-
-'''    for idx in dict.keys():      
-        (db,pacc,pid) = dict[idx]['target'].split('|')
-        logging.debug(f"split |-separated target field...") 
-        cid = dict[idx]['cid']
-        # only exclude hits for the exact target protein...
-        if pid == cidcgidmap[cid]:
-            logging.debug(f"Found the pid {pid} excluded to be excluded for this cid {cid}")
-            idxtodel.append(idx)
-        else:
-            (protein, species) = pid.split('_')
-            dict[idx]['pacc'] = pacc
-            dict[idx]['pid'] = pid
-            dict[idx]['cgid'] = cidcgidmap[dict[idx]['cid']]
-            del dict[idx]['target']
-    for idx in idxtodel:
-        del dict[idx]
-'''
-
-
 def get_phmmer_df(config, queryfile, database=None ):
     """
     orders by target, evalue ascending (best fit first).  
@@ -187,7 +170,9 @@ def get_phmmer_df(config, queryfile, database=None ):
         if df is not None:
             logging.debug(f"Caching phmmer output to {pcachefile}")
             df.to_csv(pcachefile)
-            
+    
+    # give df with columns in right order. 
+    df = df.reindex(PHMMER_COLS , axis=1, copy=False )
     return df
 
 

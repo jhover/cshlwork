@@ -1,0 +1,85 @@
+```{r}
+#Prep gene list for M-W-style DE
+prepRankedGeneList <- function(filt_de_tbl){
+  l2fc <- filt_de_tbl %>% dplyr::select(log2FoldChange) %>% "[["(1)
+  names(l2fc) <- filt_de_tbl %>% dplyr::select(gene) %>% "[["(1)
+  rank_l2fc <- rank(l2fc, ties.method = "average")
+  return(rank_l2fc)
+}
+
+
+#Mann-Whitney-style enrichment on whole DE table
+genesetEnrichment <- 
+  function(ranked_list, gene_set_list, max_size_gene_set = 100, min_size_gene_set = 10, fdr_correct = TRUE, 
+           fdr_threshold = 0.05, de_tbl = NULL, de_fc_thresh = 1.5, de_padj_thresh = 5e-2, hypothesis = "two.sided"){
+    
+    
+    gene_list <- names(ranked_list)
+    
+    subset_gene_set_list <- list()
+    
+    x <- lapply(names(gene_set_list), function(i){
+      subset_gene_set_list[[i]] <<- gene_set_list[[i]][gene_set_list[[i]] %in% gene_list]
+      })
+    
+    keep <- lapply(seq_along(subset_gene_set_list),
+           function(i){
+             ifelse(
+               ((length(subset_gene_set_list[[i]]) > min_size_gene_set) & 
+                 (length(subset_gene_set_list[[i]]) < max_size_gene_set)), TRUE, FALSE)
+                    
+           })
+    
+    filt_gene_set <- subset_gene_set_list[unlist(keep)]
+    
+    raw <- data.frame()
+    
+    x <- lapply(seq_along(filt_gene_set), function(i){
+    
+      raw <<- rbind(raw, data.frame(geneset = names(filt_gene_set)[i],
+                                  n_shared = length(ranked_list[unlist(filt_gene_set[i])]),
+                                  n_not_shared = length(ranked_list[-c(which(names(ranked_list) %in% unlist(filt_gene_set[i])))]),
+                                  avg_rank_shared = mean(ranked_list[unlist(filt_gene_set[i])]),
+                                  avg_rank_not_shared = mean(ranked_list[-c(which(names(ranked_list) %in% unlist(filt_gene_set[i])))]),
+                                  pval = wilcox.test(ranked_list[unlist(filt_gene_set[i])],
+                                                     ranked_list[-c(which(names(ranked_list) %in% unlist(filt_gene_set[i])))],
+                                                     alternative = hypothesis)$p.value))
+    })
+  
+  raw <- raw %>% mutate(padj = p.adjust(pval, "BH"))
+  return(raw)
+}
+
+#Fisher-style enrichment for a subset of genes (signature etc.)
+fisher_enrichment <- function(genesets, de_genes, not_de_genes, min_size_gene_set = 10, max_size_gene_set = 101){
+  
+  total <- union(de_genes, not_de_genes)
+  
+  subset_genesets <- 
+    genesets[unlist(lapply(seq_along(genesets), 
+                            function(i){
+                              ifelse((length(genesets[[i]]) > min_size_gene_set) & 
+                                       (length(genesets[[i]]) < max_size_gene_set), TRUE,FALSE)
+                              }))]
+  
+  x <- lapply(names(subset_genesets), function(i){
+    subset_genesets[[i]] <<- genesets[[i]][genesets[[i]] %in% total]
+  })
+  
+
+  res_enrich <- data.frame()
+  x <- lapply(X = seq_along(subset_genesets), FUN = function(i){
+    res_enrich <<- rbind(res_enrich, 
+                         data.frame(geneset = names(subset_genesets)[i], 
+                                    len_gene_set = length(subset_genesets[[i]]),
+                                    n_shared = sum(de_genes %in% subset_genesets[[i]]),
+                                    pval = 1 - phyper(sum(de_genes %in% subset_genesets[[i]]) - 1,
+                                                   length(de_genes),
+                                                   length(not_de_genes),
+                                                   length(subset_genesets[[i]]))))
+  })
+  return(res_enrich)
+}
+
+```
+
