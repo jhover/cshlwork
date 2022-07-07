@@ -11,18 +11,51 @@ import os
 import sys
 import traceback
 
+gitpath=os.path.expanduser("~/git/cshlwork")
+sys.path.append(gitpath)
 
-def write_current(linelist):
-    header = linelist[0]
-    tfaid = header.split()[0][1:]
-    tfaid = tfaid.replace('/','-')
-    st = "\n".join(linelist)
-    with open(f'{tfaid}.fasta', 'w') as f:
-        f.write(st)
+#import pandas as pd
 
-def handle_infile(infilepath):
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from Bio import SeqIO
+
+from cshlwork.utils import *
+
+def handle_infile(infile, maxseq=1, outdir = None):
     current = None
     processed = 0
+    
+    filepath = os.path.abspath(infile)    
+    filename = os.path.basename(filepath)
+    (base, ext) = os.path.splitext(filename)
+    logging.debug(f'base={base} ext={ext} filename={filename} filepath={filepath}')
+    
+    if outdir is None:
+        outdir = os.getcwd()
+    else:
+        outdir = os.path.abspath(outdir)    
+    
+    logging.debug(f'outdir = {outdir}')  
+    records = list( SeqIO.parse(infile, 'fasta'))
+    
+    logging.debug(f'got {len(records)} sequences')
+    
+    split=0
+    seqnum = 0
+    
+    while seqnum < len(records):
+        
+        
+        
+        
+        
+        
+        
+        seqnum += 1
+    
+    #    print(record.description)
+    
     
     with open(infilepath, 'r') as f:
         try:
@@ -62,11 +95,23 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
 
+    parser.add_argument('maxseq', 
+                        metavar='maxseq', 
+                        type=int, 
+                        default=1,
+                        help='max number of sequences per file. [one seq per output file]')    
+    
     parser.add_argument('infile', 
                         metavar='infile', 
                         type=str, 
                         help='fasta input file')
 
+    parser.add_argument('-o','--outdir', 
+                        metavar='outdir',
+                        required=False,  
+                        type=str,
+                        default=None,
+                        help='output dir [<cwd>] ')
     
     args= parser.parse_args()
    
@@ -75,4 +120,4 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
     
-    handle_infile(args.infile)
+    handle_infile(args.infile, maxseq = args.maxseq, outdir=args.outdir)
