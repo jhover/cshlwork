@@ -4,6 +4,9 @@ import logging
 import os 
 import sys
 
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from Bio import SeqIO
 
 def srlist_print(srlist):
     s = '['
