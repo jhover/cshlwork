@@ -95,7 +95,7 @@ def process_cross_files(filelist, outdir):
         newid = newid.replace('/','--')
         #newdesc = ':'.join(seqdescs)
         #ss = ':'.join(seqs)
-        outfile = f'{outdir}/{newid}.fa'
+        outfile = f'{outdir}/{newid}.fasta'
       
         with open(outfile, 'w' ) as fh:
             logging.debug(f'writing to {outfile}')
