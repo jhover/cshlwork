@@ -1,4 +1,4 @@
-
+import glob
 import gzip
 import itertools
 import os
@@ -29,6 +29,116 @@ class NonZeroReturnException(Exception):
     """
     Thrown when a command has non-zero return code. 
     """
+
+
+def remove_parentpath(parent, fullpath):
+    '''
+      remove parent from fullpath
+    '''
+    logging.debug(f'fullpath ={fullpath}')
+    compath = os.path.commonpath([parent, fullpath])
+    logging.debug(f'commonpath ={compath}')
+    comlist = splitall(compath)
+    logging.debug(f'comlist ={comlist}')
+    logging.debug(f'len comlist = {len(comlist)}')
+    comlength = len(comlist)
+    plist = splitall(parent)
+    logging.debug(f'plist ={plist}')
+    fulllist = splitall(fullpath)
+    logging.debug(f'fulllist ={fulllist}')
+    sublist = fulllist[comlength:]
+    logging.debug(f'sublist ={sublist}')
+    subpath = os.path.join(*sublist)
+    logging.debug(f'subpath is {subpath}')
+    return subpath
+
+
+def splitall(path):
+    '''
+     Takes standard unix path and splits into list of components 
+    '''
+    if os.path.isdir(path):
+        head = path
+        plist = []
+        while head != os.path.sep:
+            head, tail = os.path.split(head)
+            plist.append(tail)
+        plist.reverse() 
+        logging.debug(f'plist={plist}')
+        return plist
+    else:
+        logging.error('this method is for directories only')
+        return ['']
+
+def flatten_tree(indir, outdir, mapfile):
+    '''
+     takes directory hierachy and puts all files into one outdir
+     creates a mapfile of filenames (without extension) so that other output 
+     can be restored to original hierarchy
+    '''
+    indir = os.path.abspath(indir)
+    outdir = os.path.abspath(outdir)
+    logging.debug(f'flattening {indir} to {outdir} with mapfile {mapfile}')
+    
+    logging.debug(f'confirming outdir {outdir} exists...')
+    os.makedirs(outdir, exist_ok = True)    
+    
+    mapstring = ""
+     
+    for root, dirs, files in os.walk(indir):
+        for d in dirs:
+            ddir = os.path.join(root, d)    
+            #logging.debug(f'{ddir}')
+        for f in files:
+            ffile = os.path.join(root, f) 
+            logging.debug(f'{ffile}')
+            dpath = os.path.dirname(ffile)
+            subdir = remove_parentpath(indir, dpath)
+            fname = os.path.basename(ffile)
+            sample, ext = os.path.splitext(fname)
+            mapstring += f'{subdir} {sample}\n'
+            outfile = os.path.join(outdir, fname)
+            logging.info(f'copying {ffile} -> {outfile}')
+            shutil.copyfile(ffile, outfile)
+    #logging.debug(f'{mapstring}')   
+
+    with open(mapfile, 'w') as mf:
+        mf.write(mapstring)
+     
+def findmatches(dirpath, prefix, ext='*'):
+    '''
+    Return list of all absolute filepaths in dirpath that match prefix (minus file extension)
+    '''
+    logging.debug(f'looking for matches to {prefix} in {dirpath}')
+    rlist = glob.glob(f'{dirpath}/{prefix}.{ext}')
+    return rlist
+                   
+def unflatten_tree(indir, rootdir, mapfile, ext):
+    '''
+    takes files (ignoring extension) in indir and restores (copies) them to 
+    hierarchy as stored in mapfile, based at rootdir. 
+
+    '''
+    indir = os.path.abspath(indir)
+    rootdir = os.path.abspath(rootdir)
+    logging.debug(f'unflattening {indir} to rootdir {rootdir} from mapfile {mapfile}')
+    
+    with open(mapfile, 'r') as mf:
+        lines = mf.readlines()
+        for line in lines:
+            (subdir, sample ) = line.split()
+            logging.debug(f'subdir = {subdir} sample={sample} ')
+            flist = findmatches(indir, sample, ext)
+            logging.debug(f'found matches={flist}')
+            for fname in flist:
+                bname = os.path.basename(fname)
+                outfile = f'{rootdir}/{subdir}/{bname}'
+                outdir = f'{rootdir}/{subdir}'
+                os.makedirs(outdir, exist_ok = True)
+                logging.info(f'copying {fname} -> {outfile}')
+                shutil.copyfile(fname, outfile)
+            
+            
 
 
 def readlist(filepath):
