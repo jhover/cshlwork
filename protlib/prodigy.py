@@ -30,6 +30,9 @@ import datetime as dt
 gitpath=os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
+from cshlwork.utils import run_command
+
+
 def run_prodigy_on_dir(indir, outdir=None):
     '''
     runs prodigy on every .pdb file in directory. 
@@ -65,20 +68,30 @@ def run_prodigy_on_dir(indir, outdir=None):
       --selection A B C => Contacts calculated (only) between chains A and B; B and C; and A and C.
           
     '''
+    if outdir is None:
+        outdir = indir
+    
     pdbfiles = glob.glob( f'{indir}/*.pdb')
     logging.debug(f'got list of {len(pdbfiles)} pdb files: {pdbfiles}')
     start = dt.datetime.now()
     
-    for fname in pdbfiles:        
+    for fname in pdbfiles:
+        bname = os.path.basename(fname)
+        sample, ext = os.path.splitext(bname)
+        logging.debug(f'basename={bname} sample={sample}')
         cmd = ['prodigy',
                fname
                ]
         try:
-            run_command(cmd)
+            (stderr, stdout, returncode) = run_command(cmd)
+            outfile = f'{outdir}/{sample}.prd'
+            with open(outfile, 'w') as prdf:
+                prdf.write(stdout)
+            logging.debug(f'wrote prodigy output to {outfile}')
+                        
         except NonZeroReturnException as nzre:
             logging.error(f'problem with {infile}')
-            logging.error(traceback.format_exc(None))
-            raise  
+            logging.error(traceback.format_exc(None)) 
     end = dt.datetime.now()
     elapsed =  end - start
     logging.debug(f'handled {len(pdbfiles)} in  {elapsed.seconds} seconds. ')
