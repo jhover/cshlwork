@@ -25,6 +25,8 @@ import os
 import sys
 import traceback
 
+import datetime as dt
+
 gitpath=os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
@@ -64,7 +66,9 @@ def run_prodigy_on_dir(indir, outdir=None):
           
     '''
     pdbfiles = glob.glob( f'{indir}/*.pdb')
-
+    logging.debug(f'got list of {len(pdbfiles)} pdb files: {pdbfiles}')
+    start = dt.datetime.now()
+    
     for fname in pdbfiles:        
         cmd = ['prodigy',
                fname
@@ -75,7 +79,9 @@ def run_prodigy_on_dir(indir, outdir=None):
             logging.error(f'problem with {infile}')
             logging.error(traceback.format_exc(None))
             raise  
-    
+    end = dt.datetime.now()
+    elapsed =  end - start
+    logging.debug(f'handled {len(pdbfiles)} in  {elapsed.seconds} seconds. ')
     
 
 if __name__ == '__main__':
