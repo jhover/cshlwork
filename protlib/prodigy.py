@@ -93,8 +93,9 @@ def run_prodigy_on_dir(indir, outdir=None):
             logging.debug(f'wrote prodigy output to {outfile}')
                         
         except NonZeroReturnException as nzre:
-            logging.error(f'problem with {infile}')
+            logging.error(f'problem with {fname}')
             logging.error(traceback.format_exc(None)) 
+    
     end = dt.datetime.now()
     elapsed =  end - start
     logging.debug(f'handled {len(pdbfiles)} in  {elapsed.seconds} seconds. ')
