@@ -70,6 +70,8 @@ def run_prodigy_on_dir(indir, outdir=None):
     '''
     if outdir is None:
         outdir = indir
+    else:
+        os.makedirs(outdir, exist_ok = True)
     
     pdbfiles = glob.glob( f'{indir}/*.pdb')
     logging.debug(f'got list of {len(pdbfiles)} pdb files: {pdbfiles}')
