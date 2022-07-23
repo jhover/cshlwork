@@ -31,7 +31,7 @@ import datetime as dt
 gitpath=os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
-from cshlwork.utils import run_command
+from cshlwork.utils import run_command, NonZeroReturnException
 
 
 def run_prodigy_on_dir(indir, outdir=None):
