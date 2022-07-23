@@ -34,10 +34,11 @@ sys.path.append(gitpath)
 from cshlwork.utils import run_command, NonZeroReturnException
 
 
-def run_prodigy_on_dir(indir, outdir=None):
+def run_prodigy_on_dir(indir, outdir=None, flagfile=None):
     '''
     runs prodigy on every .pdb file in directory. 
     optionally outputs .prd (prodigy) output files in different outdir. otherwise in indir. 
+    optionally puts flagefile in outdir
     
     usage: prodigy [-h] -q] [-V]
                [--selection A B [A,B C ...]]
@@ -99,7 +100,13 @@ def run_prodigy_on_dir(indir, outdir=None):
     end = dt.datetime.now()
     elapsed =  end - start
     logging.debug(f'handled {len(pdbfiles)} in  {elapsed.seconds} seconds. ')
-    
+    if flagfile is not None:
+        outfile= f'{outdir}/{flagfile}'
+        with open(outfile, 'w') as flf:
+            flf.write(f'files={pdbfiles}\n')
+            flf.write(f'{elapsed.seconds} seconds.\n')
+    logging.debug(f'prodigy done directory={indir}')
+
 
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
@@ -130,6 +137,13 @@ if __name__ == '__main__':
                         required=True,
                         type=str,
                         help='input dir. one file per infile ')
+
+    parser.add_argument('-f','--flagfile', 
+                        metavar='flagfile',
+                        required=False,
+                        type=str,
+                        default=None,
+                        help='file touched in outdir upon completion.')
 
     args= parser.parse_args()
     
