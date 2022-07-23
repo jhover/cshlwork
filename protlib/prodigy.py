@@ -119,6 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('-o','--outdir', 
                         metavar='outdir',
                         required=False,
+                        default=None,
                         type=str,
                         help='top output dir ')
 
@@ -134,5 +135,6 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.DEBUG)
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)   
-        
+    
+    run_prodigy_on_dir(indir=args.indir, outdir=args.outdir)
 
