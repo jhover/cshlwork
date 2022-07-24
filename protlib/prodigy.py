@@ -101,7 +101,7 @@ def run_prodigy_on_dir(indir, outdir=None, flagfile=None):
     elapsed =  end - start
     logging.debug(f'handled {len(pdbfiles)} in  {elapsed.seconds} seconds. ')
     if flagfile is not None:
-        outfile= f'{outdir}/{flagfile}'
+        outfile= flagfile
         with open(outfile, 'w') as flf:
             flf.write(f'files={pdbfiles}\n')
             flf.write(f'{elapsed.seconds} seconds.\n')
