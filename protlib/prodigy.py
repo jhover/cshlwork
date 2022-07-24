@@ -152,5 +152,5 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)   
     
-    run_prodigy_on_dir(indir=args.indir, outdir=args.outdir)
+    run_prodigy_on_dir(indir=args.indir, outdir=args.outdir, flagfile=args.flagfile)
 
