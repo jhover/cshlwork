@@ -20,12 +20,16 @@ from cshlwork.utils import *
 
 URLBASE='https://sra-pub-run-odp.s3.amazonaws.com/sra'
 
-def download_run_sra(runid):
+def download_run_sra(runid, outfile=None):
 
     srcurl=f'{URLBASE}/{runid}/{runid}'
 
     try:
-        download_wget(srcurl, destpath=f'./{runid}.sra',rate = '50M')
+        if outfile is not None:
+            download_wget(srcurl, destpath=outfile, rate = '50M')
+        else:
+            download_wget(srcurl, destpath=f'./{runid}.sra',rate = '50M')
+    
     except KeyError:
         pass
 
