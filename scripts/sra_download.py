@@ -103,7 +103,7 @@ if __name__ == "__main__":
     if args.runs is not None:
         for run_id in args.runs:
             logging.debug(f'Downloading SRA for run {run_id}')
-            download_run_sra(run_id)
+            download_run_sra(run_id, args.outfile)
         logging.info('Done')
     
 
