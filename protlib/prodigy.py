@@ -34,6 +34,51 @@ sys.path.append(gitpath)
 from cshlwork.utils import run_command, NonZeroReturnException
 
 
+
+
+def parse_prodigy_out(prdfile):
+    '''
+    [+] Reading structure file: /grid/gillis/home/hover/work/colabfold/out.models/complex.130/trappii_yeast/YOR115CxYOR115C/YOR115CxYOR115C_unrelaxed_rank_1_model_5.pdb
+    [+] Parsed structure file YOR115CxYOR115C_unrelaxed_rank_1_model_5 (2 chains, 536 residues)
+    [+] No. of intermolecular contacts: 166
+    [+] No. of charged-charged contacts: 3
+    [+] No. of charged-polar contacts: 32
+    [+] No. of charged-apolar contacts: 30
+    [+] No. of polar-polar contacts: 7
+    [+] No. of apolar-polar contacts: 35
+    [+] No. of apolar-apolar contacts: 59
+    [+] Percentage of apolar NIS residues: 34.05
+    [+] Percentage of charged NIS residues: 28.30
+    [++] Predicted binding affinity (kcal.mol-1):    -15.5
+    [++] Predicted dissociation constant (M) at 25.0˚C:  4.1e-12
+    
+    '''
+    kd = None
+    ba = None
+    if os.path.exists(prdfile):
+        with open(prdfile) as fh:
+            lines = fh.readlines()
+            for line in lines:
+                if line.startswith('[++] Predicted dissociation'):
+                    kd = line.split()[7]
+                    logging.debug(f'kd string is {kd}')
+                    kd = float(kd)
+                elif line.startswith('[++] Predicted binding'):
+                    ba = line.split()[5]
+                    logging.debug(f'ba = {ba}')
+                    ba = float(ba)
+        if ba is None or kd is None:
+            logging.warning(f'file parsed by kd, ba not found...')
+        
+    else:
+        logging.warning(f"file {prdfile} doesn't exist")
+    return (kd, ba)
+
+
+
+
+
+
 def run_prodigy_on_dir(indir, outdir=None, flagfile=None):
     '''
     runs prodigy on every .pdb file in directory. 

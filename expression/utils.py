@@ -188,6 +188,16 @@ def cluster_coexp(exphd5='~/data/cococonet/yeast_AggNet.hdf5', threshold=0.95, t
 
     return outdf
 
+def _coexp_val_at(df, x,y):
+        return df.at[x,y]
+
+def fill_coexp(indf, edf, p1_col, p2_col, newcol='coexp'):
+    '''
+        method to efficiently fill in column on df with the coexpression value from edf
+        returns df with column added. 
+    '''
+    indf[newcol] = indf.apply( lambda x: _coexp_val_at(edf, x[p1_col], x[p2_col]), axis = 1  )
+    return indf
 
 
 

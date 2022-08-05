@@ -9,7 +9,7 @@ sys.path.append(gitpath)
 import pandas as pd
 import numpy as np
 
-from cshlwork.exputils import *
+from expression.utils import *
 from cshlwork.utils import *
 
 if __name__ == '__main__':
