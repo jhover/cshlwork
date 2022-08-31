@@ -28,7 +28,8 @@ def merge_all(infiles):
             outdf = pd.concat([outdf, df], ignore_index=True )
         
         except:
-            logging.warn(f'something went wrong with {infile}')
+            logging.warning(f'something went wrong with {infile}')
+            logging.error(traceback.format_exc(None))
     
     outdf.drop_duplicates(inplace=True)
     outdf = outdf.reset_index(drop=True)
