@@ -40,7 +40,7 @@ def write_tsv(df, outfile=None):
     if outfile is None:       
         outfile = sys.stdout
     logging.debug(f'writing {len(df)} lines output to {outfile}')      
-    df.to_csv(outfile, sep='\t', index=False)
+    df.to_csv(outfile, sep='\t')
     
 
 
