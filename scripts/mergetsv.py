@@ -20,7 +20,7 @@ def merge_all(infiles):
         basename = os.path.basename(infile)
         # print(f"{infile}")
         try:
-            df = pd.read_csv(infile, index_col=[0], sep='\t', comment="#")
+            df = pd.read_csv(infile, index_col=[0], sep='\t', comment="#",  error_bad_lines=False)
             if outdf is None:
                 cols = list(df.columns)
                 logging.debug(f'got columns: {cols}')
