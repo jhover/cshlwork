@@ -15,22 +15,25 @@ import traceback
 
 
 def merge_all(infiles):
-    topdf = None 
+    outdf = None 
     for infile in infiles:
         basename = os.path.basename(infile)
         # print(f"{infile}")
         try:
             df = pd.read_csv(infile, index_col=[0], sep='\t', comment="#")
-            if topdf is None:
-                topdf = pd.DataFrame(columns=list(df.columns))   
-            topdf = topdf.append(df, ignore_index=True, sort=True)
+            if outdf is None:
+                cols = list(df.columns)
+                logging.debug(f'got columns: {cols}')
+                outdf = pd.DataFrame(columns=cols)
+            outdf = pd.concat([outdf, df], ignore_index=True )
         
         except:
             logging.warn(f'something went wrong with {infile}')
     
-    topdf.drop_duplicates(inplace=True)
-    topdf = topdf.reset_index(drop=True)
-    return topdf
+    outdf.drop_duplicates(inplace=True)
+    outdf = outdf.reset_index(drop=True)
+    logging.debug(f'final columns: {outdf.columns}')
+    return outdf
 
 
 def write_tsv(df, outfile=None):
