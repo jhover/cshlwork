@@ -13,7 +13,6 @@ import pandas as pd
 import numpy as np
 import traceback
 
- 
 
 def merge_all(infiles):
     topdf = None 
@@ -21,7 +20,7 @@ def merge_all(infiles):
         basename = os.path.basename(infile)
         # print(f"{infile}")
         try:
-            df = pd.read_csv(infile, index_col=None, sep='\t', comment="#")
+            df = pd.read_csv(infile, index_col=[0], sep='\t', comment="#")
             if topdf is None:
                 topdf = pd.DataFrame(columns=list(df.columns))   
             topdf = topdf.append(df, ignore_index=True, sort=True)
