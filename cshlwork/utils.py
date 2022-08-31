@@ -884,12 +884,10 @@ def load_df(filepath):
     Convenience method to load DF consistently accross modules. 
     """
     filepath = os.path.expanduser(filepath)
-    df = pd.read_csv(filepath, sep='\t',index_col=0, keep_default_na=False, dtype =str, comment="#")
+    df = pd.read_csv(filepath, sep='\t', index_col=0, keep_default_na=False, dtype =str, comment="#")
     df.fillna(value='', inplace=True)
     df = df.astype('str', copy=False)
     return df
-
-
     
 
 def merge_write_df(newdf, filepath,  mode=0o644):
