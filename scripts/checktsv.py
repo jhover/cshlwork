@@ -9,6 +9,8 @@ import sys
 #gitpath=os.path.expanduser("~/git/cshlwork")
 #sys.path.append(gitpath)
 
+from collections import defaultdict
+
 import pandas as pd
 import numpy as np
 import traceback
@@ -26,7 +28,19 @@ def check_all(infiles):
         except:
             logging.warning(f'something went wrong with {infile}')
             logging.error(traceback.format_exc(None))
-
+        logging.info(f'tsv reads in as DF...')
+        
+        lendict = defaultdict(int)
+        
+        with open(infile) as f:
+            nlines = 0
+            for line in f:
+                fields = line.split('\t')
+                lendict[len(fields)] += 1
+                nlines += 1
+        logging.info(f'handled {nlines} lines.')
+        logging.info(f'column counts: {dict(lendict)}')
+        
 
 
 if __name__ == '__main__':
@@ -52,6 +66,8 @@ if __name__ == '__main__':
                         help='TSV [ TSV TSV ...] ')
 
     args= parser.parse_args()
+    # This is diagnostic. Always run in debug. 
+    logging.getLogger().setLevel(logging.DEBUG)
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
     if args.verbose:
