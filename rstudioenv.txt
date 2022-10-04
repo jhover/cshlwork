@@ -1,0 +1,11 @@
+https://github.com/grst/rstudio-server-conda#running-locally
+
+https://repo.anaconda.com/archive/Anaconda3-2022.05-Linux-x86_64.sh
+https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
+
+
+
+conda create -n rstudio
+conda activate rstudio
+conda install rstudio
+ 

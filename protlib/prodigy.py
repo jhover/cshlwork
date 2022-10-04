@@ -34,8 +34,6 @@ sys.path.append(gitpath)
 from cshlwork.utils import run_command, NonZeroReturnException
 
 
-
-
 def parse_prodigy_out(prdfile):
     '''
     [+] Reading structure file: /grid/gillis/home/hover/work/colabfold/out.models/complex.130/trappii_yeast/YOR115CxYOR115C/YOR115CxYOR115C_unrelaxed_rank_1_model_5.pdb
