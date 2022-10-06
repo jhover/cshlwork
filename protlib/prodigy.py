@@ -81,7 +81,7 @@ def run_prodigy_on_dir(indir, outdir=None, flagfile=None):
     '''
     runs prodigy on every .pdb file in directory. 
     optionally outputs .prd (prodigy) output files in different outdir. otherwise in indir. 
-    optionally puts flagefile in outdir
+    optionally puts flagfile in outdir
     
     usage: prodigy [-h] -q] [-V]
                [--selection A B [A,B C ...]]
