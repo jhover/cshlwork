@@ -74,7 +74,7 @@ if __name__=='__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     pc = phmmer.get_default_config()
-    logging.info(f"Running phmmer query={args.fastafile} db={args.fastafile}")
+    logging.info(f"Running phmmer query={args.queryfasta} db={args.targetfasta}")
     if args.targetfasta is not None:
         pdf = phmmer.get_phmmer_df(pc, args.queryfasta, args.queryfasta)
     else:
