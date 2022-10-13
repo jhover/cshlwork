@@ -82,7 +82,7 @@ def parse_phmmer(config, filename):
     logging.info(f"Reading {filename}")
     df = pd.read_table(filename, 
                      names=['target','t-acc','query','q-acc',
-                            'eval', 'score', 'bias', 'e-value-dom','score-dom', 'bias-dom', 
+                            'e_val', 'score', 'bias', 'e-value-dom','score-dom', 'bias-dom', 
                             'exp', 'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 'description'],
                      skip_blank_lines=True,
                      comment='#',
@@ -92,13 +92,12 @@ def parse_phmmer(config, filename):
                      sep='\s+')    
     
     logging.debug("Dropping unneeded columns..")
-    df = df.drop(['t-acc', 'q-acc','e-value-dom','score-dom', 'bias-dom', 'exp', 
+    df.drop(['t-acc', 'q-acc','e-value-dom','score-dom', 'bias-dom', 'exp', 
              'reg', 'clu',  'ov', 'env', 'dom', 'rep', 'inc', 
-             'description'] , axis=1)
+             'description'] , axis=1, inplace=True)
     logging.debug(f"sorting by query and score...")
-    df = df.sort_values(by=['query','score'], ascending=[True, False])
+    df.sort_values(by=['query','score'], ascending=[True, False], inplace=True)
     logging.debug(f"got phmmer df:\n{df}")
-           
     topx = config.getint('phmmer','topx_threshold')
     logging.debug(f"topx ={topx}")
         

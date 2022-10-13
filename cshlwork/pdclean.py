@@ -37,7 +37,7 @@ def cast_columns(dataframe, col_list, dest_type, inplace=False ):
     Cast columns in col_list to selected type, setting
     any values un-convertable to NaNs.     
     @param Dataframe
-    @param list of columns to be case.
+    @param list of columns to be cast.
     @param destination type as string ( 'int32' '
     
     '''

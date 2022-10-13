@@ -3,7 +3,11 @@
 # run phmmer against fasta file all by all.  
 # produce csv of pairwise match alignment. 
 # 
+#   "I consider sequences with E-values > .001  to be significant hits. -- Sean Eddy "
+#    Generally, bit scores of 40 or higher are considered reliable.
 #
+#
+
 import argparse
 import os
 import sys
@@ -40,7 +44,14 @@ if __name__=='__main__':
                         required=False,  
                         type=str,
                         default=None,
-                        help='summarized data output to TSV file. ')
+                        help='allxall matrix output to TSV file. ')
+
+#    parser.add_argument('-m','--metric', 
+#                        metavar='metric',
+#                        required=False,  
+#                        type=str,
+#                        default='score',
+#                        help='Value in matrix [ e_val, score]' )
 
     parser.add_argument('fastafile', 
                         metavar='fastafile', 
@@ -57,8 +68,9 @@ if __name__=='__main__':
 
     pc = phmmer.get_default_config()
     logging.info(f"Running phmmer query={args.fastafile} db={args.fastafile}")
-    pdf = phmmer.get_phmmer_df(pc, args.fastafile, args.fastafile)     
+    pdf = phmmer.get_phmmer_df(pc, args.fastafile, args.fastafile)
+         
     if args.outfile is not None:
-        merge_write_df(pdf, args.outfile)
+        utils.merge_write_df(pdf, args.outfile)
     else:
         print(pdf)    
