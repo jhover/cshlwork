@@ -53,8 +53,15 @@ if __name__=='__main__':
 #                        default='score',
 #                        help='Value in matrix [ e_val, score]' )
 
-    parser.add_argument('fastafile', 
-                        metavar='fastafile', 
+    parser.add_argument('queryfasta', 
+                        metavar='queryfasta', 
+                        type=str, 
+                        help='')
+
+    parser.add_argument('targetfasta', 
+                        metavar='targetfasta', 
+                        required=False,
+                        default=None,
                         type=str, 
                         help='')
 
@@ -68,8 +75,11 @@ if __name__=='__main__':
 
     pc = phmmer.get_default_config()
     logging.info(f"Running phmmer query={args.fastafile} db={args.fastafile}")
-    pdf = phmmer.get_phmmer_df(pc, args.fastafile, args.fastafile)
-         
+    if args.targetfasta is not None:
+        pdf = phmmer.get_phmmer_df(pc, args.queryfasta, args.queryfasta)
+    else:
+        pdf = phmmer.get_phmmer_df(pc, args.queryfasta, args.targetfasta)
+    
     if args.outfile is not None:
         utils.merge_write_df(pdf, args.outfile)
     else:
