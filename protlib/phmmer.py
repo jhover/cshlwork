@@ -13,7 +13,7 @@ import pandas as pd
 gitpath = os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
-from cshlwork.utils import *
+from cshlwork import utils
 
 
 PHMMER_COLS = ['query','target','e_val','score','bias']
@@ -67,9 +67,9 @@ def execute_phmmer(config, queryfile, database=None):
     
     logging.debug(f"Running: {cmd}")
     logging.info(f"Command line: {' '.join(cmd)} ")
-    cp = subprocess.run(cmd)
-   
-    logging.debug(f"Ran cmd='{cmd}' outfile={outfile} returncode={cp.returncode} " )
+    #cp = subprocess.run(cmd)
+    (err, out, returncode) = utils.run_command_shell(cmd)
+    logging.debug(f"Ran cmd='{cmd}' outfile={outfile} returncode={returncode} " )
     logging.debug(f"returning outfile={outfile} ")
     return outfile
 
@@ -89,8 +89,7 @@ def parse_phmmer(config, filename):
                      index_col=False,
                      skiprows=3,
                      engine='python', 
-                     sep='\s+')
-    
+                     sep='\s+')    
     
     logging.debug("Dropping unneeded columns..")
     df = df.drop(['t-acc', 'q-acc','e-value-dom','score-dom', 'bias-dom', 'exp', 
@@ -107,13 +106,9 @@ def parse_phmmer(config, filename):
         df = df.groupby('query').head(topx).reset_index(drop=True) 
         logging.debug(f'topx is {topx}. reduced df is \n{df}')
     
-    
-    
-    
     dict = df.to_dict(orient='index')
     logging.debug(f"dict is {dict}")
     idxtodel = []
-    
     
     if logging.root.level >= logging.DEBUG: 
         s ="{"
@@ -123,6 +118,7 @@ def parse_phmmer(config, filename):
         logging.debug(f"{s}")
     logging.debug(f"returning OK. dict={dict}")
     return dict
+
 
 
 def get_phmmer_df(config, queryfile, database=None ):
