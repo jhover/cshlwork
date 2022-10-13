@@ -24,7 +24,7 @@ conda config --add channels bioconda
 
 # update conda if necessary
 conda update -y -n base -c defaults conda
-conda install -y pandas ipython jupyter numpy scikit-learn matplotlib seaborn biopython  scikit-plot requests networkx scipy pyvis h5py
-# conda install -y -c bioconda hmmer
+conda install -y pandas ipython jupyter numpy scikit-learn matplotlib seaborn biopython  scikit-plot requests networkx scipy pyvis h5py hhsuite
+conda install -y -c bioconda hmmer
 
 pip install dynamicTreeCut

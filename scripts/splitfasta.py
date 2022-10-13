@@ -23,13 +23,13 @@ from Bio import SeqIO
 from cshlwork.utils import *
 
 def handle_infile(infile, maxseq=1, outdir = None):
-    current = None
-    processed = 0
-    
+      
     filepath = os.path.abspath(infile)    
     filename = os.path.basename(filepath)
+    filedir = os.path.dirname(filepath)
     (base, ext) = os.path.splitext(filename)
-    logging.debug(f'base={base} ext={ext} filename={filename} filepath={filepath}')
+    ext = ext[1:]
+    logging.debug(f' filepath={filepath} filedir={filedir} base={base} ext={ext} filename={filename}')
     
     if outdir is None:
         outdir = os.getcwd()
@@ -38,45 +38,35 @@ def handle_infile(infile, maxseq=1, outdir = None):
     
     logging.debug(f'outdir = {outdir}')  
     records = list( SeqIO.parse(infile, 'fasta'))
-    
     logging.debug(f'got {len(records)} sequences')
     
-    split=0
+    splitnum = 0
     seqnum = 0
+    handled = 0
+    currentlist = []
     
-    while seqnum < len(records):
-        
-        
-        
-        
-        
-        
-        
-        seqnum += 1
+    splitsets = {}
+    for srec in records:
+        currentlist.append(srec)
+        if len(currentlist) >= maxseq:
+            splitsets[splitnum] = currentlist
+            splitnum += 1
+            currentlist = []
+    # get last items. 
+    splitsets[splitnum] = currentlist
     
-    #    print(record.description)
-    
-    
-    with open(infilepath, 'r') as f:
-        try:
-            while True:
-                line = f.readline().strip()
-                if line == '':
-                        break
-                
-                if line.startswith(">"):
-                    if current is not None:
-                        write_current(current)
-                        processed += 1
-                    current = []
-                    current.append(line)
+    lenlist = []
+    for k,v in splitsets.items():
+        lenlist.append(len(v))        
+    logging.debug(f'seqs split into {len(splitsets)} sets with lengths={lenlist}')
 
-                else:
-                    current.append(line)
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-
-    logging.debug(f'done writing {processed} fasta files. ')
+    for k,v in splitsets.items():
+        outfile = f'{filedir}/{base}.{k}.{ext}'
+        logging.info(f'writing {len(v)} seqs to {outfile}')
+        with open(outfile, 'w') as of:
+            SeqIO.write(v, of, 'fasta')
+        
+    logging.debug(f'done writing fasta files. ')
                
 
 if __name__ == '__main__':
