@@ -58,7 +58,7 @@ if __name__=='__main__':
                         type=str, 
                         help='')
 
-    parser.add_argument('targetfasta', 
+    parser.add_argument('-t','--targetfasta', 
                         metavar='targetfasta', 
                         required=False,
                         default=None,
