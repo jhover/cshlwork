@@ -874,11 +874,23 @@ def read_identifier_file(filepath, flatten=True):
         return []    
 
 
+def convert_numeric(df):
+    '''
+    Convert all columns that can be successfully cast to numeric. 
+    '''
+    for c in df.columns:
+        try:
+            newc = pd.to_numeric(df[c])
+            df[c] = newc
+        except:
+            logging.debug(f'column {c} not convertible to numeric.')
+    # changes made in place, but also return so df = convert_numeric(df) works. 
+    return df
 
 
 def load_df(filepath):
     """
-    Convenience method to load DF consistently accross modules. 
+    Convenience method to load DF consistently across modules. 
     """
     filepath = os.path.expanduser(filepath)
     df = pd.read_csv(filepath, sep='\t', index_col=0, keep_default_na=False, dtype =str, comment="#")
