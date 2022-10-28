@@ -30,6 +30,19 @@ class NonZeroReturnException(Exception):
     Thrown when a command has non-zero return code. 
     """
 
+def setup_logging(level):
+    """ 
+    Setup logging using e.g. level=logging.DEBUG
+    """
+    FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(name)s %(filename)s:%(lineno)d %(funcName)s(): %(message)s'
+    logging.basicConfig()
+    logger = logging.getLogger()
+    streamHandler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter(FORMAT)
+    streamHandler.setFormatter(formatter)
+    logger.addHandler(streamHandler)
+    logger.setLevel(level)
+
 
 def remove_parentpath(parent, fullpath):
     '''
