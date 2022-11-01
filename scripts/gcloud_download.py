@@ -28,7 +28,7 @@ def download_gcloud_url(gsurl, outdir=None, force = False):
     outfile = gsurl.split('/')[-1:][0]
     logging.debug(f'downloading {gsurl} -> {outdir}')        
     outpath = f'{outdir}/{outfile}'
-    if os.path.exists():
+    if os.path.exists(outpath):
         logging.warning(f'file {outpath} exists. ')
         f_exists = True
     else:
