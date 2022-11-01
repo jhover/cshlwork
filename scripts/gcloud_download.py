@@ -27,12 +27,13 @@ def download_gcloud_url(gsurl, outdir=None, force = False):
         outdir = os.path.abspath('./')
     outfile = gsurl.split('/')[-1:][0]
     logging.debug(f'downloading {gsurl} -> {outdir}')        
-    if os.path.exists(f'{outdir}/{outfile}'):
-        logging.warning(f'file {outdir}/{outfile} exists. ')
+    outpath = f'{outdir}/{outfile}'
+    if os.path.exists():
+        logging.warning(f'file {outpath} exists. ')
         f_exists = True
     else:
         f_exists = False
-        logging.debug(f'file {outdir}/{outfile} does not exist. ')
+        logging.debug(f'file {outpath} does not exist. ')
     
     cmd = [ 'gsutil','cp',
             gsurl,
@@ -58,7 +59,7 @@ def handle_sample_set(setid, urllist, outdir):
     logging.debug(f'handling {len(urllist)} files -> {outpath}')
     os.makedirs(outpath, exist_ok = True)
     for url in urllist:
-        download_gcloud_url(url, outdir)
+        download_gcloud_url(url, outpath)
 
 
 def parse_sample_text(infile):
