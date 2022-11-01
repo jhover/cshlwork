@@ -26,6 +26,6 @@ conda config --add channels bioconda
 conda update -y -n base -c defaults conda
 conda install -y -c bioconda hmmer
 conda install -y pandas ipython jupyter numpy scikit-learn matplotlib seaborn biopython  scikit-plot requests networkx scipy pyvis h5py hhsuite
-
+conda install -c conda-forge google-cloud-sdk
 
 pip install dynamicTreeCut

@@ -6,13 +6,15 @@ import argparse
 import logging
 import os
 import sys
-#gitpath=os.path.expanduser("~/git/cshlwork")
-#sys.path.append(gitpath)
+
+gitpath=os.path.expanduser("~/git/cshlwork")
+sys.path.append(gitpath)
 
 import pandas as pd
 import numpy as np
 import traceback
 
+from cshlwork.utils import write_tsv
 
 def merge_all(infiles):
     outdf = None 
@@ -37,12 +39,7 @@ def merge_all(infiles):
     return outdf
 
 
-def write_tsv(df, outfile=None):
-    if outfile is None:       
-        outfile = sys.stdout
-    logging.debug(f'writing {len(df)} lines output to {outfile}')      
-    df.to_csv(outfile, sep='\t')
-    
+   
 
 
 if __name__ == '__main__':

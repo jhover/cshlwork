@@ -969,6 +969,14 @@ def write_df(newdf, filepath,  mode=0o644):
         raise ex
 
 
+def write_tsv(df, outfile=None):
+    if outfile is None:       
+        outfile = sys.stdout
+    logging.debug(f'writing {len(df)} lines output to {outfile}')      
+    df.to_csv(outfile, sep='\t')
+    
+
+
 def matrix2table(df, symmetric=True, merge_label=True, combo_char='x'):
     '''
     Takes  A x B  square matrix of permutations and converts to table of AxB with values.
