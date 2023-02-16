@@ -1,0 +1,23 @@
+
+
+SRA project
+
+SRA sample
+
+SRA experiment.  unique sequencing library and technology for a  specific sample. 
+
+SRA run  -> given fastq files. 
+
+
+
+SRA QUERY
+https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=sra
+&term=(((%22rna%20seq%22%5BStrategy%5D)%20AND%20%22mus%20musculus%22%5BOrganism%5D)%20AND%20%22single%20cell%22%5BText%20Word%5D
+&retmax=20
+<Count>436137</Count>
+
+E.g. 
+<Id>14621461</Id>
+<Id>14621460</Id>
+<Id>14619734</Id>
+
