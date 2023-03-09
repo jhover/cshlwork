@@ -69,8 +69,6 @@ if __name__ == "__main__":
                         default=None,
                         help='Download run SRA file, e.g. SRR14584407')
 
-
-
     parser.add_argument('-s', '--samples',
                         metavar='samp_id',
                         type=str,
@@ -108,6 +106,26 @@ if __name__ == "__main__":
             logging.debug(f'Downloading SRA for run {run_id}')
             download_run_sra(run_id, args.outdir)
         logging.info('Done')
+
+
+    if args.samples is not None:
+        for samp_id in args.samples:
+            logging.debug(f'Querying SRA for sample {samp_id}')
+            #download_run_sra(run_id, args.outdir)
+        logging.info('Done')
+
+    if args.projects is not None:
+        for proj_id in args.projects:
+            logging.debug(f'Querying SRA for project {proj_id}')
+            df = query_project_metadata(proj_id)
+            print(df)
+            #download_run_sra(run_id, args.outdir)
+        logging.info('Done')        
+
+
+
+
+
 
 
 

@@ -57,6 +57,7 @@ def run_bowtie(config, infile, outfile, tool='bowtie'):
            idxpfx, 
            ]
     logging.debug(f'running bowtie-build...')
+    logging.info(f'running {cmd}')
     try:
         run_command_shell(cmd)
     except NonZeroReturnException as nzre:
@@ -104,6 +105,10 @@ def run_bowtie(config, infile, outfile, tool='bowtie'):
     return outfile
 
 def make_bowtie_df(infile):
+    '''
+    parse standard bowtie output and create pandas dataframe with standard columns
+    
+    '''
     filepath = os.path.abspath(infile)    
     dirname = os.path.dirname(filepath)
     filename = os.path.basename(filepath)
@@ -111,19 +116,22 @@ def make_bowtie_df(infile):
     bdf = pd.read_csv(filepath, sep='\t',header=None, names=BOWTIE_1_COLS)
     return bdf
 
-def matrix_df_from_btdf(df):
+
+def make_adjacency_df(bowtiedf):
     '''
-    takes bowtie read df
-    emits boolean adjacency matrix of 'name_read','name_align'
-    
+    consume custom bowtie dataframe (from all x all alignment) and
+    create adjacency matrix dataframe
     '''
-    labels = np.unique(df[['name_read','name_align']])
-    sdf = df.filter(['name_read','name_align'], axis=1)
-    sdf['val'] = True
-    mdf = sdf.pivot(index = 'name_read', columns='name_align', values='val').reindex(columns=labels, index=labels, fill_value=False)
+    labels = np.unique(btdf[['name_read','name_align']])
+    sdf = btdf.filter( ['name_read','name_align'], axis=1 )
+    sdf['val'] = 1
+    mdf = sdf.pivot(index = 'name_read', 
+                    columns='name_align', 
+                    values='val').reindex(columns=labels, index=labels, fill_value=0)
+    mdf.fillna(0, inplace=True)
     return mdf
 
-   
+
     
 def make_bowtie2_df(filepath):
     logging.warning('not implemented')

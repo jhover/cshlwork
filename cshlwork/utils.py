@@ -586,6 +586,23 @@ def get_configstr(cp):
         ss.seek(0)  # rewind
         return ss.read()
 
+
+def write_fasta_from_df(config, df, outfile=None):
+    '''
+    Assumes df has 'sequence' column
+    
+    
+    '''
+    logging.debug(f'creating bowtie input')
+    srlist = dataframe_to_seqlist(df)
+    logging.debug(f'len srlist={len(srlist)}')
+    if outfile is not None:
+        SeqIO.write(srlist, outfile, 'fasta')
+    else:
+        logging.error('outfile is None, not implemented.')
+    return outfile
+
+
 def dataframe_to_seqlist(df, seqcol='sequence',idcol=None, desccols=None, sep=':'):
     '''
     reads df and produces python list of BioPython SeqRecord objects. 
@@ -910,6 +927,29 @@ def merge_write_df(newdf, filepath,  mode=0o644):
     except Exception as ex:
         logging.error(traceback.format_exc(None))
         raise ex
+
+
+def write_config(config, filename, timestamp=True):
+    '''
+    writes config file to relevant name,
+    if adddate, puts date/time code dot-separated before extension. e.g.
+    filename = /path/to/some.file.string.txt  ->  /path/to/some.file.string.202303081433.txt
+    date is YEAR/MO/DY/HR/MI
+    
+    '''
+    if timestamp:
+        filepath = os.path.abspath(filename)    
+        dirname = os.path.dirname(filepath)
+        basefilename = os.path.basename(filepath)
+        (base, ext) = os.path.splitext(basefilename) 
+        datestr = dt.datetime.now().strftime("%Y%m%d%H%M")
+        filename = f'{dirname}/{base}.{datestr}{ext}'
+    with open(filename, 'w') as configfile:
+        config.write(configfile)
+    logging.debug(f'wrote current config to {filename}')
+        
+    
+
 
 def write_df(newdf, filepath,  mode=0o644):
     """

@@ -1,6 +1,19 @@
 
 
-SRA project
+REFS
+https://blogs.iu.edu/ncgas/2021/02/22/a-beginners-guide-to-the-sra/
+
+
+SCHEMA
+
+The SRA publicly accessioned objects are STUDY (accession in the form of SRP#), SAMPLE (SRS#), EXPERIMENT (SRX#), RUN (SRR#). 
+SUBMISSION has a non-public accession in the form of SRA#.
+The SRA EXPERIMENT and RUN objects contain instrument and library information and are directly associated with sequence data.
+SRA data pertaining to a STUDY can be deposited in more than one SUBMISSION.
+A SAMPLE can be shared between STUDIES and between SUBMISSIONS.
+
+
+SRA project (Study.  SRP#)
 
 SRA sample
 
@@ -8,6 +21,8 @@ SRA experiment.  unique sequencing library and technology for a  specific sample
 
 SRA run  -> given fastq files. 
 
+SRA Metadata template, EXPERIMENT is represented by a combination of library + strategy + layout + instrument model 
+	and corresponds to one row in the table.
 
 
 SRA QUERY
@@ -20,4 +35,17 @@ E.g.
 <Id>14621461</Id>
 <Id>14621460</Id>
 <Id>14619734</Id>
+
+SCQC query:  ((("mus musculus"[Organism]) AND "rna seq"[Strategy]) AND "brain"[Text Word]) AND "single cell" 
+https://www.ncbi.nlm.nih.gov/sra?term=(((%22mus%20musculus%22%5BOrganism%5D)%20AND%20%22rna%20seq%22%5BStrategy%5D)%20AND%20%22brain%22%5BText%20Word%5D)%20AND%20%22single%20cell%22
+
+98704 results. 
+
+
+
+esearch -db sra -query SRP291442 | efetch -format xml > SRP291442.xml
+
+esearch -db sra -query SRS7663847 | efetch -format xml
+
+
 

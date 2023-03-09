@@ -68,7 +68,6 @@ def download_run_sra(runid, outdir=None):
         pass
 
 
-
 def stage_in(config, runlist, outdir=None , force=True):
     """
     bring in fastq files to <outdir> for all run_ids
@@ -1095,7 +1094,7 @@ def query_project_metadata(project_id):
         "term": project_id}
 
     df = None
-    log.debug('opening request...')
+    log.debug(f'opening request url {url}...')
     r = requests.put(url, data=payload, headers=headers, stream=True)
     if r.status_code == 200:
         log.info('got good return. reading CSV to dataframe.')
