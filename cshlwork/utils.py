@@ -887,6 +887,29 @@ def load_df(filepath):
     df.fillna(value='', inplace=True)
     df = df.astype('str', copy=False)
     return df
+
+def merge_dfs( dflist):
+    newdf = None
+    for df in dflist:
+        if newdf is None:
+            newdf = df
+        else:
+            newdf = pd.concat([df, newdf], ignore_index=True, copy=False)
+    logging.debug(f'merged {len(dflist)} dataframes newdf len={len(newdf)}')
+    return newdf
+
+def merge_tsvs( filelist):
+    logging.debug(f'mergin list {filelist}')
+    newdf = None
+    for f in filelist:
+        df = pd.read_csv(f, sep='\t', index_col=0)
+        if newdf is None:
+            newdf = df
+        else:
+            newdf = pd.concat([df, newdf], ignore_index=True, copy=False)
+    logging.debug(f'merged {len(filelist)} tsv files new df len={len(newdf)}')
+    newdf.reset_index(drop=True, inplace=True)
+    return newdf
     
 
 def merge_write_df(newdf, filepath,  mode=0o644):
