@@ -14,7 +14,7 @@ import urllib
 from configparser import ConfigParser
 import datetime as dt
 
-import bottleneck
+
 import io
 import numpy as np
 import pandas as pd
@@ -26,11 +26,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-
 numba_logger = logging.getLogger('numba')
 numba_logger.setLevel(logging.WARNING)
-
-
 
 
 class JobSet(object):
@@ -184,6 +181,33 @@ def findmatches(dirpath, prefix, ext='*'):
     logging.debug(f'looking for matches to {prefix} in {dirpath}')
     rlist = glob.glob(f'{dirpath}/{prefix}.{ext}')
     return rlist
+
+
+def fix_columns_float(df, columns):
+    for col in columns:
+        try:
+            logging.debug(f'trying to fix col {col}')
+            fixed = np.array(df[col], np.float64)
+            df[col] = fixed
+        except ValueError:
+            logging.debug(f'invalid literal in {col}')
+    # np cast sets nans to 0, change them back:
+    df.replace(0, np.nan, inplace=True)
+    return df
+
+def fix_columns_int(df, columns):
+    for col in columns:
+        try:
+            logging.debug(f'trying to fix col {col}')
+            fixed = np.array(df[col], np.int16)
+            df[col] = fixed
+        except ValueError:
+            logging.debug(f'invalid literal in {col}')
+    # np cast sets nans to 0, change them back:
+    df.replace(0, np.nan, inplace=True)
+    return df
+
+
                    
 def unflatten_tree(indir, rootdir, mapfile, ext):
     '''

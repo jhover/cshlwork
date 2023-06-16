@@ -29,3 +29,5 @@ conda install -y pandas ipython jupyter numpy scikit-learn matplotlib seaborn bi
 conda install -c conda-forge google-cloud-sdk
 
 pip install dynamicTreeCut
+
+# OR   conda create -y -n cshlwork -c conda-forge -c bioconda python pandas ipython jupyter numpy scikit-learn matplotlib seaborn biopython scipy h5py star bottleneck
