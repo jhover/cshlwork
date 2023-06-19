@@ -531,7 +531,7 @@ def run_command(cmd):
     logging.debug(f"ran cmd='{cmdstr}' return={cp.returncode} {elapsed.seconds} seconds.")
     
     if cp.stderr is not None:
-        logging.debug(f"got stderr: {cp.stderr}")
+        logging.warn(f"got stderr: {cp.stderr}")
     if cp.stdout is not None:
         logging.debug(f"got stdout: {cp.stdout}")   
     if str(cp.returncode) == '0':
@@ -561,7 +561,7 @@ def run_command_shell(cmd):
     logging.debug(f"ran cmd='{cmdstr}' return={cp.returncode} {elapsed.seconds} seconds.")
     
     if cp.stderr is not None:
-        #logging.debug(f"got stderr: {cp.stderr}")
+        logging.warn(f"got stderr: {cp.stderr}")
         pass
     if cp.stdout is not None:
         #logging.debug(f"got stdout: {cp.stdout}")
