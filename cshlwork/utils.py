@@ -517,6 +517,8 @@ def remove_pathlist(pathlist):
 def run_command(cmd):
     """
     cmd should be standard list of tokens...  ['cmd','arg1','arg2'] with cmd on shell PATH.
+    @return 
+    
     
     """
     cmdstr = " ".join(cmd)
@@ -535,11 +537,11 @@ def run_command(cmd):
     if cp.stdout is not None:
         logging.debug(f"got stdout: {cp.stdout}")   
     if str(cp.returncode) == '0':
-        logging.info(f'successfully ran {cmdstr}')
+        logging.info(f'got rc={cp.returncode} command= {cmdstr}')
         return(cp.stderr, cp.stdout, cp.returncode)
     else:
-        logging.warn(f'non-zero return code for cmd {cmdstr}')
-        raise NonZeroReturnException()
+        logging.warn(f'got rc={cp.returncode} command = {cmdstr}')
+#        raise NonZeroReturnException()
 
 
 def run_command_shell(cmd):
