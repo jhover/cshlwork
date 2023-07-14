@@ -988,13 +988,17 @@ def write_config(config, filename, timestamp=True):
     date is YEAR/MO/DY/HR/MI
     
     '''
+    filepath = os.path.abspath(filename)    
+    dirname = os.path.dirname(filepath)
+    basefilename = os.path.basename(filepath)
+    (base, ext) = os.path.splitext(basefilename) 
+    
     if timestamp:
-        filepath = os.path.abspath(filename)    
-        dirname = os.path.dirname(filepath)
-        basefilename = os.path.basename(filepath)
-        (base, ext) = os.path.splitext(basefilename) 
         datestr = dt.datetime.now().strftime("%Y%m%d%H%M")
         filename = f'{dirname}/{base}.{datestr}{ext}'
+
+    os.makedirs(dirname, exist_ok=True)
+        
     with open(filename, 'w') as configfile:
         config.write(configfile)
     logging.debug(f'wrote current config to {filename}')
