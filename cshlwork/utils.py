@@ -527,7 +527,8 @@ def run_command(cmd):
     cp = subprocess.run(cmd, 
                     text=True, 
                     stdout=subprocess.PIPE, 
-                    stderr=subprocess.STDOUT)
+                    stderr=subprocess.STDOUT
+                    )
     end = dt.datetime.now()
     elapsed =  end - start
     logging.debug(f"ran cmd='{cmdstr}' return={cp.returncode} {elapsed.seconds} seconds.")
