@@ -200,11 +200,12 @@ def fix_columns_int(df, columns):
         try:
             logging.debug(f'trying to fix col {col}')
             fixed = np.array(df[col], np.int16)
+            logging.debug(f'fixed=\n{fixed}')
             df[col] = fixed
         except ValueError:
             logging.debug(f'invalid literal in {col}')
     # np cast sets nans to 0, change them back:
-    df.replace(0, np.nan, inplace=True)
+    #df.replace(0, np.nan, inplace=True)
     return df
 
 
@@ -575,7 +576,7 @@ def run_command_shell(cmd):
         logging.info(f'got rc={cp.returncode} command= {cmdstr}')
     else:
         logging.warn(f'got rc={cp.returncode} command= {cmdstr}')
-        #raise NonZeroReturnException(f'For cmd {cmdstr}')
+        raise NonZeroReturnException(f'For cmd {cmdstr}')
     return cp
 
 def string_modulo(instring, divisor):

@@ -44,6 +44,10 @@ def run_bowtie(config, infile, outfile, tool='bowtie'):
     os.makedirs(idxdir, exist_ok = True )
     idxpfx = f'{idxdir}/{base}'
 
+    # don't run seconds if first fails. 
+    build_ok = False
+    
+
     if tool == 'bowtie':
         cmd = ['bowtie-build',
                #'-q',
@@ -60,6 +64,8 @@ def run_bowtie(config, infile, outfile, tool='bowtie'):
     logging.info(f'running {cmd}')
     try:
         run_command_shell(cmd)
+        build_ok = True
+        
     except NonZeroReturnException as nzre:
         logging.error(f'problem with infile {infile}')
         logging.error(traceback.format_exc(None))
@@ -97,6 +103,7 @@ def run_bowtie(config, infile, outfile, tool='bowtie'):
     logging.debug(f'running bowtie...')
     try:
         run_command_shell(cmd)
+    
     except NonZeroReturnException as nzre:
         logging.error(f'problem with infile {infile}')
         logging.error(traceback.format_exc(None))
