@@ -514,7 +514,6 @@ def remove_pathlist(pathlist):
                 logging.error(f'problem removing {fp}')
                 logging.error(traceback.format_exc(None))
 
-
 def run_command(cmd):
     """
     cmd should be standard list of tokens...  ['cmd','arg1','arg2'] with cmd on shell PATH.
@@ -525,7 +524,7 @@ def run_command(cmd):
     cmdstr = " ".join(cmd)
     logging.info(f"command: {cmdstr} running...")
     start = dt.datetime.now()
-    cp = subprocess.run(cmd, 
+    cp = subprocess.run( cmd, 
                     text=True, 
                     stdout=subprocess.PIPE, 
                     stderr=subprocess.STDOUT
