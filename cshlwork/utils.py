@@ -183,6 +183,48 @@ def findmatches(dirpath, prefix, ext='*'):
     return rlist
 
 
+def findrepeats(s, n=2):
+    '''
+    Finds strings of repeated characters longer than <num>
+    Typically used to find homopolymers in sequences for exclusion from results
+    as repeats interfere with amplification/replication.
+    '''
+    rcount = 1
+    last = None
+    res = False
+    for c in s:
+        if last is None:
+            last = c
+        else:
+            if c == last:
+                rcount += 1
+            else:
+                last = c
+                rcount = 1
+        if rcount >= n:
+            # short-circuit if found. 
+            return True
+        else:
+            pass
+    return res
+
+def remove_base_repeats(df, col='sequence', n=7):
+    '''
+    removes rows where column string repeats C,G,A, or T <n> times or more.    
+    '''
+    startlen=len(df)
+    logging.debug(f'removing n>{n} repeats from df len={startlen}')
+    bases = ['C','G','A','T']
+    for b in bases:
+        pat = b*n
+        logging.debug(f'searching for {pat}')
+        df = df[ ~df[col].str.contains(pat)]
+    
+    endlen=(len(df))
+    logging.debug(f'df without {n} repeats len={endlen}')
+    return df
+
+
 def fix_columns_float(df, columns):
     for col in columns:
         try:
