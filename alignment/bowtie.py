@@ -32,7 +32,7 @@ def run_bowtie(config, infile, outfile, tool='bowtie'):
     bowtie -v 3 -p 10 -f --best -a indexes/BC1.bt BC1_seq.fasta BC1.bt.algn
    
     '''
-    logging.info(f'running allxall bowtie on {infile} -> {outfile}')
+    logging.debug(f'running allxall bowtie on {infile} -> {outfile}')
      
     filepath = os.path.abspath(infile)    
     dirname = os.path.dirname(filepath)
@@ -60,8 +60,7 @@ def run_bowtie(config, infile, outfile, tool='bowtie'):
            infile,
            idxpfx, 
            ]
-    logging.debug(f'running bowtie-build...')
-    logging.info(f'running {cmd}')
+    logging.debug(f'running {cmd}')
     try:
         run_command_shell(cmd)
         build_ok = True
@@ -71,7 +70,7 @@ def run_bowtie(config, infile, outfile, tool='bowtie'):
         logging.error(traceback.format_exc(None))
         raise     
 
-    logging.info(f'bowtie-build done.')
+    logging.debug(f'bowtie-build done.')
 
     threads = config.get(tool, 'threads')
     max_mismatch = config.get(tool, 'max_mismatch')
@@ -108,7 +107,7 @@ def run_bowtie(config, infile, outfile, tool='bowtie'):
         logging.error(f'problem with infile {infile}')
         logging.error(traceback.format_exc(None))
         raise         
-    logging.info(f'bowtie done.')
+    logging.debug(f'bowtie done.')
     return outfile
 
 def make_bowtie_df(infile):

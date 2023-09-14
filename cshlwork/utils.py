@@ -39,18 +39,18 @@ class JobSet(object):
         for x in range(0,self.max_processes):
             jr = JobRunner()
             threadlist.append(jr)
-        logging.info(f'made {len(threadlist)} jobrunners. ')
+        logging.debug(f'made {len(threadlist)} jobrunners. ')
 
     def runjobs(self):
-        logging.info(f'starting threads...')
+        logging.debug(f'starting threads...')
         for th in self.threadlist:
             th.start()
             
-        logging.info(f'joining threads...')    
+        logging.debug(f'joining threads...')    
         for th in self.threadlist:
             th.join()
 
-        logging.info(f'all threads joined. returning...')
+        logging.debug(f'all threads joined. returning...')
 
 
 
@@ -73,9 +73,9 @@ class JobRunner(threading.Thread):
         while True:
             try:
                 cmdlist = self.jobstack.pop()
-                logging.info(f'got command: {cmdlist}')
+                logging.debug(f'got command: {cmdlist}')
                 run_command_shel(cmdlist)
-                logging.info(f'completed command: {cmdlist}')
+                logging.debug(f'completed command: {cmdlist}')
             except NonZeroReturnException:
                 logging.warning(f'NonZeroReturn Exception job: species={species}  contig={contig} feature={feature} seslen={seslen} next...')
   
@@ -167,7 +167,7 @@ def flatten_tree(indir, outdir, mapfile):
             sample, ext = os.path.splitext(fname)
             mapstring += f'{subdir} {sample}\n'
             outfile = os.path.join(outdir, fname)
-            logging.info(f'copying {ffile} -> {outfile}')
+            logging.debug(f'copying {ffile} -> {outfile}')
             shutil.copyfile(ffile, outfile)
     #logging.debug(f'{mapstring}')   
 
@@ -238,18 +238,20 @@ def fix_columns_float(df, columns):
     return df
 
 def fix_columns_int(df, columns):
+    '''
+    forces column in dataframe to be an integer. NaNs become '0'
+    Only floating points can be NaN. No good solution for integers...
+    '''   
     for col in columns:
         try:
             logging.debug(f'trying to fix col {col}')
             fixed = np.array(df[col], np.int16)
             logging.debug(f'fixed=\n{fixed}')
             df[col] = fixed
+                
         except ValueError:
             logging.debug(f'invalid literal in {col}')
-    # np cast sets nans to 0, change them back:
-    #df.replace(0, np.nan, inplace=True)
     return df
-
 
                    
 def unflatten_tree(indir, rootdir, mapfile, ext):
@@ -274,7 +276,7 @@ def unflatten_tree(indir, rootdir, mapfile, ext):
                 outfile = f'{rootdir}/{subdir}/{bname}'
                 outdir = f'{rootdir}/{subdir}'
                 os.makedirs(outdir, exist_ok = True)
-                logging.info(f'copying {fname} -> {outfile}')
+                logging.debug(f'copying {fname} -> {outfile}')
                 shutil.copyfile(fname, outfile)
             
             
@@ -288,7 +290,7 @@ def readlist(filepath):
     '''
 
     if filepath is not None:
-        logging.info(f'reading file: {filepath}')
+        logging.debug(f'reading file: {filepath}')
         flist = []
         try:
             with open(filepath, 'r') as f:
@@ -308,12 +310,12 @@ def readlist(filepath):
         except:
             return []
     else:
-        logging.info('no file. return [].')
+        logging.debug('no file. return [].')
         return []
 
 
 def writelist(filepath, dlist, mode=0o644):
-    logging.info(f"writing list length={len(dlist)} to file='{filepath}'")
+    logging.debug(f"writing list length={len(dlist)} to file='{filepath}'")
     rootpath = os.path.dirname(filepath)
     basename = os.path.basename(filepath)
     try:
@@ -329,7 +331,7 @@ def writelist(filepath, dlist, mode=0o644):
                 nlines += 1
         os.rename(tfname, filepath)
         os.chmod(filepath, mode)
-        logging.info(f"wrote {nlines} to {filepath}")
+        logging.debug(f"wrote {nlines} to {filepath}")
     except Exception as ex:
         logging.error(traceback.format_exc(None))
 
@@ -424,7 +426,7 @@ def download_wget(srcurl, destpath, finalname=None, overwrite=True, decompress=T
             dlbytes = parse_wget_output_bytes(cp.stderr)
             logging.info(f'downloaded {dlbytes} bytes {destpath} successfully, in {elapsed.seconds} seconds. ')
         else:
-            logging.info(f'file already downloaded.')
+            logging.warn(f'file already downloaded.')
     else:
         logging.error(f'non-zero return code for src {srcurl}')
     return cp.returncode
@@ -524,7 +526,7 @@ def peek_tarball(tfile, subfile, numlines):
            f'-{numlines}'
            ]
     cmdstr = " ".join(cmd)
-    #logging.info(f"command: {cmdstr} running...")
+    #logging.debug(f"command: {cmdstr} running...")
     
     try:
         err, out, returncode = run_command_shell(cmd)
@@ -564,7 +566,7 @@ def run_command(cmd):
     
     """
     cmdstr = " ".join(cmd)
-    logging.info(f"command: {cmdstr} running...")
+    logging.debug(f"command: {cmdstr} running...")
     start = dt.datetime.now()
     cp = subprocess.run( cmd, 
                     text=True, 
@@ -580,8 +582,8 @@ def run_command(cmd):
     if cp.stdout is not None:
         logging.debug(f"got stdout: {cp.stdout}")   
     if str(cp.returncode) == '0':
-        #logging.info(f'successfully ran {cmdstr}')
-        logging.info(f'got rc={cp.returncode} command= {cmdstr}')
+        #logging.debug(f'successfully ran {cmdstr}')
+        logging.debug(f'got rc={cp.returncode} command= {cmdstr}')
     else:
         logging.warn(f'got rc={cp.returncode} command= {cmdstr}')
        
@@ -613,8 +615,8 @@ def run_command_shell(cmd):
         #logging.debug(f"got stdout: {cp.stdout}")
         pass
     if str(cp.returncode) == '0':
-        #logging.info(f'successfully ran {cmdstr}')
-        logging.info(f'got rc={cp.returncode} command= {cmdstr}')
+        #logging.debug(f'successfully ran {cmdstr}')
+        logging.debug(f'got rc={cp.returncode} command= {cmdstr}')
     else:
         logging.warn(f'got rc={cp.returncode} command= {cmdstr}')
         raise NonZeroReturnException(f'For cmd {cmdstr}')
@@ -699,7 +701,7 @@ def dataframe_to_seqlist(df, seqcol='sequence',idcol=None, desccols=None, sep=':
             desc = str('')
         sr = SeqRecord(seq, id = id, name=id, description=desc )
         srlist.append(sr)
-    logging.info(f'made list of {len(srlist)} SeqRecords')
+    logging.debug(f'made list of {len(srlist)} SeqRecords')
     return srlist    
             
 
@@ -969,8 +971,8 @@ def merge_dfs( dflist):
     return newdf
 
 def merge_tsvs( filelist):
-    logging.debug(f'mergin list {filelist}')
-    newdf = None
+    logging.debug(f'merge list {filelist}')
+    newdf = None  
     for f in filelist:
         df = pd.read_csv(f, sep='\t', index_col=0)
         if newdf is None:
@@ -1015,7 +1017,7 @@ def merge_write_df(newdf, filepath,  mode=0o644):
         df.to_csv(tfname, sep='\t')
         os.rename(tfname, filepath)
         os.chmod(filepath, mode)
-        logging.info(f"wrote df to {filepath}")
+        logging.debug(f"wrote df to {filepath}")
 
     except Exception as ex:
         logging.error(traceback.format_exc(None))
@@ -1059,7 +1061,7 @@ def write_df(newdf, filepath,  mode=0o644):
         basename = os.path.basename(filepath)
         df.to_csv(filepath, sep='\t')
         os.chmod(filepath, mode)
-        logging.info(f"wrote df to {filepath}")
+        logging.debug(f"wrote df to {filepath}")
 
     except Exception as ex:
         logging.error(traceback.format_exc(None))
