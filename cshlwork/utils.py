@@ -37,9 +37,10 @@ class JobSet(object):
         self.threadlist = []
         
         for x in range(0,self.max_processes):
-            jr = JobRunner()
-            threadlist.append(jr)
-        logging.debug(f'made {len(threadlist)} jobrunners. ')
+            jr = JobRunner(self.jobstack)
+            self.threadlist.append(jr)
+        logging.debug(f'made {len(self.threadlist)} jobrunners. ')
+
 
     def runjobs(self):
         logging.debug(f'starting threads...')
@@ -53,7 +54,6 @@ class JobSet(object):
         logging.debug(f'all threads joined. returning...')
 
 
-
 class JobStack(object):
     def __init__(self):
         self.stack = []
@@ -63,22 +63,28 @@ class JobStack(object):
         List is tokens appropriate for 
         e.g. cmd list :  [ '/usr/bin/x','-x','xarg','-y','yarg']
         '''
+        self.stack.append(cmdlist)
+    
+    def pop(self):
+        return self.stack.pop()
 
 class JobRunner(threading.Thread):
 
     def __init__(self, jobstack):
+        super(JobRunner, self).__init__()
         self.jobstack = jobstack
+        
 
     def run(self):
         while True:
             try:
                 cmdlist = self.jobstack.pop()
                 logging.debug(f'got command: {cmdlist}')
-                run_command_shel(cmdlist)
+                run_command_shell(cmdlist)
                 logging.debug(f'completed command: {cmdlist}')
             except NonZeroReturnException:
-                logging.warning(f'NonZeroReturn Exception job: species={species}  contig={contig} feature={feature} seslen={seslen} next...')
-  
+                logging.warning(f'NonZeroReturn Exception job: {cmdlist}') 
+
 
 
 class NonZeroReturnException(Exception):
