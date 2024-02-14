@@ -17,9 +17,14 @@
 #   gene 3   0     1    1    0 
 #    ...  
 #
-#   
+#   Use GAF or OBO files from    
+#    https://current.geneontology.org/ontology/go.obo
+#    
+#   And species-specific annotations from https://current.geneontology.org/products/pages/downloads.html
+#   E.g. https://current.geneontology.org/annotations/mgi.gaf.gz 
+#     
 #
-#
+
 
 import argparse
 import collections
