@@ -14,9 +14,9 @@ else
 fi
 # be sure to restart terminal to allow conda to start
 
-conda create -y -n cshlwork python=3.9
+conda create -y -n ontology python=3.9
 sleep 5
-conda activate cshlwork
+conda activate ontology
 
 # make sure we have conda-forge
 conda config --add channels conda-forge
@@ -24,10 +24,9 @@ conda config --add channels bioconda
 
 # update conda if necessary
 conda update -y -n base -c defaults conda
-conda install -y -c bioconda hmmer
-conda install -y pandas ipython jupyter numpy scikit-learn matplotlib seaborn biopython  scikit-plot requests networkx scipy pyvis h5py hhsuite
+conda install -y -c bioconda pandas ipython jupyter numpy scikit-learn matplotlib seaborn biopython  scikit-plot scipy pyvis 
 conda install -c conda-forge google-cloud-sdk
 
 pip install dynamicTreeCut
 
-# OR   conda create -y -n cshlwork -c conda-forge -c bioconda python pandas ipython jupyter numpy scikit-learn matplotlib seaborn biopython scipy h5py star bottleneck
+# OR   conda create -y -n cshlwork -c conda-forge -c bioconda python pandas ipython jupyter numpy scikit-learn matplotlib seaborn biopython scipy h5py STAR bottleneck

@@ -668,8 +668,6 @@ def get_configstr(cp):
 def write_fasta_from_df(config, df, outfile=None):
     '''
     Assumes df has 'sequence' column
-    
-    
     '''
     logging.debug(f'creating bowtie input')
     srlist = dataframe_to_seqlist(df)
