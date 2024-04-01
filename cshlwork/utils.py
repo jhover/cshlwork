@@ -145,6 +145,24 @@ def splitall(path):
         logging.error('this method is for directories only')
         return ['']
 
+def split_column(df, column, sep=':', names = []):
+    '''
+    return df with df[column] split on separator, and columns added for each field.
+    assumes every row of column has same number of elements. 
+    
+    '''
+    ndf = df[column].str.split(sep, expand=True)
+    (nr,nc) = ndf.shape
+    if len(names) == nc:
+        ndf.columns = names
+    df = pd.concat([df,ndf],axis = 1)
+    return df
+    
+    
+    
+
+
+
 def flatten_tree(indir, outdir, mapfile):
     '''
      takes directory hierachy and puts all files into one outdir
@@ -665,19 +683,39 @@ def get_configstr(cp):
         return ss.read()
 
 
-def write_fasta_from_df(config, df, outfile=None):
+def write_fasta_from_df(df, outfile=None, sequence=['sequence'], header=None, sep=':'):
     '''
-    Assumes df has 'sequence' column
+    header is list of one or more columns to concatenate, using chosel separator. 
+    sequence are columns to use as body. 
+    if more than one column is used as body, header will also contain the column name. 
+    
     '''
-    logging.debug(f'creating bowtie input')
-    srlist = dataframe_to_seqlist(df)
-    logging.debug(f'len srlist={len(srlist)}')
+    logging.debug(f'writing {len(df)} {sequence} column as fasta from DF...')
+    
     if outfile is not None:
-        SeqIO.write(srlist, outfile, 'fasta')
+        with open(outfile, 'w') as of:
+            if header is None:
+                # header is index number
+                idx = 0
+                for i in range(0,len(df)):
+                    for scol in sequence:
+                        s = df.iloc[i][scol]
+                        of.write(f'>{idx}\n{s}\n')
+                        idx += 1                      
+            else:
+                # build header out of columns given. 
+                for i in range(0,len(df)):
+                    for scol in sequence:
+                        r = df.iloc[i]
+                        hlist = list( r[ header ] )
+                        if len(sequence) > 1:
+                            hlist.append(scol)
+                        h = sep.join( hlist )
+                        logging.debug(f'header={h}')
+                        s = r[scol].upper()
+                        of.write(f'>{h}\n{s}\n')    
     else:
-        logging.error('outfile is None, not implemented.')
-    return outfile
-
+            logging.error('outfile is None, not implemented.')        
 
 def dataframe_to_seqlist(df, seqcol='sequence',idcol=None, desccols=None, sep=':'):
     '''

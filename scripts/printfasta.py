@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #   
-#  Takes .fasta files, matches identifier, and prints range by index. 
+#  Takes .fasta files and splits them, one entry per file, 
+#  named after ID (first string after ">"
 #
 
 import argparse
@@ -21,8 +22,8 @@ from Bio import SeqIO
 
 from cshlwork.utils import *
 
-def handle_infile(infile, identifier,  start=0, end=None, width=50):
-    
+def handle_infile(infile, identifier, start=0, end=None, width=50):
+      
     filepath = os.path.abspath(infile)    
     filename = os.path.basename(filepath)
     filedir = os.path.dirname(filepath)
@@ -32,35 +33,15 @@ def handle_infile(infile, identifier,  start=0, end=None, width=50):
     
     records = list( SeqIO.parse(infile, 'fasta'))
     logging.debug(f'got {len(records)} sequences')
-
-    splitnum = 0
-    seqnum = 0
-    handled = 0
-    currentlist = []
     
-    splitsets = {}
     for srec in records:
-        currentlist.append(srec)
-        if len(currentlist) >= maxseq:
-            splitsets[splitnum] = currentlist
-            splitnum += 1
-            currentlist = []
-    # get last items. 
-    splitsets[splitnum] = currentlist
-    
-    lenlist = []
-    for k,v in splitsets.items():
-        lenlist.append(len(v))        
-    logging.debug(f'seqs split into {len(splitsets)} sets with lengths={lenlist}')
-
-    for k,v in splitsets.items():
-        outfile = f'{filedir}/{base}.{k}.{ext}'
-        logging.info(f'writing {len(v)} seqs to {outfile}')
-        with open(outfile, 'w') as of:
-            SeqIO.write(v, of, 'fasta')
-        
-    logging.debug(f'done writing fasta files. ')
+        if identifier in srec.id:
+            if end is None:
+                end = len(srec.seq)
+            print( str( srec[start:end].seq ))
              
+    
+               
 
 if __name__ == '__main__':
     FORMAT='%(asctime)s (UTC) [ %(levelname)s ] %(filename)s:%(lineno)d %(name)s.%(funcName)s(): %(message)s'
@@ -78,23 +59,27 @@ if __name__ == '__main__':
                         dest='verbose', 
                         help='verbose logging')
 
-    parser.add_argument('maxseq', 
-                        metavar='maxseq', 
-                        type=int, 
-                        default=1,
-                        help='max number of sequences per file. [one seq per output file]')    
-    
     parser.add_argument('infile', 
                         metavar='infile', 
                         type=str, 
                         help='fasta input file')
 
-    parser.add_argument('-o','--outdir', 
-                        metavar='outdir',
-                        required=False,  
-                        type=str,
+    parser.add_argument('identifier', 
+                        metavar='identifier', 
+                        type=str, 
+                        help='sequence id substring')
+
+    parser.add_argument('start', 
+                        metavar='start', 
+                        type=int, 
+                        default=0,
+                        help='start')    
+
+    parser.add_argument('end', 
+                        metavar='end', 
+                        type=int, 
                         default=None,
-                        help='output dir [<cwd>] ')
+                        help='start')   
     
     args= parser.parse_args()
    
@@ -103,4 +88,4 @@ if __name__ == '__main__':
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
     
-    handle_infile(args.infile, maxseq = args.maxseq, outdir=args.outdir)
+    handle_infile( args.infile, args.identifier, args.start, args.end)
