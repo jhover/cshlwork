@@ -197,6 +197,7 @@ def make_bowtie_df(infile, max_mismatch=3):
         logging.debug('Detected bowtie1 input.')
         df = make_bowtie1_df(infile)
         df['n_mismatch'] = max_mismatch
+    df.reset_index(inplace=True, drop=True)
     return df
 
 

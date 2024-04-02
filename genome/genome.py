@@ -187,7 +187,7 @@ def get_genes(arecord_list, srecord_dict=None,
                         if subfeat.type in sub_features:
                             sf_type = subfeat.type        
                             ssflist = []            
-                            for ssf in sf.sub_features:
+                            for ssf in subfeat.sub_features:
                                 if ssf.type == seq_feature:
                                     logging.debug(f'adding {ssf.type} to sub-sub-feature list. ')
                                     ssflist.append(ssf)                    
