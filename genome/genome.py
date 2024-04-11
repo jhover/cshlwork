@@ -14,6 +14,8 @@ sys.path.append(gitpath)
 
 from cshlwork.caching import *
 
+import pandas as pd
+
 import pprint
 from collections import defaultdict
 
@@ -986,6 +988,7 @@ def parse_assembly_report(reportfile):
     logging.debug(f'extracted {len(tlist)} maps in {reportfile}')
     
     return tlist
+
 
 def prepare_genome_refseq(genomefile, annotfile, reportfile, outdir):
     '''
