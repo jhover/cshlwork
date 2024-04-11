@@ -22,27 +22,31 @@ from genome.genome import *
 from cshlwork.utils import *
 
 
-def handle_genome(genome_file, annot_file, outfile=None):
+def handle_genome(genome_file, annot_file, annot_type, outfile=None, translate=False):
 
-    logging.info(f'building transcriptome  ')
+    seqtype = 'dna'
+    if translate:
+        seqtype = 'protein'
+    logging.info(f'building {seqtype} transcriptome  ')
     seq_dict = load_seqrecords(genome_file)
     logging.info(f'got {len(seq_dict)} records from {genome_file}') 
     
     annot_list = load_annotrecords(annot_file)
     logging.info(f'got {len(annot_list)} annotations from {annot_file} ')
     
-    transcript_list = get_genes(annot_list, srecord_dict=None)
+    transcript_list = get_genes(annot_list, srecord_dict=None, annot_type=annot_type)
     logging.info(f'got {len(transcript_list)} merged sequences.')
     
     if outfile is not None:
         logging.info(f'writing {len(transcript_list)} items to {outfile}')
-        write_seqfeature_fasta(transcript_list, seq_dict, outfile)
+        if translate:
+            logging.info('creating protein sequence output.')
+        write_seqfeature_fasta(transcript_list, seq_dict, outfile, translate=translate)
         logging.info('done')
+    
     return transcript_list
     
   
-  
-
 
 if __name__=='__main__':
 
@@ -62,6 +66,11 @@ if __name__=='__main__':
                         dest='verbose', 
                         help='verbose logging')
 
+    parser.add_argument('-p', '--protein', 
+                        action="store_true", 
+                        dest='protein', 
+                        help='translate sequence to protein sequence')
+
     parser.add_argument('-g','--genome', 
                         metavar='genome',
                         required=False,  
@@ -76,6 +85,14 @@ if __name__=='__main__':
                         default=os.path.expanduser('~/data/genomes/Mus_musculus/annotation.gtf'), 
                         help='Annotation .gtf or .gff file') 
 
+    parser.add_argument('-f','--format', 
+                        metavar='format',
+                        required=False,  
+                        type=str,
+                        default='refseq-gff', 
+                        help='Annotation format: [refseq-gff|refseq-gtf|ensembl-gff|ensembl-gtf|generic-gtf ]'
+                        )
+
     parser.add_argument('-o','--outfile', 
                         metavar='outfile',
                         required=False,
@@ -89,8 +106,15 @@ if __name__=='__main__':
         logging.getLogger().setLevel(logging.DEBUG)
     if args.verbose:
         logging.getLogger().setLevel(logging.INFO)
+        
+    translate=False
+    if args.protein:
+        translate=True
+        logging.info(f'creating translated protein fasta')
+    else:
+        logging.info(f'creating dna fasta')
 
-    tlist = handle_genome(args.genome, args.annot, outfile=args.outfile)
+    tlist = handle_genome(args.genome, args.annot, args.format, outfile=args.outfile, translate=translate )
 
 
 

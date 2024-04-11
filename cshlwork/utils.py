@@ -992,7 +992,7 @@ def convert_numeric(df):
     return df
 
 
-def load_df(filepath):
+def load_df_object(filepath):
     """
     Convenience method to load DF consistently across modules. 
     """
@@ -1000,6 +1000,27 @@ def load_df(filepath):
     df = pd.read_csv(filepath, sep='\t', index_col=0, keep_default_na=False, dtype =str, comment="#")
     df.fillna(value='', inplace=True)
     df = df.astype('str', copy=False)
+    
+    return df
+
+def load_df(filepath):
+    """
+    Convenience method to load DF consistently across modules. 
+    """
+    logging.debug(f'loading {filepath}')
+    filepath = os.path.expanduser(filepath)
+    #df = pd.read_csv(filepath, sep='\t', index_col=0, keep_default_na=False, dtype="string[pyarrow]", comment="#")
+    df = pd.read_csv(filepath, sep='\t', index_col=0, keep_default_na=False, dtype="string", comment="#")
+    #df.fillna(value='', inplace=True)
+
+    df = df.convert_dtypes(convert_integer=False)
+    for col in df.columns:
+        try:
+            df[col] = df[col].astype('int64')
+            #df[col] = df[col].astype('uint32')
+        except ValueError:
+            logging.debug(f'skipping column {col}')
+    logging.debug(f'{df.dtypes}')
     return df
 
 def merge_dfs( dflist):

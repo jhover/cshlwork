@@ -1,0 +1,36 @@
+Information for the genome sub-package
+
+General GTF/GFF hierarchies on Refseq and Ensembl
+
+  SeqRecord.features -> []
+  	SeqFeature.sub_features -> []
+  	    SeqFeature.sub_features -> []
+  	    	SeqFeature(type='exon'|'CDS'|'
+
+
+
+
+    Generic GTF 3 LAYERS 
+    Seqrecord(seq, id).features -> []
+        SeqFeature(type=gene | inferred_parent).sub_features -> []
+            SeqFeature(type=mRNA| type=inferred_parent).sub_features -> []
+                SeqFeature( type=exon ) | SeqFeature( type=CDS )
+    
+        SeqRecord -> gene -> mRNA  ->   exon|CDS
+                
+    
+    Refseq GFF   3 LAYERS
+    Seqrecord(seq, id).features
+        SeqFeature(type=gene | inferred_parent).sub_features   
+            SeqFeature(type=mRNA| type=inferred_parent).sub_features
+                SeqFeature( type=exon ) | SeqFeature( type=CDS )
+    
+    
+    Custom GFF/GTF (Scotomys_teguina)
+    SeqRecord(seq,id).features
+        SeqFeatures(type='inferred_parent).sub_features
+            SeqFeature(type=transcript | exon | CDS )
+     [ no sub-sub-features ]
+    
+        SeqRecord -> inferred_parent ->  transcript + exon(s)
+                     feature               sub-feature

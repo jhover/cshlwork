@@ -85,9 +85,195 @@ def get_feature_type_list(sub_features_list):
     for sf in sub_features_list:
         tset.add(sf.type)
     return list(tset)
+
+
+def get_genes_generic_gtf(arecord_list, 
+              srecord_dict=None, 
+              feature= 'gene',  # top level object below record 
+              sub_feature='transcript',  # mid-level to handle.        
+              seq_feature='exon', #  lowest-level sequences to be extracted.
+              ):
+    '''
+    arecord_list:  list of annotation/feature object trees. 
+    srecord_dict:  dictionary of seqrecords that are parent seqeunce of annotation records. 
+       
+    Generic GTF 3 LAYERS 
+    Seqrecord(seq, id).features
+        SeqFeature(type=gene ).sub_features
+            SeqFeature(type=mRNA| type=inferred_parent).sub_features
+                SeqFeature( type=exon )  | SeqFeature( type=CDS )
+
+    '''
+    transcript_list = []
+    # annotation records
+    arecs_handled = 0
+    
+    for arec in arecord_list:
+        # arec is list of features on a sinlge parent SeqRecord
+        rec_id = arec.id  # id of parent SeqRecord object. 
+        if srecord_dict is not None:
+            parent_record = srecord_dict[rec_id]
+        else:
+            parent_record = arec
+        logging.debug(f'handling annotation record {rec_id}')
+        feats_handled = 0
+        sub_feats_handled = 0
+        for feat in arec.features:        
+            if feat.type == feature:
+                logging.debug(f'handling feature {feat.id} type={feat.type}')
+                feat_id = feat.id.replace('"', ':')
+                feat_strand = feat.location.strand
+                
+                logging.debug(f'handling sub_features')                
+                
+                for sf in feat.sub_features:
+                    if sf.type == sub_feature:
+                        seqflist = []
+                        for ssf in sf.sub_features:
+                            if ssf.type == seq_feature:
+                                seqflist.append(ssf)
+                        if (len(seqflist) > 0):
+                            # make new SeqFeature
+                            mloc = get_merged_locations(seqflist)
+                            exon1 = seqflist[0]
+                            seqf = SeqFeature(location=mloc)
+                            seqf_length = len(seqf)
+                            if srecord_dict is not None:
+                                seqf = seqf.extract(parent_record)
+                            try:
+                                gene_name = str( sf.qualifiers['gene_name'][0] )
+                                gene_name = gene_name.upper()
+                            except KeyError:
+                                gene_name = 'undefined'
+                            try:
+                                transcript_id = str( sf.qualifiers['transcript_id'][0] )
+                                transcript_id = transcript_id.replace('"', ':')
+                            except KeyError:
+                                transcript_id = 'undefined'                            
+                            
+                            seqf.type = sub_feature
+                            seqf.id = f'{gene_name}:{transcript_id}'
+                            seqf.name = f'{parent_record.id}:{feat_id}'
+                            seqf.qualifiers = exon1.qualifiers
+                            seqf.description = f"{parent_record.id}:{feat_id}:gene={gene_name}:type={seqf.type}:len={seqf_length}:n_{seq_feature}={len(seqflist)}:strand={feat_strand}"
+                            if srecord_dict is not None:
+                                logging.debug(f'made merged, extracted SeqRecord: {seqf}')
+                            else:
+                                logging.debug(f'made un-merged SeqFeature: {seqf}')
+                            transcript_list.append(seqf)
+                        else:
+                            logging.debug(f'type {subfeat.type} not in {sub_features}')
+                            
+                    sub_feats_handled +=1
+            else:
+                logging.warning(f'type {feat.type} !=  {feature}')
+            feats_handled += 1
+        logging.debug(f'{feats_handled} for {rec_id}')
+    logging.info(f'made list of {len(transcript_list)} objs')    
+    return transcript_list
+
+
+
+def get_genes_refseq_gff(arecord_list, 
+              srecord_dict=None, 
+              feature= 'gene',  # top level object below record 
+              sub_feature='mRNA',  # mid-level to handle.        
+              seq_feature='CDS', #  lowest-level sequences to be extracted.
+              ):
+    '''
+    arecord_list:  list of annotation/feature object trees. 
+    srecord_dict:  dictionary of seqrecords that are parent seqeunce of annotation records. 
+       
+    Refseq GFF   4 LAYERS
+    Seqrecord(seq, id).features
+        SeqFeature(type= gene | biological_region, pseudogene, enhancer |protein_binding_site ).sub_features   
+            SeqFeature(type= mRNA | transcript | lnc_RNA ).sub_features
+                SeqFeature( type=exon ) | SeqFeature( type=CDS )
+
+    '''
+    transcript_list = []
+    # annotation records
+    arecs_handled = 0
+    
+    for arec in arecord_list:
+        # arec is list of features on a sinlge parent SeqRecord
+        rec_id = arec.id  # id of parent SeqRecord object. 
+        if srecord_dict is not None:
+            parent_record = srecord_dict[rec_id]
+        else:
+            parent_record = arec
+        logging.debug(f'handling annotation record {rec_id}')
+        feats_handled = 0
+        sub_feats_handled = 0
+        for feat in arec.features:        
+            if feat.type == feature:
+                logging.debug(f'handling feature {feat.id} type={feat.type}')
+                feat_id = feat.id.replace('"', ':')
+                feat_strand = feat.location.strand
+                
+                logging.debug(f'handling sub_features')                
+                
+                for sf in feat.sub_features:
+                    if sf.type == sub_feature:
+                        seqflist = []
+                        for ssf in sf.sub_features:
+                            if ssf.type == seq_feature:
+                                seqflist.append(ssf)
+                        if (len(seqflist) > 0):
+                            # make new SeqFeature
+                            mloc = get_merged_locations(seqflist)
+                            exon1 = seqflist[0]
+                            seqf = SeqFeature(location=mloc)
+                            seqf_length = len(seqf)
+                            if srecord_dict is not None:
+                                seqf = seqf.extract(parent_record)
+                            try:
+                                gene_name = str( feat.qualifiers['gene'][0] )
+                                gene_name = gene_name.upper()
+                            except KeyError:
+                                gene_name = 'undefined'
+                            try:
+                                transcript_id = str( sf.qualifiers['transcript_id'][0] )
+                            except KeyError:
+                                transcript_id = 'undefined'                            
+                            
+                            seqf.type = sub_feature
+                            seqf.id = f'{gene_name}:{transcript_id}'
+                            seqf.name = f'{parent_record.id}:{feat_id}'
+                            seqf.qualifiers = exon1.qualifiers
+                            seqf.description = f"{parent_record.id}:{feat_id}:gene={gene_name}:type={seqf.type}:len={seqf_length}:n_{seq_feature}={len(seqflist)}:strand={feat_strand}"
+                            if srecord_dict is not None:
+                                logging.debug(f'made merged, extracted SeqRecord: {seqf}')
+                            else:
+                                logging.debug(f'made un-merged SeqFeature: {seqf}')
+                            transcript_list.append(seqf)
+                        else:
+                            logging.debug(f'type {subfeat.type} not in {sub_features}')
+                            
+                    sub_feats_handled +=1
+            else:
+                logging.warning(f'type {feat.type} !=  {feature}')
+            feats_handled += 1
+        logging.debug(f'{feats_handled} for {rec_id}')
+    logging.info(f'made list of {len(transcript_list)} objs')    
+    return transcript_list
+
+
+def get_genes(arecord_list, srecord_dict, annot_type = 'refseq-gff'):
+    '''
+    annot_types = refseq-gff   refseq-gtf  ensembl-gff ensembl-gtf generic-gtf
+    
+    '''
+    if annot_type == 'refseq-gff':
+        tlist = get_genes_refseq_gff(arecord_list, srecord_dict)
+    elif annot_type == 'generic-gtf':
+        tlist = get_genes_generic_gtf(arecord_list, srecord_dict)
+    
+    return tlist
     
     
-def get_genes(arecord_list, srecord_dict=None, 
+def get_genes_combo(arecord_list, 
+              srecord_dict=None, 
               features=['gene','inferred_parent'],  # top level object 
               sub_features=['mRNA'],  # mid-level to handle.        
               seq_feature='exon', #  lowest-level sequences to be extracted.
@@ -103,13 +289,17 @@ def get_genes(arecord_list, srecord_dict=None,
             SeqFeature(type=mRNA| type=inferred_parent).sub_features
                 SeqFeature( type=exon )  | SeqFeature( type=CDS )
     
-        SeqRecord -> gene -> mRNA  ->   exon|CDS
-                
+        SeqRecord -> gene -> mRNA  ->   exon|CDS            
     
     Refseq GFF   3 LAYERS
     Seqrecord(seq, id).features
+        SeqFeature(type=gene | biological_region, pseudogene, enhancer |protein_binding_site ).sub_features   
+            SeqFeature(type= mRNA| transcript | lnc_RNA ).sub_features
+                SeqFeature( type=exon ) | SeqFeature( type=CDS )
+
+    Refseq GTF   3 LAYERS
+    Seqrecord(seq, id).features
         SeqFeature(type=gene | inferred_parent).sub_features   
-            SeqFeature(type=mRNA| type=inferred_parent).sub_features
                 SeqFeature( type=exon ) | SeqFeature( type=CDS )
     
     
@@ -160,6 +350,7 @@ def get_genes(arecord_list, srecord_dict=None,
                         mloc = get_merged_locations(seqflist)
                         exon1 = seqflist[0]
                         seqf = SeqFeature(location=mloc)
+                        seqf_length = len(seqf)
                         if srecord_dict is not None:
                             seqf = seqf.extract(parent_record)
                         try:
@@ -170,7 +361,7 @@ def get_genes(arecord_list, srecord_dict=None,
                         seqf.id = f'{gene_name}'
                         seqf.name = f'{parent_record.id}:{feat_id}'
                         seqf.qualifiers = exon1.qualifiers
-                        seqf.description = f"{parent_record.id}:{feat_id}:gene={gene_name}:type={seqf.type}:n_{seq_feature}={len(seqflist)}:strand={feat_strand}"
+                        seqf.description = f"{parent_record.id}:{feat_id}:gene={gene_name}:type={seqf.type}:len={seqf_length}:n_{seq_feature}={len(seqflist)}:strand={feat_strand}"
                         if srecord_dict is not None:
                             logging.debug(f'made merged, extracted SeqRecord: {seqf}')
                         else:
@@ -186,6 +377,7 @@ def get_genes(arecord_list, srecord_dict=None,
                     for subfeat in feat.sub_features:    
                         if subfeat.type in sub_features:
                             sf_type = subfeat.type        
+                            sf_id = subfeat.id
                             ssflist = []            
                             for ssf in subfeat.sub_features:
                                 if ssf.type == seq_feature:
@@ -195,20 +387,21 @@ def get_genes(arecord_list, srecord_dict=None,
                             if ( sf_type is not None ) and (len(ssflist) > 0):
                                 # make new SeqFeature
                                 mloc = get_merged_locations(ssflist)
-                                sf = SeqFeature(location=mloc)
+                                seqf = SeqFeature(location=mloc)
+                                seqf_length = len(seqf)
                                 if srecord_dict is not None:
-                                    sf = sf.extract(parent_record)
-                                sf.id = feat_id
-                                sf.type = sf_type
-                                sf.name = f'{feat_id}:{feat_strand}'
-                                sf.description = f"{parent_record.id}:{feat_id}:type={sf.type}:n_{seq_feature}={len(ssflist)}:strand={feat_strand}"
+                                    seqf = seqf.extract(parent_record)
+                                seqf.id = f'{feat_id}:{sf_id}'
+                                seqf.type = sf_type
+                                seqf.name = f'{feat_id}:{feat_strand}'
+                                seqf.description = f"{parent_record.id}:{feat_id}:type={seqf.type}:len={seqf_length}:n_{seq_feature}={len(ssflist)}:strand={feat_strand}"
                                 if srecord_dict is not None:
-                                    logging.debug(f'made merged, extracted SeqRecord: {sf}')
+                                    logging.debug(f'made merged, extracted SeqRecord: {seqf}')
                                 else:
-                                    logging.debug(f'made un-merged SeqFeature: {sf}')
-                                transcript_list.append(sf)
+                                    logging.debug(f'made un-merged SeqFeature: {seqf}')
+                                transcript_list.append(seqf)
                         else:
-                            logging.debug(f'type {sf.type} not in {sub_features}')
+                            logging.debug(f'type {subfeat.type} not in {sub_features}')
                             
                     sub_feats_handled +=1
             else:
@@ -220,16 +413,23 @@ def get_genes(arecord_list, srecord_dict=None,
     return transcript_list
 
 
-def write_seqfeature_fasta(seqfeature_list, seqrecord_dict, outfile, field='description', sep=":"):
+def write_seqfeature_fasta(seqfeature_list, seqrecord_dict, outfile, field='description', sep=":", translate=False):
     '''
     assumes seqrecord key is first field of description
     '''
+    logging.debug(f'len(seqfeature_list) = {len(seqfeature_list)}, len(seqrecord_dict) = {len(seqrecord_dict)}, outfile={outfile}, translate={translate}')
     outfile = os.path.abspath(outfile)
+    seqtype = 'dna'
+    if translate:
+        seqtype = 'protein'
+    logging.info(f'writing {len(seqfeature_list)} {seqtype} sequences to {outfile} ')
     with open(outfile, 'w') as ofh:
         for sf in seqfeature_list:
             parent_key = sf.description.split(sep)[0]
             parent_record = seqrecord_dict[parent_key]
             sr = sf.extract(parent_record)
+            if translate:
+                sr = sr.translate()
             sr.id = sf.id
             sr.type = sf.type
             sr.name = sf.name
@@ -695,4 +895,136 @@ def most_shared_exon(gene_sf, feature_type='exon', min_len=75, top_n=3):
         out_sf_list.append(feature_dict[sf_loc][0])                
     logging.debug(f'found list of {len(out_sf_list)} exons > {min_len} bp. Top {top_n}. ')
     return out_sf_list  
+   
+MAPDICT = { 'GLT14'  :  'GALNT14',
+            'RGRF2'  :  'RASGRF2',
+            'GLTL6'  :  'GALNTL6',
+            'CADH9'  :  'CDH9',
+            'RSLAA'  :  'RASL10A',
+            'SORC3'  :  'SORCS3',
+            'TSH2'   :  'TSHZ2',
+            'HS3S4'  :  'HS3ST4',
+            'INP4B'  :  'INPP4B',
+            'CAH3'   :  'CAR3',
+            'LRRT4'  :  'RRTM4',
+            'TEN3'   :  'TENM3',
+            'IGS21'  :  'IGSF21',
+            'BRNP3'  :  'BRINP3',
+            'CNTP4'  :  'CNTNAP4',
+            'SEM5A'  :  'SEMA5A'
+            }
+
+def apply_mapdict(row, column='r_gene', mapdict=MAPDICT):
+    '''
+    get alternate items based on row contents. 
+
+    '''
+    r = None
+    v = row[column]
+    try:
+        r = mapdict[ v ]
+    except KeyError:
+        r = v
+    return r
     
+
+
+def prepare_genome_ensembl(genomefile, annotfile, outdir):
+    '''
+    for ensemble, no assembly report is needed. 
+    make <chrnum>label.txt files for each chromosome, with <chrnum> as value inside. 
+    make <chrnum>.fa and <chrnum>.fa.fai for each chromosome using index_region
+        
+     
+    '''
+    logging.debug(f'creating symlinks')
+    if os.path.exists(f'{outdir}/genome.fa'):
+        os.remove(f'{outdir}/genome.fa')
+    os.symlink(genomefile, f'{outdir}/genome.fa')
+    if os.path.exists(f'{outdir}/annotation.gtf'):
+        os.remove(f'{outdir}/annotation.gtf')
+    os.symlink(annotfile, f'{outdir}/annotation.gtf')
+
+    sfh = open(genomefile)
+    seq_dict = SeqIO.to_dict(SeqIO.parse(sfh, "fasta"))
+    sfh.close()
+    logging.debug(f'read genome file {genomefile} w/ {len(seq_dict)} records. keys={seq_dict.keys()}')
+    chrlabels = list(seq_dict.keys())
+    for chrlabel in chrlabels:
+        fn = f'{outdir}/{chrlabel}label.txt'
+        logging.debug(f'writing {fn}...')
+        with open(fn, 'w') as f:
+            f.write(f'{chrlabel}\n')
+    
+        make_chr_index( infile=genomefile,
+                        genomedir = outdir, 
+                        chr = chrlabel, 
+                        outfile = f'{outdir}/{chrlabel}.fa')
+        logging.debug(f'handled chromsome {chrlabel}')
+    
+    star_genome(outdir, "6" ,f'{outdir}/annotation.gtf',  f'{outdir}/genome.fa')
+    samtools_dict(f'{outdir}/genome.fa',f'{outdir}/genome.dict')
+    
+    logging.info(f'done.')
+            
+
+def parse_assembly_report(reportfile):
+    '''
+    return list of tuples  ( chrnum,   contigid )
+    
+    '''
+    colnames = ['Sequence-Name','Sequence-Role','Assigned-Molecule',
+                'Assigned-Molecule-Location/Type','GenBank-Accn',
+                'Relationship','RefSeq-Accn','Assembly-Unit',
+                'Sequence-Length','UCSC-style-name']   
+    df = pd.read_csv(reportfile, comment="#", sep='\t', header=None)
+    df.columns = colnames
+    amdf = df[df['Sequence-Role'] == 'assembled-molecule']
+    amdf = amdf[amdf['Assembly-Unit'] == 'Primary Assembly' ]
+    mdf = amdf[['Assigned-Molecule','RefSeq-Accn']]
+    tlist = list(mdf.itertuples(index=False, name=None))
+    logging.debug(f'extracted {len(tlist)} maps in {reportfile}')
+    
+    return tlist
+
+def prepare_genome_refseq(genomefile, annotfile, reportfile, outdir):
+    '''
+    sets up genome for per-chromosome work, and STAR alignments. 
+        make <chrnum>label.txt files for each chromosome, with <chrnum> as value inside. 
+    make <chrnum>.fa and <chrnum>.fa.fai for each chromosome using index_region
+    
+    '''
+    logging.debug(f'creating symlinks')
+    if os.path.exists(f'{outdir}/genome.fa'):
+        os.remove(f'{outdir}/genome.fa')
+    os.symlink(genomefile, f'{outdir}/genome.fa')
+    
+    if os.path.exists(f'{outdir}/annotation.gtf'):
+        os.remove(f'{outdir}/annotation.gtf')
+    os.symlink(annotfile, f'{outdir}/annotation.gtf')
+    
+    tlist = parse_assembly_report(reportfile)
+    logging.debug(tlist)
+    for (chrlabel, contig) in tlist:
+        fn = f'{outdir}/{chrlabel}label.txt'
+        logging.debug(f'writing {fn}...')
+        with open(fn, 'w') as f:
+            f.write(f'{contig}\n')
+
+        make_chr_index( infile=genomefile,
+                        genomedir = outdir, 
+                        chr = chrlabel, 
+                        outfile = f'{outdir}/{chrlabel}.fa')
+        logging.debug(f'handled chromosome {chrlabel}')
+        
+    star_genome(outdir,"6" ,f'{outdir}/annotation.gtf',  f'{outdir}/genome.fa')
+    samtools_dict(f'{outdir}/genome.fa',f'{outdir}/genome.dict')
+    samtools_faidx(f'{outdir}/genome.fa',f'{outdir}/genome.fa.fai')
+    logging.info(f'done.')
+
+
+def prepare_genome_genbank():
+    pass
+
+
+ 

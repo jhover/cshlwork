@@ -147,7 +147,7 @@ def run_bowtie(queryfile, referencefile, outfile, tool='bowtie2', config=None, f
                '-p', threads, # # threads
                '-f',      # -f query input files are (multi-)FASTA .fa/.mfa
                '--best',
-               '-a',      # -a/--all report all alignments; very slow, MAPQ not meaningful
+               '--all',      # -a/--all report all alignments; very slow, MAPQ not meaningful
                idxpfx,
                queryfile,
                outfile
@@ -176,23 +176,26 @@ def run_bowtie(queryfile, referencefile, outfile, tool='bowtie2', config=None, f
     return outfile
 
 
-def make_bowtie_df(infile, max_mismatch=3):
+def make_bowtie_df(infile, max_mismatch=None):
     '''
     convert bowtie outputs to standard TSV
     optionally drop less useful columns.     
     
     '''
-    max_mismatch = int(max_mismatch)
+    if max_mismatch is not None:
+        max_mismatch = int(max_mismatch)
     with open(infile) as f:
         line=f.readline()
     if line.startswith('@HD'):
         logging.debug('Detected bowtie2 input.')
         df = make_bowtie2_df(infile)
-        logging.debug(f'df before max_mismatch =< {max_mismatch}')
-        df = df[df['n_mismatch'] <= max_mismatch]
         # alignments to *other* sequences only
-        df = df[df['n_mismatch'] > 0]
-        logging.debug(f'df after max_mismatch < {max_mismatch} =\n{df}')
+        df = df[df['name_read'] != df['name_align']]
+        if max_mismatch is not None:        
+            logging.debug(f'df before max_mismatch =< {max_mismatch}')
+            df = df[df['n_mismatch'] <= max_mismatch]
+            #df = df[df['n_mismatch'] > 0]
+            logging.debug(f'df after max_mismatch < {max_mismatch} =\n{df}')
     else:
         logging.debug('Detected bowtie1 input.')
         df = make_bowtie1_df(infile)
@@ -302,6 +305,27 @@ def make_bowtie2_df(infile):
     df = fix_columns_int(df, BOWTIE_2_INT_COLS) 
     
     return df
+
+
+def drop_bt2_columns(align_df):
+    '''
+    Remove less-useful (non-generic alignment) columns from output alignment dataframe for bowtie2. 
+    
+    'name_read', 'flagsum', 'name_align', 'offset', 'qual', 'cigar',  'seq', 'quals', 'score', 
+       'n_mismatch',  'distance',
+    
+    Drop  'mate', 'mate_offset', 'fraglen',  'next', 'n_amb', 'n_gap', 'n_gapext',  'md', 'yt'
+    
+    '''
+    DROP_COLS= ['mate', 'mate_offset', 'fraglen', 'next', 'n_amb', 'n_gap', 'n_gapext',  'md', 'yt']
+    
+    align_df.drop(DROP_COLS, axis=1, inplace=True)
+    logging.debug(f'dropped {len(DROP_COLS)} less-relevant columns.')
+    return align_df
+
+
+
+
 
 
 def make_adjacency_df(bowtiedf):
