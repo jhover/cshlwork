@@ -13,6 +13,8 @@ gitpath=os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
 from cshlwork.caching import *
+from cshlwork.utils import *
+
 
 import pandas as pd
 
