@@ -982,8 +982,6 @@ def get_chr_label(genomedir, chr='chrX'):
     logging.debug(f"retrieved label {label} for {chr} in {labelfile}")
     return label
 
-
-
 def make_chr_label(reportfile, outfile, chr='chrX' ):
     """
     reads NCBI assembly report and extracts selected scaffold/assembly label. 
@@ -1009,10 +1007,6 @@ def make_chr_label(reportfile, outfile, chr='chrX' ):
     f.write(f'{label}\n')
     f.close()
 
-
-
-            
-
 def parse_assembly_report(reportfile):
     '''
     return list of tuples  ( chrnum,   contigid )
@@ -1033,7 +1027,6 @@ def parse_assembly_report(reportfile):
     tlist = list(mdf.itertuples(index=False, name=None))
     logging.debug(f'extracted {len(tlist)} maps in {reportfile}')
     return tlist
-
 
 def prepare_genome_refseq(genomefile, annotfile, reportfile, outdir):
     '''
@@ -1070,9 +1063,24 @@ def prepare_genome_refseq(genomefile, annotfile, reportfile, outdir):
     samtools_faidx(f'{outdir}/genome.fa',f'{outdir}/genome.fa.fai')
     logging.info(f'done.')
 
-
 def prepare_genome_genbank():
     pass
+
+
+def samtools_faidx_region(infile, outfile, region):
+    cmd = ['samtools',
+           'faidx',
+           '-o', outfile,
+           infile,
+           region 
+       ]
+    try:
+        run_command(cmd)
+    except NonZeroReturnException as nzre:
+        logging.error(f'problem with {infile}')
+        logging.error(traceback.format_exc(None))
+        raise   
+
 
 
  
