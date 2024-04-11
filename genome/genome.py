@@ -1076,6 +1076,18 @@ def prepare_genome_refseq(genomefile, annotfile, reportfile, outdir):
 def prepare_genome_genbank():
     pass
 
+def samtools_dict(infile, outfile):
+    cmd = ['samtools',
+           'dict',
+           '-o', outfile, 
+           infile, 
+       ]
+    try:
+        run_command(cmd)
+    except NonZeroReturnException as nzre:
+        logging.error(f'problem with {infile}')
+        logging.error(traceback.format_exc(None))    
+        raise    
 
 
 def star_genome(genomedir, nthreads, gtffile, infile ): 
