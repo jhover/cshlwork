@@ -968,6 +968,49 @@ def prepare_genome_ensembl(genomefile, annotfile, outdir):
     samtools_dict(f'{outdir}/genome.fa',f'{outdir}/genome.dict')
     
     logging.info(f'done.')
+
+
+def make_chr_index(infile, genomedir, chr, outfile):
+    region = get_chr_label(genomedir, chr)
+    samtools_faidx_region(infile, outfile, region)  
+
+
+def get_chr_label(genomedir, chr='chrX'):
+    labelfile = f"{genomedir}/{chr}label.txt"
+    f = open(labelfile, 'r')
+    label = f.read().strip()
+    logging.debug(f"retrieved label {label} for {chr} in {labelfile}")
+    return label
+
+
+
+def make_chr_label(reportfile, outfile, chr='chrX' ):
+    """
+    reads NCBI assembly report and extracts selected scaffold/assembly label. 
+    """
+    if os.path.exists(reportfile):
+        colnames = ['Sequence-Name','Sequence-Role','Assigned-Molecule',
+                    'Assigned-Molecule-Location/Type','GenBank-Accn',
+                    'Relationship','RefSeq-Accn','Assembly-Unit',
+                    'Sequence-Length','UCSC-style-name']   
+        df = pd.read_csv(reportfile, comment="#", sep='\t')
+        df.columns = colnames
+        if chr.startswith('chr'):
+            chrnum = chr[3:]
+        else:
+            chrnum = chr
+        tagval = chrnum
+        label = df[ df['Assigned-Molecule'] == tagval]['RefSeq-Accn'].values[0]
+        logging.debug(f'extracted label {label} for {tagval} in {reportfile}')
+    else:
+        label = chr
+
+    f = open(outfile, 'w')
+    f.write(f'{label}\n')
+    f.close()
+
+
+
             
 
 def parse_assembly_report(reportfile):
