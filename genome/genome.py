@@ -26,6 +26,14 @@ from BCBio.GFF import *
 
 from Bio.SeqFeature import SeqFeature, FeatureLocation, CompoundLocation
 
+
+
+class NonZeroReturnException(Exception):
+    """
+    Thrown when a subprocess command has non-zero return code. 
+    """
+    
+
 #   http://ftp.ensembl.org/pub/release-105/gtf/mus_musculus/
 #   http://ftp.ensembl.org/pub/release-105/fasta/mus_musculus/dna/ 
 #            genome           annot
