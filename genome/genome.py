@@ -982,11 +982,13 @@ def parse_assembly_report(reportfile):
     df = pd.read_csv(reportfile, comment="#", sep='\t', header=None)
     df.columns = colnames
     amdf = df[df['Sequence-Role'] == 'assembled-molecule']
-    amdf = amdf[amdf['Assembly-Unit'] == 'Primary Assembly' ]
-    mdf = amdf[['Assigned-Molecule','RefSeq-Accn']]
+    # idiosyncratic between some refseq genomes and others...
+    ndf = amdf[amdf['Assembly-Unit'] == 'Primary Assembly' ]
+    if len(ndf) > 2:
+        amdf = ndf  
+    mdf = amdf[['Assigned-Molecule', 'RefSeq-Accn']]
     tlist = list(mdf.itertuples(index=False, name=None))
     logging.debug(f'extracted {len(tlist)} maps in {reportfile}')
-    
     return tlist
 
 
