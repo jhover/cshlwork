@@ -1077,6 +1077,26 @@ def prepare_genome_genbank():
     pass
 
 
+
+def star_genome(genomedir, nthreads, gtffile, infile ): 
+    cmd = ['STAR',
+           '--runMode', 'genomeGenerate',
+           '--runThreadN', nthreads,
+           '--genomeDir', genomedir,
+           '--sjdbGTFfile', gtffile, 
+           #'--sjdbOverhang','100',
+           '--genomeFastaFiles', infile  
+       ]
+    try:
+        run_command(cmd)
+    except NonZeroReturnException as nzre:
+        logging.error(f'problem with {end1}/{end2} input files.')
+        logging.error(traceback.format_exc(None))
+        raise    
+    
+    
+
+
 def samtools_faidx_region(infile, outfile, region):
     cmd = ['samtools',
            'faidx',
