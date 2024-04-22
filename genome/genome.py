@@ -1106,7 +1106,18 @@ def star_genome(genomedir, nthreads, gtffile, infile ):
         logging.error(traceback.format_exc(None))
         raise    
     
-    
+def samtools_faidx(infile, outfile):
+    cmd = ['samtools',
+           'faidx',
+           '-o', outfile,
+           infile, 
+       ]
+    try:
+        run_command(cmd)
+    except NonZeroReturnException as nzre:
+        logging.error(f'problem with {infile}')
+        logging.error(traceback.format_exc(None))
+        raise    
 
 
 def samtools_faidx_region(infile, outfile, region):
