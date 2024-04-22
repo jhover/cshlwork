@@ -84,6 +84,8 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
 
     # don't run second if first fails. 
     build_ok = False
+
+    threads = config.get(tool, 'threads')
    
     if tool == 'bowtie':
         if not os.path.exists(f'{idxpfx}.1.ebwt') or force:
@@ -104,7 +106,7 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
         
             logging.debug(f'bowtie-build done.')
 
-            threads = config.get(tool, 'threads')
+
             max_mismatch = config.get(tool, 'max_mismatch')
  
             cmd = ['bowtie',
@@ -153,7 +155,7 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
             logging.debug(f'running {cmd}')
             cmd = ['bowtie2',
                    #'-N', '3',
-                   '-p',threads,   # # threads
+                   '-p', threads,   # # threads
                    '-f',       # -f query input files are (multi-)FASTA .fa/.mfa
                    #'--best',
                    '--all',   # -a/--all report all alignments; very slow, MAPQ not meaningful
