@@ -7,6 +7,7 @@ import sys
 import traceback
 
 from configparser import ConfigParser
+from collections import defaultdict
 
 gitpath=os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
@@ -99,7 +100,7 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
     
     idxdir = os.path.abspath(f'{rdirname}/bt{nidx}idx')
     os.makedirs(idxdir, exist_ok = True )
-    idxpfx = f'{idxdir}/{base}'
+    idxpfx = f'{idxdir}/{rbase}'
 
     # don't run second if first fails. 
     build_ok = False
@@ -212,12 +213,12 @@ def make_bowtie_df(infile, max_mismatch=3):
     with open(infile) as f:
         line=f.readline()
     if line.startswith('@HD'):
-        logging.debug('Detected bowtie2 input.')
+        logging.info('Detected bowtie2 input.')
         df = make_bowtie2_df(infile)
-        logging.debug(f'df before max_mismatch =< {max_mismatch}')
+        logging.debug(f'df before max_mismatch =< {max_mismatch}: {df}')
         df = df[df['n_mismatch'] <= max_mismatch]
         # alignments to *other* sequences only
-        df = df[df['n_mismatch'] > 0]
+
         logging.debug(f'df after max_mismatch < {max_mismatch} =\n{df}')
     else:
         logging.debug('Detected bowtie1 input.')
@@ -308,6 +309,7 @@ def make_bowtie2_df(infile):
                     val = optdict[mapid]
                     #logging.debug(f'for colname={colname} map={mapid} val={val}')
                     flist.append(val)
+                logging.debug(f'appending flist={flist}')
                 
                 lol.append(flist)
                 current += 1                        
@@ -321,7 +323,11 @@ def make_bowtie2_df(infile):
     if filehandle is not None:
         filehandle.close()          
 
+    logging.debug(f'making dataframe from LOL len={len(lol)}')
     df = pd.DataFrame(data=lol, columns=BOWTIE_2_COLS )
+    df = df[df['name_align'] != '*']
+    df.reset_index(inplace=True, drop=True)
+    logging.debug(f'made initial dataframe={df}')
     df = fix_columns_int(df, BOWTIE_2_INT_COLS)
     return df
 
@@ -378,7 +384,7 @@ if __name__ == '__main__':
     parser.add_argument('-m','--max_mismatch', 
                         metavar='max_mismatch',
                         required=False,
-                        default=None,
+                        default=3,
                         type=int, 
                         help='Max mismatch for aligner read collapse.')
 
@@ -420,7 +426,7 @@ if __name__ == '__main__':
        
     btoutfile = run_bowtie(cp, args.query, args.reference, btfile, tool=args.aligner)
     logging.info(f'produced {btoutfile}')
-    btdf = make_bowtie_df(btoutfile)
+    btdf = make_bowtie_df(btoutfile, max_mismatch= args.max_mismatch)
     logging.info(f'produced DF=\n{btdf}')
     outfile = args.outfile
     if outfile is None:
