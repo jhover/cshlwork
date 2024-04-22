@@ -51,6 +51,25 @@ OPT_MAP = { 'score'     : 'AS',
             }
 
 
+
+def fix_columns_int(df, columns):
+    '''
+    forces column in dataframe to be an integer. NaNs become '0'
+    Only floating points can be NaN. No good solution for integers...
+    '''   
+    for col in columns:
+        try:
+            logging.debug(f'trying to fix col {col}')
+            fixed = np.array(df[col], np.int16)
+            logging.debug(f'fixed=\n{fixed}')
+            df[col] = fixed
+                
+        except ValueError:
+            logging.debug(f'invalid literal in {col}')
+    return df
+
+
+
 def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
     '''
     bowtie-build -q BC1.seq.fasta indexes/BC1.bt 
@@ -90,10 +109,11 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
     if tool == 'bowtie':
         idxoutput = f'{idxpfx}.1.ebwt'
         output_exists = os.path.exists(idxoutput)
-        logging.debug(f'output {idxoutput} exists={output_exists}')
+        logging.info(f'output {idxoutput} exists={output_exists}')
         if not output_exists or force:
             cmd = ['bowtie-build',
                    #'-q',
+                   '--threads', threads , 
                    rfile,
                    idxpfx, 
                    ]
@@ -114,7 +134,7 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
         max_mismatch = config.get(tool, 'max_mismatch')
         cmd = ['bowtie',
                '-v', max_mismatch,
-               '-p', threads, # # threads
+               '--threads', threads ,  # # threads
                '-f',      # -f query input files are (multi-)FASTA .fa/.mfa
                '--best',
                '-a',      # -a/--all report all alignments; very slow, MAPQ not meaningful
@@ -122,6 +142,7 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
                qfile,
                outfile
                ]
+        
         if build_ok: 
             logging.debug(f'running {cmd}')
 
@@ -137,13 +158,13 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
     
    
     elif tool == 'bowtie2':
-
-        idxoutput = f'{idxpfx}.1.ebwt'
+        idxoutput = f'{idxpfx}.1.bt2'
         output_exists = os.path.exists(idxoutput)
-        logging.debug(f'output {idxoutput} exists={output_exists}')
+        logging.info(f'output {idxoutput} exists={output_exists}')
+        
         if not output_exists or force:
             cmd = ['bowtie2-build',
-               #'-q',
+               '--threads', threads , 
                rfile,
                idxpfx, 
                ]
@@ -161,10 +182,9 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
             build_ok = True
 
         if build_ok:
-            logging.debug(f'running {cmd}')
             cmd = ['bowtie2',
                    #'-N', '3',
-                   '-p', threads,   # # threads
+                   '--threads', threads ,    # # threads
                    '-f',       # -f query input files are (multi-)FASTA .fa/.mfa
                    #'--best',
                    '--all',   # -a/--all report all alignments; very slow, MAPQ not meaningful
@@ -172,6 +192,7 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
                    '-S', outfile, 
                    qfile,
                    ]
+            logging.debug(f'running {cmd}')
             try:
                 run_command_shell(cmd)
             
