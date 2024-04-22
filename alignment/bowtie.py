@@ -390,7 +390,7 @@ if __name__ == '__main__':
        
     btoutfile = run_bowtie(cp, args.query, args.reference, btfile, tool=args.aligner)
     logging.info(f'produced {btoutfile}')
-    btdf = make_bowtie_df(btout)
+    btdf = make_bowtie_df(btoutfile)
     logging.info(f'produced DF=\n{btdf}')
     outfile = args.outfile
     if outfile is None:
