@@ -86,7 +86,7 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
     build_ok = False
    
     if tool == 'bowtie':
-        if not os.path.exists(f'{idxpfx}') or force:
+        if not os.path.exists(f'{idxpfx}.1.ebwt') or force:
             cmd = ['bowtie-build',
                    #'-q',
                    rfile,
@@ -387,7 +387,7 @@ if __name__ == '__main__':
     btfile = os.path.join(dirname, f'{base}.{args.aligner}') 
        
     btoutfile = run_bowtie(cp, args.query, args.reference, btfile, tool=args.aligner)
-    logging.info(f'produced {btout}')
+    logging.info(f'produced {btoutfile}')
     btdf = make_bowtie_df(btout)
     logging.info(f'produced DF=\n{btdf}')
     outfile = args.outfile
