@@ -88,7 +88,10 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
     threads = config.get(tool, 'threads')
    
     if tool == 'bowtie':
-        if not os.path.exists(f'{idxpfx}.1.ebwt') or force:
+        idxoutput = f'{idxpfx}.1.ebwt'
+        output_exists = os.path.exists(idxoutput)
+        logging.debug(f'output {idxoutput} exists={output_exists}')
+        if not output_exists or force:
             cmd = ['bowtie-build',
                    #'-q',
                    rfile,
@@ -105,11 +108,11 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
                 raise     
         
             logging.debug(f'bowtie-build done.')
+        else:
+            build_ok = True
 
-
-            max_mismatch = config.get(tool, 'max_mismatch')
- 
-            cmd = ['bowtie',
+        max_mismatch = config.get(tool, 'max_mismatch')
+        cmd = ['bowtie',
                '-v', max_mismatch,
                '-p', threads, # # threads
                '-f',      # -f query input files are (multi-)FASTA .fa/.mfa
@@ -119,37 +122,43 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
                qfile,
                outfile
                ]
-            if build_ok: 
-                logging.debug(f'running {cmd}')
-            
-                try:
-                    run_command_shell(cmd) 
-                except NonZeroReturnException as nzre:
-                    logging.error(f'problem with infile {qfile}')
-                    logging.error(traceback.format_exc(None))
-                    raise
-            else:
-                logging.warn(f'build not OK.')     
-    
-            logging.debug(f'bowtie{nidx} done.')
+        if build_ok: 
+            logging.debug(f'running {cmd}')
+
+            try:
+                run_command_shell(cmd) 
+            except NonZeroReturnException as nzre:
+                logging.error(f'problem with infile {qfile}')
+                logging.error(traceback.format_exc(None))
+                raise
+        else:
+            logging.warn(f'Unable to run, bowtie{nidx}-build not OK. ')     
+        logging.debug(f'bowtie{nidx} done.')
     
    
     elif tool == 'bowtie2':
-        cmd = ['bowtie2-build',
-           #'-q',
-           rfile,
-           idxpfx, 
-           ]
 
-        logging.debug(f'running {cmd}')
-        try:
-            run_command_shell(cmd)
+        idxoutput = f'{idxpfx}.1.ebwt'
+        output_exists = os.path.exists(idxoutput)
+        logging.debug(f'output {idxoutput} exists={output_exists}')
+        if not output_exists or force:
+            cmd = ['bowtie2-build',
+               #'-q',
+               rfile,
+               idxpfx, 
+               ]
+    
+            logging.debug(f'running {cmd}')
+            try:
+                run_command_shell(cmd)
+                build_ok = True
+                
+            except NonZeroReturnException as nzre:
+                logging.error(f'problem with infile {qfile}')
+                logging.error(traceback.format_exc(None))
+                raise     
+        else:
             build_ok = True
-            
-        except NonZeroReturnException as nzre:
-            logging.error(f'problem with infile {qfile}')
-            logging.error(traceback.format_exc(None))
-            raise     
 
         if build_ok:
             logging.debug(f'running {cmd}')
@@ -163,16 +172,16 @@ def run_bowtie(config, qfile, rfile, outfile, tool='bowtie', force=False):
                    '-S', outfile, 
                    qfile,
                    ]
-
-        try:
-            run_command_shell(cmd)
-        
-        except NonZeroReturnException as nzre:
-            logging.error(f'problem with infile {infile}')
-            logging.error(traceback.format_exc(None))
-            raise         
-             
-        logging.debug(f'bowtie{nidx} done.')
+            try:
+                run_command_shell(cmd)
+            
+            except NonZeroReturnException as nzre:
+                logging.error(f'problem with infile {infile}')
+                logging.error(traceback.format_exc(None))
+                raise                
+            logging.debug(f'bowtie{nidx} done.')
+        else:
+            logging.warn(f'unable to run, bowtie{nidx}-build not OK. ')
         
     return outfile
 
