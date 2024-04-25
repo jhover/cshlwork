@@ -11,12 +11,51 @@ from configparser import ConfigParser
 gitpath = os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
 
-from cshlwork.utils import run_command_shell, NonZeroReturnException
 
 #  Example gcloud storage URL
 #      gs://fc-secure-f2e71e6a-3081-4816-98dc-a21c7e498971/c8d604ec-8e89-4ee6-8bd5-0e546481fcaf/Optimus/a47f9e7e-4aa3-44b7-afca-68404cf714b4/call-MergeStarOutputs/pBICCNsMMrACAACAiF019d210630A4_sparse_counts_row_index.npy
-# 
+#
 
+
+class NonZeroReturnException(Exception):
+    """
+    Thrown when a command has non-zero return code. 
+    """
+    
+    
+
+def run_command_shell(cmd):
+    """
+    maybe subprocess.run(" ".join(cmd), shell=True)
+    cmd should be standard list of tokens...  ['cmd','arg1','arg2'] with cmd on shell PATH.
+    
+    """
+    cmdstr = " ".join(cmd)
+    logging.debug(f"running command: {cmdstr} ")
+    start = dt.datetime.now()
+    cp = subprocess.run(" ".join(cmd), 
+                    shell=True, 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.STDOUT)
+
+    end = dt.datetime.now()
+    elapsed =  end - start
+    logging.debug(f"ran cmd='{cmdstr}' return={cp.returncode} {elapsed.seconds} seconds.")
+    
+    if cp.stderr is not None:
+        logging.warn(f"got stderr: {cp.stderr}")
+        pass
+    if cp.stdout is not None:
+        #logging.debug(f"got stdout: {cp.stdout}")
+        pass
+    if str(cp.returncode) == '0':
+        #logging.debug(f'successfully ran {cmdstr}')
+        logging.debug(f'got rc={cp.returncode} command= {cmdstr}')
+    else:
+        logging.warn(f'got rc={cp.returncode} command= {cmdstr}')
+        raise NonZeroReturnException(f'For cmd {cmdstr}')
+    return cp
+ 
 
 def download_gcloud_url(gsurl, outdir=None, force = False):
     '''
@@ -48,6 +87,7 @@ def download_gcloud_url(gsurl, outdir=None, force = False):
             logging.error(f'problem with gsurl {gsurl}')
             logging.error(traceback.format_exc(None))
             raise    
+
 
 def handle_sample_set(setid, urllist, outdir):
     '''
