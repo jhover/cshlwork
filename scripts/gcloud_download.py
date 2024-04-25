@@ -6,6 +6,7 @@ import pandas as pd
 import logging
 import subprocess
 import time
+import traceback
 
 import datetime as dt
 
