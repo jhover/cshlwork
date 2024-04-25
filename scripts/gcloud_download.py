@@ -69,6 +69,10 @@ def download_gcloud_url(gsurl, outdir=None, force = False):
     f_exists = False    
     if outdir is None:
         outdir = os.path.abspath('./')
+    else:
+        outdir = os.path.abspath(outdir)
+        os.makedirs(outdir, exist_ok=True)
+        
     outfile = gsurl.split('/')[-1:][0]
     logging.debug(f'downloading {gsurl} -> {outdir}')        
     outpath = f'{outdir}/{outfile}'
