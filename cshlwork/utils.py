@@ -715,7 +715,10 @@ def write_fasta_from_df(df, outfile=None, sequence=['sequence'], header=None, se
                         s = r[scol].upper()
                         of.write(f'>{h}\n{s}\n')    
     else:
-            logging.error('outfile is None, not implemented.')        
+            logging.error('outfile is None, not implemented.')
+    return outfile
+    
+            
 
 def dataframe_to_seqlist(df, seqcol='sequence',idcol=None, desccols=None, sep=':'):
     '''
