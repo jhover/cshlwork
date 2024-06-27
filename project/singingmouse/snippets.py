@@ -1,7 +1,6 @@
 #
 #
 #  Singing mouse analysis
-from mailbox import MMDF
 
 # split query gene name. 
 stdf[ ['probe','code','q_gene','end']] = stdf['name_read'].str.split(':',expand=True)
