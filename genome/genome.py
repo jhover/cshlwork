@@ -260,7 +260,7 @@ def get_genes_refseq_gff(arecord_list,
                                 logging.debug(f'made un-merged SeqFeature: {seqf}')
                             transcript_list.append(seqf)
                         else:
-                            logging.debug(f'type {subfeat.type} not in {sub_features}')
+                            logging.debug(f'type {ssf.type} not in {sf.sub_features}')
                             
                     sub_feats_handled +=1
             else:
