@@ -102,7 +102,7 @@ def handle_urlroot(urlroot, dest):
     keep_going = True    
     progress_score = 0
     runcount = 0
-    min_run = 3  # run at least 3 times to be sure.
+    #min_run = 3  # run at least 3 times to be sure.
     
     pfields = urlpath.split('/')
     pfields = [x for x in pfields if x != '']
@@ -110,6 +110,16 @@ def handle_urlroot(urlroot, dest):
     topdir = pfields[-1]
     logging.debug(f'topdir={topdir} n_cut={n_cut} min_run={min_run} sleeptime={sleeptime}')
     
+    outroot = f'{dest}/{topdir}'
+    outroot = os.path.abspath(outroot)
+    
+    if not os.path.exists(outroot):
+        os.makedirs(outroot, exist_ok=True)
+        logging.debug(f'confirmed outroot={outroot}')
+    else:
+        logging.info(f'outroot exists. Check output...')
+        progress_score = score_dest(outroot)
+            
     while keep_going:
         runcount += 1
         logging.info(f'[run {runcount}] running wget to {dest}')
@@ -123,11 +133,11 @@ def handle_urlroot(urlroot, dest):
                '-w', '0.5',   
                '--no-host-directories',
                '-R', 'index.html*',
-               f'--directory-prefix={dest}/{topdir}', 
+               f'--directory-prefix={outroot}', 
                urlroot ]
 
         try:
-            logging.info(f'running wget. run number: {runcount} ')
+            logging.info(f'Running wget. run number: {runcount} ')
             logging.debug(f"command: {' '.join(copy_cmd)}")
             proc = subprocess.Popen(copy_cmd,    
                                     stdout=subprocess.DEVNULL,
@@ -143,17 +153,18 @@ def handle_urlroot(urlroot, dest):
             time.sleep(sleeptime)                  
             rc = proc.poll()
             if rc is not None:
-                logging.info(f'process has exitted rc={rc} ')
+                logging.debug(f'process has exited rc={rc} ')
+                logging.info(f'wget has finished. Checking output progress...')
                 old_progress_score = progress_score
-                progress_score = score_dest(f'{dest}/{topdir}')
+                progress_score = score_dest(outroot)
                 if old_progress_score < progress_score:
-                    logging.info(f'{old_progress_score} < {progress_score}')
+                    logging.info(f'New output found! old:{old_progress_score} < new:{progress_score} Run again...')
                 else:
-                    logging.info(f'{old_progress_score} == {progress_score}. Stop.')
+                    logging.info(f'No new output found. old:{old_progress_score} == new:{progress_score}. Stop.')
                     keep_going = False
                 process_running = False
             else:
-                logging.info(f'process still running.')
+                logging.debug(f'process still running.')
                    
 
 
@@ -247,7 +258,7 @@ if __name__ == '__main__':
                         type=str,
                         default=None, 
                         nargs='?',
-                        help='root of URL to copy')
+                        help='root or file URL to copy')
 
     parser.add_argument('argtwo' ,
                         metavar='argtwo', 
