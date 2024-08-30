@@ -173,7 +173,7 @@ def handle_urlroot(urlroot, dest):
         end = dt.datetime.now()
         delta = end - start
         ts = delta.total_seconds()
-        logging.info(f'Done. Elapsed: {format_interval(ts)} Downloaded: {format_storage(size_kybtes)}')
+        logging.info(f'Done. Elapsed: {format_interval(ts)} Downloaded: {format_storage(size_kbytes)}')
 
 def format_interval(delta):
     days, remainder = divmod(delta, 86400 )
