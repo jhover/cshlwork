@@ -121,7 +121,7 @@ def handle_urlroot(urlroot, dest):
         logging.debug(f'confirmed outroot={outroot}')
     else:
         logging.info(f'outroot exists. Check output...')
-        progress_score = score_dest(outroot)
+        (progress_score, size_kbytes) = score_dest(outroot)
             
     while keep_going:
         runcount += 1
