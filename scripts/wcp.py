@@ -92,6 +92,7 @@ def run_command_shell(cmd):
 def handle_urlroot(urlroot, dest):
     dest=os.path.abspath(dest)
     start = dt.datetime.now()
+    
     logging.debug(f'downloading {urlroot} to {dest}')
     o = urlparse(urlroot, scheme='', allow_fragments=True)
     scheme = o.scheme
@@ -100,11 +101,16 @@ def handle_urlroot(urlroot, dest):
     urlpath = o.path
     logging.debug(f'scheme={scheme} host={hostname} path={urlpath}')
     
-    sleeptime = 15
+    # size is checked very size_check_interval * sleeptime seconds. 
+    # be careful if adjusted that du can finish. 
+    sleeptime = 10
+    size_check_interval = 6 
+    
     keep_going = True    
     progress_score = 0
     prerun_kbytes = 0
     runcount = 0
+    loopcount = 0
     #min_run = 3  # run at least 3 times to be sure.
     
     pfields = urlpath.split('/')
@@ -118,15 +124,15 @@ def handle_urlroot(urlroot, dest):
     
     if not os.path.exists(outroot):
         os.makedirs(outroot, exist_ok=True)
-        logging.debug(f'confirmed outroot={outroot}')
+        logging.debug(f'created outroot={outroot}')
     else:
-        logging.info(f'outroot exists. Check output...')
+        logging.info(f'outroot={outroot} exists. Check output size...')
         (progress_score, size_kbytes) = score_dest(outroot)
         prerun_kbytes = size_kbytes   
     
     while keep_going:
         runcount += 1
-        logging.info(f'[run {runcount}] running wget to {dest}')
+        logging.info(f'runcount={runcount} {urlpath} -> {outroot}')
         
         copy_cmd = ['wget',
                '--recursive',
@@ -141,50 +147,83 @@ def handle_urlroot(urlroot, dest):
                urlroot ]
 
         try:
-            logging.info(f'Running wget. run number: {runcount} ')
-            logging.debug(f"command: {' '.join(copy_cmd)}")
+            logging.debug(f"wget run:{runcount} command: {' '.join(copy_cmd)}")
             proc = subprocess.Popen(copy_cmd,    
                                     stdout=subprocess.DEVNULL,
                                     stderr=subprocess.DEVNULL,
                                     close_fds=True)                                    
+        
+        except KeyboardInterrupt:
+            print('Interrupted by Ctrl-C.')
+            sys.exit(0)
+        
         except NonZeroReturnException as nzre:
             logging.error(f'problem with {infile}')
             logging.error(traceback.format_exc(None))        
 
         process_running = True
-        while process_running:
-            logging.debug(f'sleeping {sleeptime} seconds... ')
-            time.sleep(sleeptime)                  
-            rc = proc.poll()
-            if rc is not None:
-                logging.debug(f'process has exited rc={rc} ')
-                logging.info(f'wget has finished. Checking output progress...')
-                old_progress_score = progress_score
-                (progress_score, size_kbytes) = score_dest(outroot)
-                if old_progress_score < progress_score:
-                    logging.info(f'New output found! old:{old_progress_score} < new:{progress_score} Run again...')
-                    logging.debug(f'{size_kbytes} downloaded so far.')                
+        logging.info(f'Subprocess poll each {sleeptime}s. Progress check each {sleeptime * size_check_interval}s. ')
+        try:
+            while process_running:
+                loopcount += 1
+                #logging.debug(f'sleeping {sleeptime} seconds... ')
+                time.sleep(sleeptime)                  
+                rc = proc.poll()
+                if rc is not None:
+                    logging.debug(f'process has exited rc={rc} ')
+                    logging.info(f'wget has finished. Checking output progress...')
+                    old_progress_score = progress_score
+                    (progress_score, size_kbytes) = score_dest(outroot)
+                    if old_progress_score < progress_score:
+                        logging.info(f'New output found! old:{old_progress_score} < new:{progress_score} Run again...')
+                        logging.debug(f'{size_kbytes} downloaded so far.')                
+                    else:
+                        logging.info(f'No new output found. old:{old_progress_score} == new:{progress_score}. Stop.')
+                        logging.debug(f'{size_kbytes} downloaded.')
+                        keep_going = False
+                    process_running = False
                 else:
-                    logging.info(f'No new output found. old:{old_progress_score} == new:{progress_score}. Stop.')
-                    logging.debug(f'{size_kbytes} downloaded.')
-                    keep_going = False
-                process_running = False
-            else:
-                logging.debug(f'process still running.')
+                    #logging.debug(f'process still running.')
+                    if loopcount % size_check_interval == 0:
+                        (lps, lsk) = score_dest(outroot)
+                        if lsk > 0:
+                            lsm = lsk / 1024
+                            logging.info(f'Process running. {lsm:.2f}MB so far...')
+                        else:
+                            logging.info(f'Process running, but no download so far...')
+        
+        except KeyboardInterrupt:
+            print('Interrupted by Ctrl-C.')
+            sys.exit(0)
+             
+        # Finalize...
         end = dt.datetime.now()
         delta = end - start
-        ts = delta.total_seconds()
               
-        logging.info(f'Elapsed: {format_interval(ts)} ')
-        logging.info(f'Total: {format_storage(size_kbytes)}')
-        logging.info(f'Downloaded this session: {format_storage(size_kbytes - prerun_kbytes)}')
+        logging.info(f'Elapsed: {format_interval(delta)} Total: {format_storage(size_kbytes)} ')
+        logging.info(f'Downloaded: {format_storage(size_kbytes - prerun_kbytes)} Speed: {format_downspeed(size_kbytes - prerun_kbytes, delta)} MB/s   ')
 
+    
+
+def format_downspeed(kbytes, delta):
+    '''
+    takes kbytes, timedelta and gives MB/s
+    '''
+    mbs = 0.0
+    if kbytes > 0.0 and delta.total_seconds() > 0:
+        mbytes = kbytes / 1024
+        mbs = mbytes / delta.total_seconds()
+    return f'{mbs} MB/s'
+    
 
 def format_interval(delta):
-    days, remainder = divmod(delta, 86400 )
+    '''
+    delta is standard datetime delta object.
+    '''
+    days, remainder = divmod(delta.total_seconds(), 86400 )
     hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
-    return f'{days}d:{hours}h:{minutes}m:{seconds}s'    
+    return f'{days}d:{hours}h:{minutes}m:{seconds:.1f}s'    
 
 def format_storage(total_kbytes):
     '''
