@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import datetime as dt
 
 from configparser import ConfigParser
+from _testcapi import datetime_check_delta
 
 gitpath = os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
@@ -90,6 +91,8 @@ def run_command_shell(cmd):
 
   
 def handle_urlroot(urlroot, dest):
+    dest=os.path.abspath(dest)
+    start = dt.datetime.now()
     logging.debug(f'downloading {urlroot} to {dest}')
     o = urlparse(urlroot, scheme='', allow_fragments=True)
     scheme = o.scheme
@@ -101,6 +104,7 @@ def handle_urlroot(urlroot, dest):
     sleeptime = 15
     keep_going = True    
     progress_score = 0
+    total_bytes = 0
     runcount = 0
     #min_run = 3  # run at least 3 times to be sure.
     
@@ -108,7 +112,7 @@ def handle_urlroot(urlroot, dest):
     pfields = [x for x in pfields if x != '']
     n_cut = len(pfields) 
     topdir = pfields[-1]
-    logging.debug(f'topdir={topdir} n_cut={n_cut} min_run={min_run} sleeptime={sleeptime}')
+    logging.debug(f'topdir={topdir} n_cut={n_cut} sleeptime={sleeptime}')
     
     outroot = f'{dest}/{topdir}'
     outroot = os.path.abspath(outroot)
@@ -156,29 +160,49 @@ def handle_urlroot(urlroot, dest):
                 logging.debug(f'process has exited rc={rc} ')
                 logging.info(f'wget has finished. Checking output progress...')
                 old_progress_score = progress_score
-                progress_score = score_dest(outroot)
+                (progress_score, size_kbytes) = score_dest(outroot)
                 if old_progress_score < progress_score:
                     logging.info(f'New output found! old:{old_progress_score} < new:{progress_score} Run again...')
+                    logging.debug(f'{size_kbytes} downloaded so far.')                
                 else:
                     logging.info(f'No new output found. old:{old_progress_score} == new:{progress_score}. Stop.')
+                    logging.debug(f'{size_kbytes} downloaded.')
                     keep_going = False
                 process_running = False
             else:
                 logging.debug(f'process still running.')
-                   
+        end = dt.datetime.now()
+        delta = end - start
+        ts = delta.total_seconds()
+        logging.info(f'Done. Elapsed: {format_interval(ts)} Downloaded: {format_storage(size_kybtes)}')
 
+def format_interval(delta):
+    days, remainder = divmod(delta, 86400 )
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f'{days}d:{hours}h:{minutes}m:{seconds}s'    
+
+def format_storage(total_kbytes):
+    '''
+    assuming 1k block counts from du -ks
+    '''
+    tb, remainder = divmod(total_kbytes, 1073741824 )
+    gb, remainder = divmod(remainder, 1048576)
+    mb, kbytes = divmod(remainder, 1024)
+    return f'{tb}T:{gb}G:{mb}M:{kbytes}k'
+        
 
 def score_dest(destroot):
     size_bytes = space_check(destroot)
     file_count = filecount_check(destroot)
     dest_score = size_bytes * file_count
     logging.debug(f'got dest_score={dest_score} for {file_count} entries consuming {size_bytes} bytes')
-    return dest_score
+    return (dest_score, size_bytes)
     
 
 def space_check(destroot):
     spacecheck_cmd = ['du',
-       '-s', destroot 
+       '-ks', destroot 
        ]
     try:
         scp = run_command(spacecheck_cmd)
@@ -244,27 +268,15 @@ if __name__ == '__main__':
                     type=str, 
                     help='Logfile for subprocess.')
 
-
-    parser.add_argument('-u','--urlfile', 
-                        metavar='urlfile',
-                        required=False,
-                        default=None,
-                        type=str, 
-                        help='Text file with one URL per line.  ')
-
-   
-    parser.add_argument('argone' ,
-                        metavar='argone', 
+ 
+    parser.add_argument('source' ,
+                        metavar='source', 
                         type=str,
-                        default=None, 
-                        nargs='?',
                         help='root or file URL to copy')
 
-    parser.add_argument('argtwo' ,
-                        metavar='argtwo', 
+    parser.add_argument('dest' ,
+                        metavar='dest', 
                         type=str,
-                        default=None, 
-                        nargs='?',
                         help='destination path ')
        
     args= parser.parse_args()
@@ -282,15 +294,9 @@ if __name__ == '__main__':
         logStream.setFormatter(formatter)
         log.addHandler(logStream)
     
-    logging.debug(f'urlfile={args.urlfile} urlroot={args.argone} dest={args.argtwo}')
+    logging.debug(f'urlroot={args.source} dest={args.dest}')
     
-    if args.argtwo is None:
-        args.argtwo = './'
-    
-    if args.urlfile is not None:
-        handle_urlfile(args.urlfile, args.argone)
-    else:
-        handle_urlroot(args.argone, args.argtwo)
+    handle_urlroot(args.source, args.dest)
         
 
 
