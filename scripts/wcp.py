@@ -103,7 +103,7 @@ def handle_urlroot(urlroot, dest):
     sleeptime = 15
     keep_going = True    
     progress_score = 0
-    total_bytes = 0
+    prerun_kbytes = 0
     runcount = 0
     #min_run = 3  # run at least 3 times to be sure.
     
@@ -122,7 +122,8 @@ def handle_urlroot(urlroot, dest):
     else:
         logging.info(f'outroot exists. Check output...')
         (progress_score, size_kbytes) = score_dest(outroot)
-            
+        prerun_kbytes = size_kbytes   
+    
     while keep_going:
         runcount += 1
         logging.info(f'[run {runcount}] running wget to {dest}')
@@ -173,7 +174,11 @@ def handle_urlroot(urlroot, dest):
         end = dt.datetime.now()
         delta = end - start
         ts = delta.total_seconds()
-        logging.info(f'Done. Elapsed: {format_interval(ts)} Downloaded: {format_storage(size_kbytes)}')
+              
+        logging.info(f'Elapsed: {format_interval(ts)} ')
+        logging.info(f'Total: {format_storage(size_kbytes)}')
+        logging.info(f'Downloaded this session: {format_storage(size_kbytes - prerun_kbytes)}')
+
 
 def format_interval(delta):
     days, remainder = divmod(delta, 86400 )
