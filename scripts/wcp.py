@@ -14,7 +14,6 @@ from urllib.parse import urlparse
 import datetime as dt
 
 from configparser import ConfigParser
-from _testcapi import datetime_check_delta
 
 gitpath = os.path.expanduser("~/git/cshlwork")
 sys.path.append(gitpath)
