@@ -89,7 +89,7 @@ def run_command_shell(cmd):
 
 
   
-def handle_urlroot(urlroot, dest, delay=0.2):
+def handle_urlroot(urlroot, dest, delay=0.1):
     dest=os.path.abspath(dest)
     delay=float(delay)
     start = dt.datetime.now()
