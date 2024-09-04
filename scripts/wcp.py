@@ -89,8 +89,9 @@ def run_command_shell(cmd):
 
 
   
-def handle_urlroot(urlroot, dest):
+def handle_urlroot(urlroot, dest, delay=0.2):
     dest=os.path.abspath(dest)
+    delay=float(delay)
     start = dt.datetime.now()
     
     logging.debug(f'downloading {urlroot} to {dest}')
@@ -141,7 +142,7 @@ def handle_urlroot(urlroot, dest):
                '--no-parent',
                '-e robots=off',
                '-l', '12',
-               '-w', '0.5',   
+               '-w', f'{delay}',   
                '--no-host-directories',
                '-R', 'index.html*',
                f'--directory-prefix={outroot}', 
@@ -312,6 +313,13 @@ if __name__ == '__main__':
                     type=str, 
                     help='Logfile for subprocess.')
 
+    parser.add_argument('-i','--interval', 
+                        metavar='delay_interval',
+                        required=False,
+                        default=0.1,
+                        type=float, 
+                        help='Delay interval between web requests. Seconds.')
+
  
     parser.add_argument('source' ,
                         metavar='source', 
@@ -338,9 +346,9 @@ if __name__ == '__main__':
         logStream.setFormatter(formatter)
         log.addHandler(logStream)
     
-    logging.debug(f'urlroot={args.source} dest={args.dest}')
+    logging.debug(f'urlroot={args.source} dest={args.dest} delay={args.interval}')
     
-    handle_urlroot(args.source, args.dest)
+    handle_urlroot(args.source, args.dest, args.interval)
         
 
 
