@@ -105,7 +105,7 @@ def handle_urlroot(urlroot, dest, delay=0.1):
     # size is checked very size_check_interval * sleeptime seconds. 
     # be careful if adjusted that du can finish. 
     sleeptime = 10
-    size_check_interval = 6 
+    size_check_interval = 12 
     
     keep_going = True    
     progress_score = 0
