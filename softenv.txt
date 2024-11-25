@@ -19,12 +19,13 @@ sleep 5
 conda activate ontology
 
 # make sure we have conda-forge
-conda config --add channels conda-forge
+conda config --add channels conda-forged
 conda config --add channels bioconda
 
 # update conda if necessary
 conda update -y -n base -c defaults conda
 conda install -y -c python=3.9 bioconda pandas ipython jupyter numpy scikit-learn matplotlib seaborn biopython  scikit-plot scipy pyvis 
+
 # conda install -c conda-forge google-cloud-sdk
 
 pip install dynamicTreeCut

@@ -1053,6 +1053,10 @@ def prepare_genome_refseq(genomefile, annotfile, reportfile, outdir):
     if os.path.exists(f'{outdir}/annotation.gtf'):
         os.remove(f'{outdir}/annotation.gtf')
     os.symlink(annotfile, f'{outdir}/annotation.gtf')
+
+    if os.path.exists(f'{outdir}/assembly_report.txt'):
+        os.remove(f'{outdir}/assembly_report.txt')
+    os.symlink(reportfile, f'{outdir}/assembly_report.txt')
     
     tlist = parse_assembly_report(reportfile)
     logging.debug(tlist)

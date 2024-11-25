@@ -10,6 +10,10 @@ sys.path.append(gitpath)
 from cshlwork.utils import *
 
 
+from BCBio import GFF
+from Bio import SeqIO
+
+
 def fix_annot(annot_list):
     '''
     restore hierarchy of UTexas GTF 
@@ -56,4 +60,11 @@ def fix_annot(annot_list):
     return annot_list
 
 
+
+def save_annotation(annot_list, outbase='new_annotation'):
+    with open(f'{outbase}.gff3', 'w') as fh:
+        GFF.write(annot_list, fh )
+        logging.debug(f'done writing {outbase}.gff3')
+    
+     
 
