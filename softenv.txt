@@ -1,17 +1,20 @@
-#!/usr/bin/env -S bash -l
-set -e
-# install conda
-if ! command -v conda&> /dev/null; then
-	echo "installing miniconda..."
-	wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.9.2-Linux-x86_64.sh
-	bash Miniconda3-py39_4.9.2-Linux-x86_64.sh -b
-	rm -f Miniconda3-py39_4.9.2-Linux-x86_64.sh
-	~/miniconda3/bin/conda init 
-	echo "miniconda installed. restart terminal."
-	exit 0
-else
-	echo "miniconda installed already."
-fi
+Install Conda
+
+Get the latest installer(Intel Linux, Intel Mac, Apple Silicon Mac) from
+
+	https://repo.anaconda.com/archive/
+
+E.g., 
+	curl -O https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-x86_64.sh  
+	OR
+	curl -O https://repo.anaconda.com/archive/Anaconda3-2024.10-1-MacOSX-x86_64.sh
+	OR
+	curl -O https://repo.anaconda.com/archive/Anaconda3-2024.10-1-MacOSX-arm64.sh
+	
+
+Install:
+	bash Anaconda3-2024.10-1-Linux-x86_64.sh
+	
 # be sure to restart terminal to allow conda to start
 
 conda create -y -n ontology python=3.9
@@ -19,7 +22,7 @@ sleep 5
 conda activate ontology
 
 # make sure we have conda-forge
-conda config --add channels conda-forged
+conda config --add channels conda-forge
 conda config --add channels bioconda
 
 # update conda if necessary
