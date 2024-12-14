@@ -25,9 +25,6 @@ from configparser import ConfigParser
 import requests
 from bs4 import BeautifulSoup
 
-gitpath = os.path.expanduser("~/git/cshlwork")
-sys.path.append(gitpath)
-
 def collect_tree(url, depth=0, max_depth=4, urilist=None, dest=None):
     '''
     Recursively list the directory structure of a website.
