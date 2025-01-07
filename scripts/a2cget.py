@@ -5,17 +5,13 @@
 #   aria2c -i URIFILE.txt --continue true  --auto-file-renaming false
 #   these args allow safe interruption and re-runs without issues. 
 #
-#   
-#
-#
-#
+
 import argparse
 import os
 import sys
 import time
 import logging
 import subprocess
-#import tempfile
 
 from urllib.parse import urlparse
 
@@ -25,7 +21,7 @@ from configparser import ConfigParser
 import requests
 from bs4 import BeautifulSoup
 
-def collect_tree(url, depth=0, max_depth=4, urilist=None, dest=None):
+def collect_tree(url, depth=0, max_depth=10, urilist=None, dest=None):
     '''
     Recursively list the directory structure of a website.
     Record uris of every file, and relative path to dest for use by aria2c
