@@ -25,7 +25,7 @@ def collect_tree(url, depth=0, max_depth=10, urilist=None, dest=None):
     '''
     Recursively list the directory structure of a website.
     Record uris of every file, and relative path to dest for use by aria2c
-    return list uf (uri, localdest) tuples
+    return list of (uri, localdest) tuples
 
     '''
     logging.debug(f'handling url={url}')
@@ -72,6 +72,63 @@ def collect_tree(url, depth=0, max_depth=10, urilist=None, dest=None):
     return urilist
 
 
+def collect_tree_session(url, depth=0, max_depth=10, urilist=None, dest=None, session=None):
+    '''
+    Recursively list the directory structure of a website.
+    Record uris of every file, and relative path to dest for use by aria2c
+    return list of (uri, localdest) tuples
+
+    Use a single session to make all requests
+
+    '''
+    logging.debug(f'handling url={url}')
+    if urilist is None:
+        urilist = []
+    if dest is None:
+        dest = './'
+    if session is None:
+        session = requests.Session()
+        a = requests.adapters.HTTPAdapter(pool_connections=2, pool_maxsize=2, max_retries=3)
+        session.mount('http://',a)
+        session.mount('https://',a)
+        
+    try:
+        response = session.get(url)
+        response.raise_for_status()  # Raise an exception for bad status codes
+
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        links = soup.find_all('a', href=True)
+        logging.debug(f'found {len(links)} links.')
+        for link in links:
+            href = link['href']
+            if href.startswith('/'):
+                # upward parent link. 
+                pass
+            elif href.startswith('?'):
+                # ignore dross...
+                pass
+            else:
+                # href not parent. directory or file. 
+                if href.endswith('/'):
+                    # href is sub-directory
+                    logging.debug(' ' * depth + href)
+                    if depth < max_depth:
+                        urilist  = collect_tree_session(url + href, depth + 1, max_depth, urilist, dest + href, session=session )
+                else:
+                    # href is file in this directory 
+                    #print('  ' * depth + href)
+                    uri = url + href
+                    urilist.append(( uri, dest ) )
+                    logging.debug(f'uri={uri} dest={dest}')
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error: {e}")
+    except requests.exceptions.Timeout:
+        print("Server timed out")
+
+    return urilist
+
 def handle_transfer(source, dest, urifile, force=False):
     '''
     collect full web tree from source root
@@ -83,7 +140,7 @@ def handle_transfer(source, dest, urifile, force=False):
     if os.path.exists(urifile) and not force: 
         logging.warning(f'{urifile} exists, skipping scanning and using.')
     else:   
-        urilist = collect_tree(source, dest=dest )
+        urilist = collect_tree_session(source, dest=dest )
         logging.debug(f'got urilist with {len(urilist)} elements. writing to {urifile}')
         with open(urifile, 'w') as fh:
             for (uri, dest) in urilist:
