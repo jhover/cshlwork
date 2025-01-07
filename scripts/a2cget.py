@@ -35,7 +35,7 @@ def collect_tree(url, depth=0, max_depth=10, urilist=None, dest=None):
         dest = './'
         
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=30)
         response.raise_for_status()  # Raise an exception for bad status codes
 
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -63,10 +63,13 @@ def collect_tree(url, depth=0, max_depth=10, urilist=None, dest=None):
                     uri = url + href
                     urilist.append(( uri, dest ) )
                     logging.debug(f'uri={uri} dest={dest}')
-        return urilist
 
     except requests.exceptions.RequestException as e:
         print(f"Error: {e}")
+    except requests.exceptions.Timeout:
+        print("Server timed out")
+
+    return urilist
 
 
 def handle_transfer(source, dest, urifile, force=False):
