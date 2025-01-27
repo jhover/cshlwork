@@ -72,7 +72,7 @@ def collect_tree(url, depth=0, max_depth=10, urilist=None, dest=None):
     return urilist
 
 
-def collect_tree_session(url, depth=0, max_depth=10, urilist=None, dest=None, session=None):
+def collect_tree_session(url, depth=0, max_depth=20, urilist=None, dest=None, session=None):
     '''
     Recursively list the directory structure of a website.
     Record uris of every file, and relative path to dest for use by aria2c
