@@ -21,7 +21,9 @@ from configparser import ConfigParser
 import requests
 from bs4 import BeautifulSoup
 
-def collect_tree(url, depth=0, max_depth=10, urilist=None, dest=None):
+DEFAULT_MAX_DEPTH=25
+
+def collect_tree(url, depth=0, max_depth=DEFAULT_MAX_DEPTH, urilist=None, dest=None):
     '''
     Recursively list the directory structure of a website.
     Record uris of every file, and relative path to dest for use by aria2c
@@ -72,7 +74,7 @@ def collect_tree(url, depth=0, max_depth=10, urilist=None, dest=None):
     return urilist
 
 
-def collect_tree_session(url, depth=0, max_depth=20, urilist=None, dest=None, session=None):
+def collect_tree_session(url, depth=0, max_depth=DEFAULT_MAX_DEPTH, urilist=None, dest=None, session=None):
     '''
     Recursively list the directory structure of a website.
     Record uris of every file, and relative path to dest for use by aria2c
@@ -141,7 +143,7 @@ def handle_transfer(source, dest, urifile, force=False):
         logging.warning(f'{urifile} exists, skipping scanning and using.')
     else:   
         urilist = collect_tree_session(source, dest=dest )
-        logging.debug(f'got urilist with {len(urilist)} elements. writing to {urifile}')
+        logging.info(f'got urilist with {len(urilist)} elements. writing to {urifile}')
         with open(urifile, 'w') as fh:
             for (uri, dest) in urilist:
                 fh.write(f'{uri}\n   dir={dest}\n')
@@ -154,7 +156,7 @@ def handle_transfer(source, dest, urifile, force=False):
            '--auto-file-renaming','false'
            ]
     try:
-        logging.debug(f"command: {' '.join(cmd)}")
+        logging.info(f"running command: {' '.join(cmd)}")
         #proc = subprocess.Popen(cmd,    
         #                        stdout=subprocess.DEVNULL,
         #                        stderr=subprocess.DEVNULL,
@@ -316,8 +318,5 @@ if __name__ == '__main__':
         source = args.source + '/'
             
     handle_transfer(source, dest, urifile=args.urifile, force=args.force )
-    #urilist = collect_tree(source, dest=dest ) 
-    #for (uri, dest) in urilist:
-    #    print(f'{uri}\n   dir={dest} ')
 
 
