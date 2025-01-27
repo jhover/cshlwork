@@ -138,10 +138,11 @@ def handle_transfer(source, dest, urifile, force=False):
     run aria2c on URI file
     
     '''
-    logging.debug(f'source={source} dest={dest} urifile={urifile} force={force}')
+    logging.info(f'source={source} dest={dest} urifile={urifile} force={force}')
     if os.path.exists(urifile) and not force: 
         logging.warning(f'{urifile} exists, skipping scanning and using.')
-    else:   
+    else:
+        logging.info(f'collecting tree from {source} ...')   
         urilist = collect_tree_session(source, dest=dest )
         logging.info(f'got urilist with {len(urilist)} elements. writing to {urifile}')
         with open(urifile, 'w') as fh:
