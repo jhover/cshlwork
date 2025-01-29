@@ -169,7 +169,7 @@ def handle_transfer(source, dest, urifile, force=False):
         sys.exit(0)
     
     except NonZeroReturnException as nzre:
-        logging.error(f'problem with {infile}')
+        logging.error(f'problem with aria2c.')
         logging.error(traceback.format_exc(None))      
 
 
