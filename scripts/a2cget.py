@@ -240,7 +240,7 @@ def run_command_shell(cmd):
         #logging.debug(f'successfully ran {cmdstr}')
         logging.debug(f'got rc={cp.returncode} command= {cmdstr}')
     else:
-        logging.warn(f'got rc={cp.returncode} command= {cmdstr}')
+        logging.warning(f'got rc={cp.returncode} command= {cmdstr}')
         raise NonZeroReturnException(f'For cmd {cmdstr}')
     return cp
 
