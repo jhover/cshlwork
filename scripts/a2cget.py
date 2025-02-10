@@ -12,6 +12,7 @@ import sys
 import time
 import logging
 import subprocess
+import traceback
 
 from urllib.parse import urlparse
 
